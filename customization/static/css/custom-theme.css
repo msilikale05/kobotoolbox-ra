@@ -108,11 +108,23 @@
   background-color: var(--ra-primary-dark) !important;
 }
 
-/* Replace login page logo with RA logo */
+/* Replace login page logo with RA dark logo (visible on white card) */
+.registration--logo {
+  padding: 20px 0 10px !important;
+  text-align: center !important;
+}
+
+.registration--logo a {
+  display: block !important;
+  width: 260px !important;
+  height: 80px !important;
+  margin: 0 auto !important;
+  background: url('/custom-static/images/ra-logo-dark.png') no-repeat center / contain !important;
+}
+
+/* Hide the original img, replaced by background on parent link */
 .registration--logo img {
-  content: url('/custom-static/images/ra-logo.png') !important;
-  max-height: 60px !important;
-  width: auto !important;
+  display: none !important;
 }
 
 /* Hide the default photo credit (optional) */
