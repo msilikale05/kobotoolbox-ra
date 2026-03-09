@@ -1,0 +1,193 @@
+/*
+ * Resilience Academy - KoboToolbox Custom Theme
+ * ==============================================
+ * Brand color: #54a8dc
+ *
+ * UPDATE-PROOF: This file is mounted via Docker volume and injected
+ * by nginx sub_filter. Core KoboToolbox updates will not affect it.
+ */
+
+/* ==========================================================================
+   COLOR VARIABLES
+   ========================================================================== */
+
+:root {
+  --ra-primary: #54a8dc;
+  --ra-primary-dark: #3d8abf;
+  --ra-primary-light: #7dc0e8;
+  --ra-secondary: #2c3e50;
+  --ra-header-bg: #1a2a3a;
+  --ra-sidebar-bg: #f7f9fb;
+  --ra-accent: #e67e22;
+  --ra-text-dark: #2c3e50;
+}
+
+/* ==========================================================================
+   HEADER / TOP BAR
+   ========================================================================== */
+
+.main-header {
+  background-color: var(--ra-header-bg) !important;
+}
+
+/* Replace the KoboToolbox logo with RA logo in the header */
+.main-header .header__logo {
+  background-image: url('/custom-static/images/ra-logo.png') !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: left center !important;
+}
+
+/* Hide the default SVG logo text if visible */
+.main-header .header__logo svg {
+  opacity: 0 !important;
+}
+
+/* ==========================================================================
+   BUTTONS
+   ========================================================================== */
+
+/* Primary action buttons (NEW, Deploy, Save, etc.) */
+.kobo-button--blue {
+  background-color: var(--ra-primary) !important;
+  border-color: var(--ra-primary) !important;
+}
+
+.kobo-button--blue:hover {
+  background-color: var(--ra-primary-dark) !important;
+  border-color: var(--ra-primary-dark) !important;
+}
+
+/* Form builder "Add question" and other action buttons */
+.form-builder-header__button--save,
+.form-builder-header__button--deploy {
+  background-color: var(--ra-primary) !important;
+}
+
+/* ==========================================================================
+   LOGIN PAGE
+   ========================================================================== */
+
+/* Login background image */
+.registration__bg {
+  background-image: url('/custom-static/images/login-bg.jpg') !important;
+  background-size: cover !important;
+  background-position: center !important;
+}
+
+/* Semi-transparent overlay */
+.registration__bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(26, 42, 58, 0.85) 0%,
+    rgba(84, 168, 220, 0.7) 100%
+  ) !important;
+  z-index: 0;
+}
+
+/* Login form card */
+.registration {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Login button */
+.registration .kobo-button--blue {
+  background-color: var(--ra-primary) !important;
+  border-radius: 4px !important;
+}
+
+.registration .kobo-button--blue:hover {
+  background-color: var(--ra-primary-dark) !important;
+}
+
+/* Replace login page logo with RA logo */
+.registration--logo img {
+  content: url('/custom-static/images/ra-logo.png') !important;
+  max-height: 60px !important;
+  width: auto !important;
+}
+
+/* Hide the default photo credit (optional) */
+.registration__credit {
+  display: none !important;
+}
+
+/* ==========================================================================
+   SIDEBAR / NAVIGATION
+   ========================================================================== */
+
+.form-sidebar {
+  background-color: var(--ra-sidebar-bg) !important;
+}
+
+/* Active sidebar item */
+.form-sidebar__item--active,
+.form-sidebar__item:hover {
+  border-left-color: var(--ra-primary) !important;
+}
+
+/* Left nav icons active state */
+.k-header-icons__icon--active {
+  border-bottom-color: var(--ra-primary) !important;
+}
+
+/* ==========================================================================
+   LINKS & ACCENTS
+   ========================================================================== */
+
+/* Project name links */
+.asset-row__cell--name a {
+  color: var(--ra-primary-dark) !important;
+}
+
+.asset-row__cell--name a:hover {
+  color: var(--ra-primary) !important;
+}
+
+/* Status badges */
+.badge--deployed {
+  background-color: var(--ra-primary) !important;
+}
+
+/* ==========================================================================
+   PAGE TITLE
+   ========================================================================== */
+
+/* Override the browser tab title via CSS (works for login page) */
+/* The actual title is set via Django admin - this is a visual-only override */
+
+/* ==========================================================================
+   FORM BUILDER
+   ========================================================================== */
+
+/* Question type selector active state */
+.form-builder__row--selected {
+  border-left-color: var(--ra-primary) !important;
+}
+
+/* Toggle switches */
+.checkbox__input:checked + .checkbox__label::before {
+  background-color: var(--ra-primary) !important;
+  border-color: var(--ra-primary) !important;
+}
+
+/* ==========================================================================
+   SCROLLBAR (subtle branding)
+   ========================================================================== */
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--ra-primary-light) !important;
+  border-radius: 4px !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ra-primary) !important;
+}
