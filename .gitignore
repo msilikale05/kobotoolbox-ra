@@ -9,3 +9,12 @@ __pycache__
 
 # Service config files containing secrets
 customization/services/*/config.env
+
+# macOS
+.DS_Store
+
+# Dev tooling
+.playwright-cli/
+
+# Non-code assets
+Training Materials/
