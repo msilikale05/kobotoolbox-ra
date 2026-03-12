@@ -13,14 +13,6 @@
 #   F6: Tanzania map tiles (via Enketo config)
 #   F8: GeoNode sync service (new container)
 
-x-email-template-volumes: &email-template-volumes
-  - ../basic-kobotoolbox/customization/email-templates/account/email/password_reset_key_message.txt:/srv/src/kpi/kobo/apps/accounts/templates/account/email/password_reset_key_message.txt:ro
-  - ../basic-kobotoolbox/customization/email-templates/account/email/password_reset_key_subject.txt:/srv/src/kpi/kobo/apps/accounts/templates/account/email/password_reset_key_subject.txt:ro
-  - ../basic-kobotoolbox/customization/email-templates/account/email/email_confirmation_message.txt:/srv/src/kpi/kobo/apps/accounts/templates/account/email/email_confirmation_message.txt:ro
-  - ../basic-kobotoolbox/customization/email-templates/account/email/email_confirmation_subject.txt:/srv/src/kpi/kobo/apps/accounts/templates/account/email/email_confirmation_subject.txt:ro
-  - ../basic-kobotoolbox/customization/email-templates/account/email/email_confirmation_signup_message.txt:/srv/src/kpi/kobo/apps/accounts/templates/account/email/email_confirmation_signup_message.txt:ro
-  - ../basic-kobotoolbox/customization/email-templates/account/email/email_confirmation_signup_subject.txt:/srv/src/kpi/kobo/apps/accounts/templates/account/email/email_confirmation_signup_subject.txt:ro
-
 services:
   # ===== KPI (main web app) =====
   kpi:
@@ -39,22 +31,6 @@ services:
       # F2: Survey templates
       - ../basic-kobotoolbox/customization/templates:/srv/templates:ro
 
-  # ===== Workers (all need email templates for sending) =====
-  worker:
-    volumes: *email-template-volumes
-
-  worker_low_priority:
-    volumes: *email-template-volumes
-
-  worker_long_running_tasks:
-    volumes: *email-template-volumes
-
-  worker_kobocat:
-    volumes: *email-template-volumes
-
-  beat:
-    volumes: *email-template-volumes
-
   # ===== Nginx (branding + JS) =====
   nginx:
     volumes:
@@ -70,16 +46,18 @@ services:
       - ../basic-kobotoolbox/customization/static/css/enketo-ra-theme.css:/srv/src/enketo/packages/enketo-express/public/css/ra-theme.css:ro
 
   # ===== F8: GeoNode Sync Service =====
-  geonode_sync:
-    build:
-      context: ../basic-kobotoolbox/customization/services/geonode-sync
-    hostname: geonode_sync
-    env_file:
-      - ../basic-kobotoolbox/customization/services/geonode-sync/config.env
-    restart: unless-stopped
-    depends_on:
-      - kpi
-    networks:
-      kobo-fe-network:
-        aliases:
-          - geonode_sync
+  # Uncomment after creating config.env on the server:
+  #   cp basic-kobotoolbox/customization/services/geonode-sync/config.env.example config.env
+  # geonode_sync:
+  #   build:
+  #     context: ../basic-kobotoolbox/customization/services/geonode-sync
+  #   hostname: geonode_sync
+  #   env_file:
+  #     - ../basic-kobotoolbox/customization/services/geonode-sync/config.env
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - kpi
+  #   networks:
+  #     kobo-fe-network:
+  #       aliases:
+  #         - geonode_sync
