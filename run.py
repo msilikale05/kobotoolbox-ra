@@ -44,8 +44,11 @@ def run(force_setup=False):
             Template.render(config)
             Setup.update_hosts(dict_)
         else:
-            if config.auto_detect_network():
-                Template.render(config)
+            network_changed = config.auto_detect_network()
+            # Always refresh generated docker/env files so template or config
+            # changes in this repo propagate to the sibling kobo-docker checkout.
+            Template.render(config)
+            if network_changed:
                 Setup.update_hosts(dict_)
 
         config.validate_passwords()

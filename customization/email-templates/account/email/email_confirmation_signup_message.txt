@@ -1,0 +1,20 @@
+{% load account %}{% user_display user as user_display %}{% load i18n %}
+Hello {{ user_display }},
+
+Welcome to the Resilience Academy Data Collection Platform!
+
+You have been invited to join our data collection system. Please confirm your registration by clicking the link below:
+
+{{ activate_url }}
+
+After confirmation, you can:
+- Create and deploy data collection surveys
+- Collect field data using web forms or mobile devices
+- Analyze and export your collected data
+
+---
+Resilience Academy Data Collection Platform
+https://resilienceacademy.ac.tz
+
+This is an automated message. Please do not reply directly to this email.
+For support, contact: support@resilienceacademy.ac.tz

@@ -154,6 +154,13 @@ class Template:
         else:
             nginx_port = dict_['exposed_nginx_docker_port']
 
+        public_domain_name = dict_['public_domain_name']
+        session_cookie_domain = (
+            ''
+            if public_domain_name in ['localhost', '127.0.0.1']
+            else f'.{public_domain_name}'
+        )
+
         return {
             'PUBLIC_REQUEST_SCHEME': _get_value('https', 'https', 'http'),
             'USE_HTTPS': _get_value('https'),
@@ -175,6 +182,7 @@ class Template:
             'ENKETO_API_KEY': dict_['enketo_api_token'],
             'DJANGO_SECRET_KEY': dict_['django_secret_key'],
             'DJANGO_SESSION_COOKIE_AGE': dict_['django_session_cookie_age'],
+            'SESSION_COOKIE_DOMAIN': session_cookie_domain,
             'ENKETO_ENCRYPTION_KEY': dict_['enketo_encryption_key'],
             'ENKETO_LESS_SECURE_ENCRYPTION_KEY': dict_[
                 'enketo_less_secure_encryption_key'

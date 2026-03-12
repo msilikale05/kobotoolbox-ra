@@ -6,3 +6,6 @@ __pycache__
 .pytest_cache/
 .tox
 *.egg-info
+
+# Service config files containing secrets
+customization/services/*/config.env

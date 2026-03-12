@@ -1,0 +1,1 @@
+{% load i18n %}{% blocktrans %}Resilience Academy - Confirm Your Account Registration{% endblocktrans %}

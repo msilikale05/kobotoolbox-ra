@@ -76,6 +76,7 @@ class Command:
     def compose_frontend(cls, args):
         config = Config()
         dict_ = config.get_dict()
+        Template.render(config)
         command = run_docker_compose(dict_, [
            '-f', 'docker-compose.frontend.yml',
            '-f', 'docker-compose.frontend.override.yml',
@@ -90,6 +91,7 @@ class Command:
     def compose_backend(cls, args):
         config = Config()
         dict_ = config.get_dict()
+        Template.render(config)
         command = run_docker_compose(dict_, [
             '-f', f'docker-compose.backend.yml',
             '-f', f'docker-compose.backend.override.yml',

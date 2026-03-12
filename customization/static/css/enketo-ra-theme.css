@@ -1,0 +1,105 @@
+/*
+ * Resilience Academy - Enketo Form Theme
+ * =======================================
+ * Applied to Enketo web forms to match RA branding.
+ * UPDATE-PROOF: Mounted via Docker volume into Enketo container.
+ */
+
+:root {
+  --ra-primary: #54a8dc;
+  --ra-primary-dark: #3d8abf;
+  --ra-secondary: #2c3e50;
+}
+
+/* Form header / branding bar */
+.form-header {
+  background-color: var(--ra-primary) !important;
+  border-bottom: 3px solid var(--ra-primary-dark) !important;
+}
+
+.form-header__branding img {
+  max-height: 48px !important;
+}
+
+/* Primary buttons (Submit, Next, etc.) */
+.btn-primary,
+.enketo-plugin .btn-primary,
+.form-footer .btn-primary {
+  background-color: var(--ra-primary) !important;
+  border-color: var(--ra-primary) !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+  background-color: var(--ra-primary-dark) !important;
+  border-color: var(--ra-primary-dark) !important;
+}
+
+/* Progress bar */
+.progress-bar {
+  background-color: var(--ra-primary) !important;
+}
+
+/* Active question highlight */
+.question.focus,
+.question:focus-within {
+  border-left-color: var(--ra-primary) !important;
+}
+
+/* Required asterisk */
+.required {
+  color: #e74c3c !important;
+}
+
+/* Radio/checkbox when selected */
+input[type="radio"]:checked + label::before,
+input[type="checkbox"]:checked + label::before {
+  border-color: var(--ra-primary) !important;
+}
+
+input[type="radio"]:checked + label::after {
+  background-color: var(--ra-primary) !important;
+}
+
+input[type="checkbox"]:checked + label::after {
+  color: var(--ra-primary) !important;
+}
+
+/* Select dropdown focus */
+select:focus,
+input:focus,
+textarea:focus {
+  border-color: var(--ra-primary) !important;
+  box-shadow: 0 0 0 2px rgba(84, 168, 220, 0.25) !important;
+}
+
+/* Modal headers */
+.modal-header {
+  background-color: var(--ra-primary) !important;
+  color: #fff !important;
+}
+
+/* Link colors */
+.form-body a {
+  color: var(--ra-primary-dark) !important;
+}
+
+.form-body a:hover {
+  color: var(--ra-primary) !important;
+}
+
+/* Page navigation dots */
+.pages .page-toc__item--active {
+  background-color: var(--ra-primary) !important;
+}
+
+/* Disabled page nav dots */
+.pages .page-toc__item {
+  border-color: var(--ra-primary) !important;
+}
+
+/* Powered-by footer - subtle RA branding */
+.form-footer .enketo-power {
+  opacity: 0.6;
+}

@@ -16,13 +16,13 @@ echo "Applying custom branding to nginx configuration..."
 # Write the custom branding nginx include file
 cat > "$BRANDING_CONF" << 'NGINX'
 sub_filter_once on;
-sub_filter '</head>' '<link rel="stylesheet" href="/custom-static/css/custom-theme.css" />\n</head>';
+sub_filter '</head>' '<link rel="stylesheet" href="/custom-static/css/custom-theme.css?v=3" />\n<script src="/custom-static/js/ra-welcome.js?v=1" defer></script>\n</head>';
 sub_filter_types text/html;
 
 location /custom-static {
     alias /srv/custom-static;
-    expires 7d;
-    add_header Cache-Control "public, immutable";
+    expires -1;
+    add_header Cache-Control "no-cache, no-store, must-revalidate";
 }
 NGINX
 
