@@ -4,18 +4,31 @@
 # any core files. Loaded by kobo-install when `use_frontend_custom_yml`
 # is set to true in .run.conf.
 #
+# IMPORTANT: Before deploying, replace YOUR_DOMAIN below with your actual
+# public domain (e.g., odk.utu.fi). The ENKETO_URL must be the public
+# HTTPS URL so that form collect/preview links work in the browser.
+# The extra_hosts entries allow containers to reach the public URL via
+# the host machine's reverse proxy (port 443).
+#
 # Features:
 #   F1: Welcome dashboard (JS injection via nginx)
 #   F2: Survey templates (mounted into KPI for import)
 #   F3: Registration restriction (via setup script)
 #   F4: Enketo form theme (CSS mounted into Enketo)
 #   F5: Custom email templates (mounted into KPI + workers)
-#   F6: Tanzania map tiles (via Enketo config)
-#   F8: GeoNode sync service (new container)
 
 services:
   # ===== KPI (main web app) =====
   kpi:
+    environment:
+      # Public Enketo URL — used for form links shown to users.
+      # ENKETO_INTERNAL_URL is auto-set from the env file for server-to-server calls.
+      - ENKETO_URL=https://ee.YOUR_DOMAIN
+    extra_hosts:
+      # Allow KPI to reach public URLs via the host's reverse proxy
+      - "ee.YOUR_DOMAIN:host-gateway"
+      - "kf.YOUR_DOMAIN:host-gateway"
+      - "kc.YOUR_DOMAIN:host-gateway"
     volumes:
       # F5: Email templates
       - ../basic-kobotoolbox/customization/email-templates/account/email/password_reset_key_message.txt:/srv/src/kpi/kobo/apps/accounts/templates/account/email/password_reset_key_message.txt:ro
@@ -31,6 +44,17 @@ services:
       # F2: Survey templates
       - ../basic-kobotoolbox/customization/templates:/srv/templates:ro
 
+  # ===== Enketo Express =====
+  enketo_express:
+    extra_hosts:
+      # Allow Enketo to reach KPI/KC via the host's reverse proxy
+      - "kf.YOUR_DOMAIN:host-gateway"
+      - "kc.YOUR_DOMAIN:host-gateway"
+      - "ee.YOUR_DOMAIN:host-gateway"
+    volumes:
+      # F4: Enketo RA theme CSS
+      - ../basic-kobotoolbox/customization/static/css/enketo-ra-theme.css:/srv/src/enketo/packages/enketo-express/public/css/ra-theme.css:ro
+
   # ===== Nginx (branding + JS) =====
   nginx:
     volumes:
@@ -38,26 +62,3 @@ services:
       - ../basic-kobotoolbox/customization/static:/srv/custom-static:ro
       # Custom nginx init script to inject CSS/JS via sub_filter
       - ../basic-kobotoolbox/customization/nginx/40-custom-branding.sh:/docker-entrypoint.d/40-custom-branding.sh:ro
-
-  # ===== Enketo (form theme CSS) =====
-  enketo_express:
-    volumes:
-      # F4: Enketo RA theme CSS - mounted as custom stylesheet
-      - ../basic-kobotoolbox/customization/static/css/enketo-ra-theme.css:/srv/src/enketo/packages/enketo-express/public/css/ra-theme.css:ro
-
-  # ===== F8: GeoNode Sync Service =====
-  # Uncomment after creating config.env on the server:
-  #   cp basic-kobotoolbox/customization/services/geonode-sync/config.env.example config.env
-  # geonode_sync:
-  #   build:
-  #     context: ../basic-kobotoolbox/customization/services/geonode-sync
-  #   hostname: geonode_sync
-  #   env_file:
-  #     - ../basic-kobotoolbox/customization/services/geonode-sync/config.env
-  #   restart: unless-stopped
-  #   depends_on:
-  #     - kpi
-  #   networks:
-  #     kobo-fe-network:
-  #       aliases:
-  #         - geonode_sync

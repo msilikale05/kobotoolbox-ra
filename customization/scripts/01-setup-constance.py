@@ -44,10 +44,12 @@ def setup_registration_restriction():
 
 def setup_sitewide_settings():
     """Set basic Constance settings for RA branding."""
+    # NOTE: Do NOT set PROJECT_METADATA_FIELDS here. KPI expects each field
+    # to be a dict with a 'label' key, not a plain string. Setting it wrong
+    # causes a 500 error on the /environment/ endpoint and breaks the UI.
     settings_map = {
         'MFA_ENABLED': False,
         'ALLOW_UNSECURED_BROWSER_CONNECTIONS': True,
-        'PROJECT_METADATA_FIELDS': '["description","sector","country","operational_purpose","collects_pii"]',
     }
 
     for key, value in settings_map.items():

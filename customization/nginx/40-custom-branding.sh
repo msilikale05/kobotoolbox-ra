@@ -36,4 +36,7 @@ sed -i '/server_name.*kc\./,/^}/{
     /location \/static {/i\    include /etc/nginx/includes/custom_branding.conf;
 }' "$NGINX_CONF"
 
+# Fix X-Frame-Options: DENY -> SAMEORIGIN so form preview iframe works
+sed -i '/proxy_pass.*kpi/i\        proxy_hide_header X-Frame-Options;\n        add_header X-Frame-Options SAMEORIGIN;' "$NGINX_CONF"
+
 echo "Custom branding applied successfully."
