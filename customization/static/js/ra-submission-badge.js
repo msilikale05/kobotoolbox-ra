@@ -401,8 +401,18 @@
     pollTimer = setInterval(refreshBadge, POLL_INTERVAL);
   }
 
+  // ── Auth check ──
+  function isLoggedIn() {
+    // Skip on login/signup/password pages
+    if (/\/accounts\/(login|signup|password)/.test(window.location.pathname)) return false;
+    // Must have the account avatar (only rendered for authenticated users)
+    if (!document.querySelector('.account-box, [class*="accountSection"]')) return false;
+    return true;
+  }
+
   // ── Bootstrap ──
   function tryInject() {
+    if (!isLoggedIn()) return false;
     if (createBadge()) {
       startPolling();
       return true;

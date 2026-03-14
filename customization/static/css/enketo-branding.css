@@ -23,14 +23,20 @@
 
 .ra-form-banner {
   position: relative;
-  width: 100%;
-  min-height: 180px;
+  width: 100vw;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  min-height: 200px;
   background-image: url('/custom-static/images/default-banner.jpg');
   background-size: cover;
-  background-position: center;
+  background-position: center top;
+  background-repeat: no-repeat;
   display: flex;
   align-items: flex-end;
   margin-bottom: 0;
+  box-sizing: border-box;
 }
 
 .ra-form-banner::after {
