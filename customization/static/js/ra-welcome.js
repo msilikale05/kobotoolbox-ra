@@ -10,6 +10,39 @@
   var PANEL_ID = 'ra-welcome-panel';
   var MAX_RETRIES = 20;
   var retryCount = 0;
+  var BRAND_NAME = 'Ramani Yangu';
+
+  // Override favicon
+  (function setFavicon() {
+    var link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+    link.type = 'image/png';
+    link.rel = 'icon';
+    link.href = '/custom-static/images/favicon.png';
+    document.head.appendChild(link);
+  })();
+
+  // Persistently override the browser tab title
+  (function overrideTitle() {
+    function setTitle() {
+      if (document.title.indexOf(BRAND_NAME) === -1) {
+        document.title = document.title.replace(/KoboToolbox/gi, BRAND_NAME);
+        if (document.title.indexOf(BRAND_NAME) === -1) {
+          document.title = BRAND_NAME;
+        }
+      }
+    }
+    setTitle();
+    var titleEl = document.querySelector('title');
+    if (titleEl) {
+      new MutationObserver(setTitle).observe(titleEl, { childList: true });
+    } else {
+      document.addEventListener('DOMContentLoaded', function () {
+        setTitle();
+        var t = document.querySelector('title');
+        if (t) new MutationObserver(setTitle).observe(t, { childList: true });
+      });
+    }
+  })();
 
   function isProjectListPage() {
     var hash = window.location.hash;
