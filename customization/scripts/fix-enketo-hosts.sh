@@ -34,3 +34,23 @@ rm -f "$TMPFILE"
 
 echo "[fix-hosts] Done. /etc/hosts updated:"
 grep -E "kf\.|kc\.|ee\." /etc/hosts
+
+# Fix Enketo config: allow insecure transport for HTTP (localhost dev)
+# Without this, Enketo refuses to send Basic auth credentials over HTTP,
+# causing "formList request failed" errors on form preview.
+ENKETO_CONFIG="/srv/src/enketo/packages/enketo-express/config/config.json"
+if [ -f "$ENKETO_CONFIG" ] && command -v node > /dev/null 2>&1; then
+  node -e "
+    const fs = require('fs');
+    const cfg = JSON.parse(fs.readFileSync('$ENKETO_CONFIG', 'utf8'));
+    const auth = cfg['linked form and data server']['authentication'] || {};
+    if (auth['allow insecure transport'] !== 'true') {
+      cfg['linked form and data server']['authentication'] = {
+        type: 'basic',
+        'allow insecure transport': 'true'
+      };
+      fs.writeFileSync('$ENKETO_CONFIG', JSON.stringify(cfg, null, 2));
+      console.log('[fix-hosts] Patched Enketo config: allow insecure transport for HTTP');
+    }
+  " 2>/dev/null
+fi

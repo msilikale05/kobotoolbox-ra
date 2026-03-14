@@ -261,8 +261,7 @@ input[type="checkbox"]:checked + label::after {
 .form-header {
   background-color: var(--ra-primary) !important;
   border-bottom: 3px solid var(--ra-primary-dark) !important;
-  padding-top: 7px !important;
-  padding-bottom: 7px !important;
+  padding: 7px 10px !important;
 }
 
 /* Header text — all white */
