@@ -22,9 +22,10 @@
     '  position: relative;',
     '  display: inline-flex;',
     '  align-items: center;',
-    '  margin-left: 12px;',
+    '  margin-right: 16px;',
     '  cursor: pointer;',
     '  user-select: none;',
+    '  vertical-align: middle;',
     '}',
     '#' + BADGE_ID + ' .ra-badge__bell {',
     '  font-size: 18px;',
@@ -197,7 +198,7 @@
       _submission_time: { $gte: today + 'T00:00:00' }
     }));
     return fetchJSON(
-      '/api/v2/assets/' + uid + '/data/?query=' + query + '&limit=0'
+      '/api/v2/assets/' + uid + '/data/?query=' + query + '&limit=1'
     ).then(function (data) {
       return data.count || 0;
     }).catch(function () {
@@ -241,18 +242,18 @@
   function createBadge() {
     if (document.getElementById(BADGE_ID)) return true;
 
-    // Find the header nav area
-    var headerNav = document.querySelector('.main-header__wrap')
-      || document.querySelector('.main-header')
-      || document.querySelector('header nav')
-      || document.querySelector('header');
+    // Target the header row's account section area (right side of top bar)
+    // KPI layout: .mdl-layout__header-row > ... > .accountSection (with badgeWrapper)
+    var accountSection = document.querySelector('[class*="accountSection"]')
+      || document.querySelector('[class*="badgeWrapper"]');
 
-    if (!headerNav) return false;
+    // Fallback: find the header row itself
+    var headerRow = document.querySelector('.mdl-layout__header-row');
 
-    // Find a good anchor point - after the nav links
-    var navLinks = headerNav.querySelector('.main-header__links')
-      || headerNav.querySelector('nav')
-      || headerNav;
+    if (!accountSection && !headerRow) return false;
+
+    // Insert before the account section, or append to header row
+    var navLinks = accountSection ? accountSection.parentElement : headerRow;
 
     var badge = document.createElement('div');
     badge.id = BADGE_ID;
@@ -265,7 +266,12 @@
       '</div>'
     ].join('');
 
-    navLinks.appendChild(badge);
+    // Place before account section so it sits left of the avatar
+    if (accountSection) {
+      navLinks.insertBefore(badge, accountSection);
+    } else {
+      navLinks.appendChild(badge);
+    }
 
     // Toggle dropdown on click
     badge.addEventListener('click', function (e) {
