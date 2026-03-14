@@ -17,8 +17,12 @@
   border-bottom: 3px solid var(--ra-primary-dark) !important;
 }
 
+/* Replace Enketo logo with RA logo */
 .form-header__branding img {
   max-height: 48px !important;
+  width: 200px !important;
+  object-position: -9999px !important;
+  background: url('https://kf.ramaniyangu.com/custom-static/images/ra-logo-dark.png') no-repeat center / contain !important;
 }
 
 /* Primary buttons (Submit, Next, etc.) */

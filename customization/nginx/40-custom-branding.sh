@@ -36,6 +36,25 @@ sed -i '/server_name.*kc\./,/^}/{
     /location \/static {/i\    include /etc/nginx/includes/custom_branding.conf;
 }' "$NGINX_CONF"
 
+# Enketo branding - inject CSS to replace logo
+ENKETO_BRANDING_CONF="/etc/nginx/includes/enketo_branding.conf"
+cat > "$ENKETO_BRANDING_CONF" << 'NGINX'
+sub_filter_once on;
+sub_filter '</head>' '<style>.form-header__branding img{max-height:48px!important;width:200px!important;content:url(/custom-static/images/ra-logo-dark.png)!important;}</style>\n</head>';
+sub_filter_types text/html;
+
+location /custom-static {
+    alias /srv/custom-static;
+    expires -1;
+    add_header Cache-Control "no-cache, no-store, must-revalidate";
+}
+NGINX
+
+# Inject 'include' directive into Enketo (ee) server block
+sed -i '/server_name.*ee\./,/^}/{
+    /location \/ {/i\    include /etc/nginx/includes/enketo_branding.conf;
+}' "$NGINX_CONF"
+
 # Fix X-Frame-Options: DENY -> SAMEORIGIN so form preview iframe works
 sed -i '/proxy_pass.*kpi/i\        proxy_hide_header X-Frame-Options;\n        add_header X-Frame-Options SAMEORIGIN;' "$NGINX_CONF"
 
