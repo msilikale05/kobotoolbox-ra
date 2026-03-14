@@ -4,7 +4,7 @@
 # any core files. Loaded by kobo-install when `use_frontend_custom_yml`
 # is set to true in .run.conf.
 #
-# IMPORTANT: Before deploying, replace YOUR_DOMAIN below with your actual
+# IMPORTANT: Before deploying, replace ramaniyangu.com below with your actual
 # public domain (e.g., odk.utu.fi). The ENKETO_URL must be the public
 # HTTPS URL so that form collect/preview links work in the browser.
 # The extra_hosts entries allow containers to reach the public URL via
@@ -23,12 +23,12 @@ services:
     environment:
       # Public Enketo URL — used for form links shown to users.
       # ENKETO_INTERNAL_URL is auto-set from the env file for server-to-server calls.
-      - ENKETO_URL=https://ee.YOUR_DOMAIN
+      - ENKETO_URL=https://ee.ramaniyangu.com
     extra_hosts:
       # Allow KPI to reach public URLs via the host's reverse proxy
-      - "ee.YOUR_DOMAIN:host-gateway"
-      - "kf.YOUR_DOMAIN:host-gateway"
-      - "kc.YOUR_DOMAIN:host-gateway"
+      - "ee.ramaniyangu.com:host-gateway"
+      - "kf.ramaniyangu.com:host-gateway"
+      - "kc.ramaniyangu.com:host-gateway"
     volumes:
       # F5: Email templates
       - ../basic-kobotoolbox/customization/email-templates/account/email/password_reset_key_message.txt:/srv/src/kpi/kobo/apps/accounts/templates/account/email/password_reset_key_message.txt:ro
@@ -48,9 +48,9 @@ services:
   enketo_express:
     extra_hosts:
       # Allow Enketo to reach KPI/KC via the host's reverse proxy
-      - "kf.YOUR_DOMAIN:host-gateway"
-      - "kc.YOUR_DOMAIN:host-gateway"
-      - "ee.YOUR_DOMAIN:host-gateway"
+      - "kf.ramaniyangu.com:host-gateway"
+      - "kc.ramaniyangu.com:host-gateway"
+      - "ee.ramaniyangu.com:host-gateway"
     volumes:
       # F4: Enketo RA theme CSS
       - ../basic-kobotoolbox/customization/static/css/enketo-ra-theme.css:/srv/src/enketo/packages/enketo-express/public/css/ra-theme.css:ro
