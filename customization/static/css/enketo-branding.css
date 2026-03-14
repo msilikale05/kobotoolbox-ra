@@ -64,16 +64,16 @@
   text-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
-/* Remove gap between form-header and banner on desktop only */
-@media (min-width: 769px) {
-  .ra-has-banner .form-header {
-    margin-bottom: 0 !important;
-    padding-bottom: 0 !important;
-  }
-  .ra-has-banner #ra-form-banner {
-    margin-top: -20px !important;
-    padding-top: 20px !important;
-  }
+/* Ensure banner never overlaps header on mobile/tablet */
+.ra-has-banner #ra-form-banner {
+  margin-top: 0 !important;
+  position: relative;
+  z-index: 1;
+}
+
+.ra-has-banner .form-header {
+  position: relative;
+  z-index: 10;
 }
 
 /* Hide original form title when banner is present */
