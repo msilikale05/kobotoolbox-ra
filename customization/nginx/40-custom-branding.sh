@@ -40,7 +40,7 @@ sed -i '/server_name.*kc\./,/^}/{
 ENKETO_BRANDING_CONF="/etc/nginx/includes/enketo_branding.conf"
 cat > "$ENKETO_BRANDING_CONF" << 'NGINX'
 sub_filter_once on;
-sub_filter '</head>' '<style>.form-header__branding img{max-height:48px!important;width:200px!important;content:url(/custom-static/images/ra-logo-dark.png)!important;}</style>\n</head>';
+sub_filter '</head>' '<style>.form-header__branding img,.form-header img[alt*="logo"],img[alt*="brand"]{visibility:hidden!important;height:48px!important;width:200px!important;}.form-header__branding,.form-header__branding a{position:relative!important;display:inline-block!important;min-height:48px!important;min-width:200px!important;background:url(/custom-static/images/ra-logo-dark.png) no-repeat left center/contain!important;}</style>\n</head>';
 sub_filter_types text/html;
 
 location /custom-static {
