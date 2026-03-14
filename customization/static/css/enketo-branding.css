@@ -64,7 +64,16 @@
   text-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
-/* Banner width is set dynamically by JS to match article.paper full width */
+/* Remove gap between form-header and banner on desktop only */
+@media (min-width: 769px) {
+  .ra-has-banner .form-header {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .ra-has-banner #ra-form-banner {
+    margin-top: 0 !important;
+  }
+}
 
 /* Hide original form title when banner is present */
 .ra-has-banner #form-title {

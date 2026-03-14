@@ -14,12 +14,23 @@ fi
 
 echo "[fix-hosts] Fixing /etc/hosts: *.localhost -> $NGINX_IP (nginx)"
 
+# Docker mounts /etc/hosts as a bind mount — sed -i can't rename it.
+# Instead, read-modify-write the contents in place.
+TMPFILE=$(mktemp)
+cp /etc/hosts "$TMPFILE"
+
 for SUBDOMAIN in kf kc ee; do
   HOST="${SUBDOMAIN}.${PUBLIC_DOMAIN_NAME:-localhost}"
-  # Remove the 127.0.0.1 entry and add the correct one
-  sed -i "/^127\.0\.0\.1.*${HOST}$/d" /etc/hosts
-  echo "${NGINX_IP}	${HOST}" >> /etc/hosts
+  # Remove 127.0.0.1 entries for this host
+  grep -v "^127\.0\.0\.1.*${HOST}" "$TMPFILE" > "${TMPFILE}.new"
+  mv "${TMPFILE}.new" "$TMPFILE"
+  # Add nginx entry
+  echo "${NGINX_IP}	${HOST}" >> "$TMPFILE"
 done
+
+# Overwrite /etc/hosts in place (cat > works on Docker bind mounts)
+cat "$TMPFILE" > /etc/hosts
+rm -f "$TMPFILE"
 
 echo "[fix-hosts] Done. /etc/hosts updated:"
 grep -E "kf\.|kc\.|ee\." /etc/hosts
