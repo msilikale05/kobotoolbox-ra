@@ -21,6 +21,51 @@
     document.head.appendChild(link);
   })();
 
+  // Replace header logo with RA logo
+  (function overrideLogo() {
+    function replaceLogo() {
+      // Find the header logo - try multiple selectors for different KPI versions
+      var logoSelectors = [
+        '.main-header .header__logo',
+        '.main-header__logo',
+        'a[href="#/"] img',
+        'a[href="/"] img',
+        'header a img',
+        'header svg'
+      ];
+      var replaced = false;
+      logoSelectors.forEach(function (sel) {
+        var els = document.querySelectorAll(sel);
+        els.forEach(function (el) {
+          if (el.tagName === 'IMG') {
+            el.src = '/custom-static/images/ra-logo.png';
+            el.alt = 'Ramani Yangu';
+            replaced = true;
+          } else if (el.tagName === 'SVG') {
+            el.style.display = 'none';
+            var parent = el.parentElement;
+            if (parent && !parent.querySelector('.ra-logo-override')) {
+              var img = document.createElement('img');
+              img.src = '/custom-static/images/ra-logo.png';
+              img.alt = 'Ramani Yangu';
+              img.className = 'ra-logo-override';
+              img.style.cssText = 'height:32px;width:auto;';
+              parent.appendChild(img);
+              replaced = true;
+            }
+          }
+        });
+      });
+      return replaced;
+    }
+    // Try immediately and also observe for React rendering
+    replaceLogo();
+    var observer = new MutationObserver(function () { replaceLogo(); });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    // Stop observing after 10 seconds to save resources
+    setTimeout(function () { observer.disconnect(); }, 10000);
+  })();
+
   // Persistently override the browser tab title
   (function overrideTitle() {
     function setTitle() {
