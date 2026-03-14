@@ -84,6 +84,17 @@
     if (header && header.parentNode) {
       header.parentNode.insertBefore(banner, header.nextSibling);
       document.body.classList.add('ra-has-banner');
+
+      // Make banner full width by negating article.paper padding
+      var paper = document.querySelector('article.paper');
+      if (paper) {
+        var style = window.getComputedStyle(paper);
+        var pl = parseFloat(style.paddingLeft) || 0;
+        var pr = parseFloat(style.paddingRight) || 0;
+        banner.style.marginLeft = '-' + pl + 'px';
+        banner.style.marginRight = '-' + pr + 'px';
+        banner.style.width = 'calc(100% + ' + (pl + pr) + 'px)';
+      }
     }
   }
 

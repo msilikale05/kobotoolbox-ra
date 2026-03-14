@@ -64,7 +64,7 @@
   text-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
-/* Banner sits inside .main, same width as article.paper */
+/* Banner width is set dynamically by JS to match article.paper full width */
 
 /* Hide original form title when banner is present */
 .ra-has-banner #form-title {

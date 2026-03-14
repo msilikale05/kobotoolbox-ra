@@ -64,6 +64,12 @@ services:
 
   # ===== Nginx (branding + JS) =====
   nginx:
+    networks:
+      kobo-fe-network:
+        aliases:
+          - kf.YOUR_DOMAIN
+          - kc.YOUR_DOMAIN
+          - ee.YOUR_DOMAIN
     volumes:
       # Custom static assets (CSS, images, JS, favicon)
       - ../basic-kobotoolbox/customization/static:/srv/custom-static:ro
