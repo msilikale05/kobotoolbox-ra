@@ -5,14 +5,12 @@
   "_thankyou_upload": "Place thank-you logos in /custom-static/config/thankyou/ and reference by filename.",
   "defaults": {
     "banner": "/custom-static/images/default-banner.jpg",
-    "footer": "",
     "thankyou_logo": "/custom-static/images/ra-logo-dark.png",
     "thankyou_message": "Your submission has been recorded successfully. Thank you for contributing to urban resilience data collection."
   },
   "forms": {
     "boFXa8gH": {
       "banner": "/custom-static/config/banners/banner.jpg",
-      "footer": "/custom-static/config/banners/footer.jpg",
       "thankyou_logo": "/custom-static/config/thankyou/thankyou-logo.png",
       "thankyou_message": "Your submission has been recorded successfully. Thank you for submitting the form as part of the LVBWB mapping activities."
     }

@@ -99,40 +99,6 @@
   }
 
   // ========================================================================
-  // FOOTER IMAGE
-  // ========================================================================
-
-  function createFooter(footerImage) {
-    if (!footerImage || document.getElementById('ra-form-footer')) return;
-
-    var footer = document.createElement('div');
-    footer.id = 'ra-form-footer';
-    footer.className = 'ra-form-footer';
-
-    var img = document.createElement('img');
-    img.src = footerImage;
-    img.alt = 'Footer';
-    footer.appendChild(img);
-
-    // Insert after .form-footer (the submit buttons area)
-    var formFooter = document.querySelector('.form-footer');
-    if (formFooter && formFooter.parentNode) {
-      formFooter.parentNode.insertBefore(footer, formFooter.nextSibling);
-
-      // Match full width like banner
-      var paper = document.querySelector('article.paper');
-      if (paper) {
-        var style = window.getComputedStyle(paper);
-        var pl = parseFloat(style.paddingLeft) || 0;
-        var pr = parseFloat(style.paddingRight) || 0;
-        footer.style.marginLeft = '-' + pl + 'px';
-        footer.style.marginRight = '-' + pr + 'px';
-        footer.style.width = 'calc(100% + ' + (pl + pr) + 'px)';
-      }
-    }
-  }
-
-  // ========================================================================
   // THANK YOU OVERLAY
   // ========================================================================
 
@@ -264,16 +230,6 @@
       }
 
       createBanner(bannerImage);
-
-      // Create footer if configured
-      var footerImage = '';
-      if (formConfig && formConfig.footer) {
-        footerImage = formConfig.footer;
-      } else if (config && config.defaults && config.defaults.footer) {
-        footerImage = config.defaults.footer;
-      }
-      createFooter(footerImage);
-
       listenForSubmission(formConfig);
     });
   }
