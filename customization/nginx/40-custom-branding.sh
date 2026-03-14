@@ -40,7 +40,7 @@ sed -i '/server_name.*kc\./,/^}/{
 ENKETO_BRANDING_CONF="/etc/nginx/includes/enketo_branding.conf"
 cat > "$ENKETO_BRANDING_CONF" << 'NGINX'
 sub_filter_once on;
-sub_filter '</head>' '<style>.form-header__branding img,.form-header img[alt*="logo"],img[alt*="brand"]{visibility:hidden!important;height:48px!important;width:200px!important;}.form-header__branding,.form-header__branding a{position:relative!important;display:inline-block!important;min-height:48px!important;min-width:200px!important;background:url(/custom-static/images/ra-logo-dark.png) no-repeat left center/contain!important;}</style>\n</head>';
+sub_filter '</head>' '<script>document.addEventListener("DOMContentLoaded",function(){function r(){document.querySelectorAll("img").forEach(function(i){if(i.src&&(i.src.indexOf("data:image/svg")>-1||i.alt.toLowerCase().indexOf("logo")>-1||i.alt.toLowerCase().indexOf("brand")>-1)){i.src="/custom-static/images/ra-logo-dark.png";i.alt="Ramani Yangu";}});};r();new MutationObserver(function(){r()}).observe(document.body,{childList:true,subtree:true});setTimeout(function(){r()},3000);});</script>\n</head>';
 sub_filter_types text/html;
 
 location /custom-static {
