@@ -36,11 +36,13 @@ sed -i '/server_name.*kc\./,/^}/{
     /location \/static {/i\    include /etc/nginx/includes/custom_branding.conf;
 }' "$NGINX_CONF"
 
-# Enketo branding - inject JS to replace logo + disable gzip so sub_filter works
+# Enketo branding - replace logo using sub_filter to swap base64 SVG with RA logo
 ENKETO_BRANDING_CONF="/etc/nginx/includes/enketo_branding.conf"
 cat > "$ENKETO_BRANDING_CONF" << 'NGINX'
-sub_filter_once on;
-sub_filter '</head>' '<script>document.addEventListener("DOMContentLoaded",function(){function r(){document.querySelectorAll("img").forEach(function(i){if(i.src&&(i.src.indexOf("data:image/svg")>-1||i.alt.toLowerCase().indexOf("logo")>-1||i.alt.toLowerCase().indexOf("brand")>-1)){i.src="/custom-static/images/ra-logo-dark.png";i.alt="Ramani Yangu";}});};r();new MutationObserver(function(){r()}).observe(document.body,{childList:true,subtree:true});setTimeout(function(){r()},3000);});</script>\n</head>';
+sub_filter_once off;
+sub_filter 'src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJhIi' 'src="/custom-static/images/ra-logo-dark.png" data-original="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJhIi';
+sub_filter 'alt="brand logo"' 'alt="Ramani Yangu"';
+sub_filter 'alt="Enketo logo"' 'alt="Ramani Yangu"';
 sub_filter_types text/html;
 
 location /custom-static {
