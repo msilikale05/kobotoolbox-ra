@@ -110,6 +110,24 @@
   }
 
   // ========================================================================
+  // COLLAPSIBLE GROUPS
+  // ========================================================================
+
+  function setupCollapsibleGroups() {
+    var groups = document.querySelectorAll('.or-group > h4, .or-group-data > h4');
+    groups.forEach(function (h4) {
+      if (h4.dataset.raCollapsible) return;
+      h4.dataset.raCollapsible = 'true';
+      h4.addEventListener('click', function () {
+        var group = h4.parentElement;
+        if (group) {
+          group.classList.toggle('collapsed');
+        }
+      });
+    });
+  }
+
+  // ========================================================================
   // THANK YOU OVERLAY
   // ========================================================================
 
@@ -245,6 +263,7 @@
           }
         }
         listenForSubmission(formConfig);
+        setupCollapsibleGroups();
       });
       return true;
     }

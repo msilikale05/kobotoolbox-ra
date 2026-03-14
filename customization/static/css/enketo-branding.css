@@ -433,6 +433,16 @@ input[type="checkbox"]:checked + label::after {
   color: var(--ra-primary) !important;
 }
 
+/* Hide group content when collapsed */
+.or-group.collapsed > *:not(h4) {
+  display: none !important;
+}
+
+.or-group.collapsed {
+  padding-bottom: 0 !important;
+  min-height: auto !important;
+}
+
 /* Modal headers */
 .modal-header {
   background-color: var(--ra-primary) !important;
