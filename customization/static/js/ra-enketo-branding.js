@@ -3,81 +3,54 @@
  * ==========================================
  * Injected via nginx sub_filter. Provides:
  *   - Banner with dark overlay and form title
- *   - Per-form banner via form media (upload banner.jpg)
+ *   - Per-form banner via config file
  *   - Thank you overlay with logos after submission
- *   - Per-form thank you logo via form media (upload thankyou-logo.png)
+ *   - RA-colored buttons (via CSS)
  *
  * UPDATE-PROOF: Loaded via nginx sub_filter; does not modify core files.
  *
- * Form Media Convention:
- *   - Upload "banner.jpg" as form media → used as banner background
- *   - Upload "thankyou-logo.png" as form media → shown on thank you page
- *   - If not uploaded, defaults are used
+ * Configuration:
+ *   Edit /custom-static/config/form-branding.json to set per-form banners
+ *   and thank-you images. Place images in:
+ *     /custom-static/config/banners/   - banner background images
+ *     /custom-static/config/thankyou/  - thank you page logos
  */
 (function () {
   'use strict';
 
+  var CONFIG_URL = '/custom-static/config/form-branding.json';
   var RA_LOGO = '/custom-static/images/ra-logo-dark.png';
   var DEFAULT_BANNER = '/custom-static/images/default-banner.jpg';
   var BANNER_ID = 'ra-form-banner';
 
-  // Only run on form pages (not API endpoints or error pages)
+  // Only run on form pages
   function isFormPage() {
     return !!document.querySelector('form.or') || !!document.querySelector('.main');
   }
 
-  // ========================================================================
-  // FORM MEDIA DETECTION
-  // ========================================================================
-
-  /**
-   * Try to find the media base path for this form.
-   * Enketo serves form media at paths like:
-   *   /media/get/{hash}/{filename}
-   *   /x/media/get/{hash}/{filename}
-   *   /preview/media/get/{hash}/{filename}
-   * We scan existing media elements to find the pattern.
-   */
-  function findMediaBasePath() {
-    var imgs = document.querySelectorAll('form.or img[src*="/media/get/"]');
-    for (var i = 0; i < imgs.length; i++) {
-      var src = imgs[i].getAttribute('src');
-      var match = src.match(/(.*\/media\/get\/[^/]+\/)/);
-      if (match) return match[1];
-    }
-
-    // Try source elements too (audio/video)
-    var sources = document.querySelectorAll('form.or source[src*="/media/get/"]');
-    for (var j = 0; j < sources.length; j++) {
-      var ssrc = sources[j].getAttribute('src');
-      var smatch = ssrc.match(/(.*\/media\/get\/[^/]+\/)/);
-      if (smatch) return smatch[1];
-    }
-
-    // Fallback: try to construct from URL path
+  // Extract form ID from URL (e.g., /x/boFXa8gH → boFXa8gH)
+  function getFormId() {
     var path = window.location.pathname;
-    // /x/FORMID → /x/media/get/0/
-    // /preview/FORMID → /preview/media/get/0/
-    var pathMatch = path.match(/^(\/(?:x|preview|single|i)\/)/);
-    if (pathMatch) {
-      return pathMatch[1] + 'media/get/0/';
-    }
-
-    return null;
+    var match = path.match(/\/(?:x|preview|single|i|single\/i)\/([a-zA-Z0-9]+)/);
+    return match ? match[1] : null;
   }
 
-  /**
-   * Check if a URL exists (returns 200) via HEAD request
-   */
-  function checkMediaExists(url, callback) {
+  // Load config
+  function loadConfig(callback) {
     var xhr = new XMLHttpRequest();
-    xhr.open('HEAD', url, true);
+    xhr.open('GET', CONFIG_URL + '?t=' + Date.now(), true);
     xhr.onload = function () {
-      callback(xhr.status >= 200 && xhr.status < 400);
+      if (xhr.status === 200) {
+        try {
+          callback(JSON.parse(xhr.responseText));
+        } catch (e) {
+          callback(null);
+        }
+      } else {
+        callback(null);
+      }
     };
-    xhr.onerror = function () {
-      callback(false);
-    };
+    xhr.onerror = function () { callback(null); };
     xhr.send();
   }
 
@@ -85,7 +58,7 @@
   // BANNER
   // ========================================================================
 
-  function createBanner() {
+  function createBanner(bannerImage) {
     if (document.getElementById(BANNER_ID)) return;
 
     var formTitle = '';
@@ -97,6 +70,9 @@
     var banner = document.createElement('div');
     banner.id = BANNER_ID;
     banner.className = 'ra-form-banner';
+    if (bannerImage) {
+      banner.style.backgroundImage = 'url(' + bannerImage + ')';
+    }
 
     var title = document.createElement('h1');
     title.className = 'ra-form-banner__title';
@@ -109,27 +85,18 @@
       header.parentNode.insertBefore(banner, header);
       document.body.classList.add('ra-has-banner');
     }
-
-    // Check for custom banner image from form media
-    var mediaBase = findMediaBasePath();
-    if (mediaBase) {
-      var bannerUrl = mediaBase + 'banner.jpg';
-      checkMediaExists(bannerUrl, function (exists) {
-        if (exists) {
-          banner.style.backgroundImage = 'url(' + bannerUrl + ')';
-        }
-      });
-    }
   }
 
   // ========================================================================
   // THANK YOU OVERLAY
   // ========================================================================
 
-  var thankyouLogoUrl = null; // Will be set if form media has thankyou-logo.png
-
-  function showThankYou() {
+  function showThankYou(config) {
     if (document.querySelector('.ra-thankyou-overlay')) return;
+
+    var thankyouLogo = (config && config.thankyou_logo) || RA_LOGO;
+    var thankyouMessage = (config && config.thankyou_message) ||
+      'Your submission has been recorded successfully. Thank you for contributing to urban resilience data collection.';
 
     var overlay = document.createElement('div');
     overlay.className = 'ra-thankyou-overlay';
@@ -153,16 +120,16 @@
     // Message
     var message = document.createElement('p');
     message.className = 'ra-thankyou__message';
-    message.textContent = 'Your submission has been recorded successfully. Thank you for contributing to urban resilience data collection.';
+    message.textContent = thankyouMessage;
     content.appendChild(message);
 
-    // Partner logos container
-    if (thankyouLogoUrl) {
+    // Partner/project logo if configured
+    if (thankyouLogo !== RA_LOGO) {
       var logosDiv = document.createElement('div');
       logosDiv.className = 'ra-thankyou__logos';
 
       var partnerLogo = document.createElement('img');
-      partnerLogo.src = thankyouLogoUrl;
+      partnerLogo.src = thankyouLogo;
       partnerLogo.alt = 'Partner';
       partnerLogo.className = 'ra-thankyou__partner-logo';
       logosDiv.appendChild(partnerLogo);
@@ -172,6 +139,7 @@
 
     // Buttons
     var btnContainer = document.createElement('div');
+    btnContainer.style.marginTop = '20px';
 
     var submitAnother = document.createElement('a');
     submitAnother.href = window.location.href;
@@ -182,9 +150,7 @@
     var closeBtn = document.createElement('button');
     closeBtn.className = 'ra-thankyou__btn ra-thankyou__btn--secondary';
     closeBtn.textContent = 'Close';
-    closeBtn.onclick = function () {
-      overlay.remove();
-    };
+    closeBtn.onclick = function () { overlay.remove(); };
     btnContainer.appendChild(closeBtn);
 
     content.appendChild(btnContainer);
@@ -192,42 +158,36 @@
     document.body.appendChild(overlay);
   }
 
-  function listenForSubmission() {
-    // Strategy 1: Listen for Enketo's submissionsuccess event
+  function listenForSubmission(formConfig) {
+    // Strategy 1: Enketo's submissionsuccess event
     var form = document.querySelector('form.or');
     if (form) {
       form.addEventListener('submissionsuccess', function () {
-        setTimeout(showThankYou, 500);
+        setTimeout(function () { showThankYou(formConfig); }, 500);
       });
     }
 
-    // Strategy 2: Observe DOM for success messages (backup)
+    // Strategy 2: Watch for success dialogs
     var observer = new MutationObserver(function (mutations) {
       for (var i = 0; i < mutations.length; i++) {
         var nodes = mutations[i].addedNodes;
         for (var j = 0; j < nodes.length; j++) {
           var node = nodes[j];
-          if (node.nodeType === 1) {
-            // Check for Enketo's success dialog
-            if (node.classList && (
-              node.classList.contains('vex') ||
-              node.classList.contains('alert-success')
-            )) {
-              var text = node.textContent || '';
-              if (text.indexOf('submitted') > -1 || text.indexOf('success') > -1) {
-                setTimeout(showThankYou, 500);
-              }
-            }
-            // Also check children
-            var successEl = node.querySelector && node.querySelector('.vex-dialog-message, .alert-success');
-            if (successEl) {
-              setTimeout(showThankYou, 500);
-            }
+          if (node.nodeType !== 1) continue;
+          var text = node.textContent || '';
+          var isSuccess = (text.indexOf('submitted') > -1 || text.indexOf('success') > -1);
+          var hasSuccessClass = node.classList && (
+            node.classList.contains('vex') ||
+            node.classList.contains('alert-success')
+          );
+          var hasSuccessChild = node.querySelector &&
+            node.querySelector('.vex-dialog-message, .alert-success');
+          if ((hasSuccessClass && isSuccess) || hasSuccessChild) {
+            setTimeout(function () { showThankYou(formConfig); }, 500);
           }
         }
       }
     });
-
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
@@ -238,30 +198,34 @@
   function init() {
     if (!isFormPage()) return;
 
-    // Create banner
-    createBanner();
+    var formId = getFormId();
 
-    // Check for custom thank you logo
-    var mediaBase = findMediaBasePath();
-    if (mediaBase) {
-      var logoUrl = mediaBase + 'thankyou-logo.png';
-      checkMediaExists(logoUrl, function (exists) {
-        if (exists) {
-          thankyouLogoUrl = logoUrl;
+    loadConfig(function (config) {
+      var formConfig = null;
+      var bannerImage = DEFAULT_BANNER;
+
+      if (config) {
+        // Check for form-specific config
+        if (formId && config.forms && config.forms[formId]) {
+          formConfig = config.forms[formId];
+          bannerImage = formConfig.banner || config.defaults.banner || DEFAULT_BANNER;
+        } else if (config.defaults) {
+          formConfig = config.defaults;
+          bannerImage = config.defaults.banner || DEFAULT_BANNER;
         }
-      });
-    }
+      }
 
-    // Listen for form submission
-    listenForSubmission();
+      createBanner(bannerImage);
+      listenForSubmission(formConfig);
+    });
   }
 
-  // Wait for DOM
+  // Wait for DOM and Enketo to render
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
-      setTimeout(init, 500);
+      setTimeout(init, 800);
     });
   } else {
-    setTimeout(init, 500);
+    setTimeout(init, 800);
   }
 })();

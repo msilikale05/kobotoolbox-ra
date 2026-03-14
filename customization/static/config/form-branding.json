@@ -1,0 +1,18 @@
+{
+  "_comment": "Form branding configuration. Map Enketo form IDs to custom images.",
+  "_usage": "Add an entry with the form's Enketo ID (from the URL, e.g. 'boFXa8gH') and set banner/thankyou images.",
+  "_banner_upload": "Place banner images in /custom-static/config/banners/ and reference by filename.",
+  "_thankyou_upload": "Place thank-you logos in /custom-static/config/thankyou/ and reference by filename.",
+  "defaults": {
+    "banner": "/custom-static/images/default-banner.jpg",
+    "thankyou_logo": "/custom-static/images/ra-logo-dark.png",
+    "thankyou_message": "Your submission has been recorded successfully. Thank you for contributing to urban resilience data collection."
+  },
+  "forms": {
+    "boFXa8gH": {
+      "banner": "/custom-static/images/default-banner.jpg",
+      "thankyou_logo": "/custom-static/images/ra-logo-dark.png",
+      "thankyou_message": "Thank you for your contribution to the ProWaS SASA project!"
+    }
+  }
+}
