@@ -159,36 +159,39 @@
   }
 
   function listenForSubmission(formConfig) {
-    // Strategy 1: Enketo's submissionsuccess event
+    var submitted = false;
+
+    // Only use Enketo's official submissionsuccess event
+    // This ONLY fires after a successful server-side submission
     var form = document.querySelector('form.or');
     if (form) {
       form.addEventListener('submissionsuccess', function () {
-        setTimeout(function () { showThankYou(formConfig); }, 500);
+        if (submitted) return;
+        submitted = true;
+        setTimeout(function () { showThankYou(formConfig); }, 1000);
       });
     }
 
-    // Strategy 2: Watch for success dialogs
-    var observer = new MutationObserver(function (mutations) {
-      for (var i = 0; i < mutations.length; i++) {
-        var nodes = mutations[i].addedNodes;
-        for (var j = 0; j < nodes.length; j++) {
-          var node = nodes[j];
-          if (node.nodeType !== 1) continue;
-          var text = node.textContent || '';
-          var isSuccess = (text.indexOf('submitted') > -1 || text.indexOf('success') > -1);
-          var hasSuccessClass = node.classList && (
-            node.classList.contains('vex') ||
-            node.classList.contains('alert-success')
-          );
-          var hasSuccessChild = node.querySelector &&
-            node.querySelector('.vex-dialog-message, .alert-success');
-          if ((hasSuccessClass && isSuccess) || hasSuccessChild) {
-            setTimeout(function () { showThankYou(formConfig); }, 500);
+    // Fallback: intercept the native XMLHttpRequest to detect successful POST to /submission
+    var origOpen = XMLHttpRequest.prototype.open;
+    var origSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function (method, url) {
+      this._raMethod = method;
+      this._raUrl = url;
+      return origOpen.apply(this, arguments);
+    };
+    XMLHttpRequest.prototype.send = function () {
+      var self = this;
+      if (this._raMethod === 'POST' && this._raUrl && this._raUrl.indexOf('/submission') > -1) {
+        this.addEventListener('load', function () {
+          if (self.status >= 200 && self.status < 300 && !submitted) {
+            submitted = true;
+            setTimeout(function () { showThankYou(formConfig); }, 1500);
           }
-        }
+        });
       }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+      return origSend.apply(this, arguments);
+    };
   }
 
   // ========================================================================
