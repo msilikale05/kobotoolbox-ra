@@ -36,7 +36,7 @@ sed -i '/server_name.*kc\./,/^}/{
     /location \/static {/i\    include /etc/nginx/includes/custom_branding.conf;
 }' "$NGINX_CONF"
 
-# Enketo branding - inject CSS to replace logo
+# Enketo branding - inject JS to replace logo + disable gzip so sub_filter works
 ENKETO_BRANDING_CONF="/etc/nginx/includes/enketo_branding.conf"
 cat > "$ENKETO_BRANDING_CONF" << 'NGINX'
 sub_filter_once on;
@@ -50,10 +50,13 @@ location /custom-static {
 }
 NGINX
 
-# Inject 'include' directive into Enketo (ee) server block
+# Inject 'include' into Enketo (ee) server block AND disable gzip from upstream
 sed -i '/server_name.*ee\./,/^}/{
     /location \/ {/i\    include /etc/nginx/includes/enketo_branding.conf;
 }' "$NGINX_CONF"
+
+# Disable gzip from Enketo upstream so sub_filter can work
+sed -i '/proxy_pass.*enketo_express/i\        proxy_set_header Accept-Encoding "";' "$NGINX_CONF"
 
 # Fix X-Frame-Options: DENY -> SAMEORIGIN so form preview iframe works
 sed -i '/proxy_pass.*kpi/i\        proxy_hide_header X-Frame-Options;\n        add_header X-Frame-Options SAMEORIGIN;' "$NGINX_CONF"
