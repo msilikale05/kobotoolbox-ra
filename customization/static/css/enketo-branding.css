@@ -71,7 +71,8 @@
     padding-bottom: 0 !important;
   }
   .ra-has-banner #ra-form-banner {
-    margin-top: 0 !important;
+    margin-top: -20px !important;
+    padding-top: 20px !important;
   }
 }
 
