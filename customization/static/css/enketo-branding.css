@@ -64,17 +64,7 @@
   text-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
-/* Ensure banner never overlaps header on mobile/tablet */
-.ra-has-banner #ra-form-banner {
-  margin-top: 0 !important;
-  position: relative;
-  z-index: 1;
-}
-
-.ra-has-banner .form-header {
-  position: relative;
-  z-index: 10;
-}
+/* No gap between header and banner */
 
 /* Hide original form title when banner is present */
 .ra-has-banner #form-title {
