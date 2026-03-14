@@ -56,7 +56,8 @@ sed -i '/server_name.*ee\./,/^}/{
 }' "$NGINX_CONF"
 
 # Disable gzip from Enketo upstream so sub_filter can work
-sed -i '/proxy_pass.*enketo_express/i\        proxy_set_header Accept-Encoding "";' "$NGINX_CONF"
+# Also set Host header so Enketo generates public URLs (not internal docker hostname)
+sed -i '/proxy_pass.*enketo_express/i\        proxy_set_header Accept-Encoding "";\n        proxy_set_header Host ee.'"${PUBLIC_DOMAIN_NAME:-ramaniyangu.com}"';' "$NGINX_CONF"
 
 # Fix X-Frame-Options: DENY -> SAMEORIGIN so form preview iframe works
 sed -i '/proxy_pass.*kpi/i\        proxy_hide_header X-Frame-Options;\n        add_header X-Frame-Options SAMEORIGIN;' "$NGINX_CONF"
