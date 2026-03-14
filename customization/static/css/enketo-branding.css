@@ -65,7 +65,7 @@
 }
 
 /* Fix multilingual labels — hide non-active language */
-.question-label > span[lang]:not(.active),
+.question-label span[lang]:not(.active),
 .or-group > h4 span[lang]:not(.active),
 .or-group-data > h4 span[lang]:not(.active) {
   display: none !important;
