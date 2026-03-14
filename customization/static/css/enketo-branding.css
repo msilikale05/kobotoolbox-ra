@@ -23,11 +23,7 @@
 
 .ra-form-banner {
   position: relative;
-  width: 100vw;
-  left: 50%;
-  right: 50%;
-  margin-left: -50vw;
-  margin-right: -50vw;
+  width: 100%;
   min-height: 200px;
   background-image: url('/custom-static/images/default-banner.jpg');
   background-size: cover;
@@ -37,6 +33,8 @@
   align-items: flex-end;
   margin-bottom: 0;
   box-sizing: border-box;
+  border-radius: 0;
+  overflow: hidden;
 }
 
 .ra-form-banner::after {
