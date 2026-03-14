@@ -16,7 +16,7 @@ echo "Applying custom branding to nginx configuration..."
 # Write the custom branding nginx include file
 cat > "$BRANDING_CONF" << 'NGINX'
 sub_filter_once on;
-sub_filter '</head>' '<link rel="stylesheet" href="/custom-static/css/custom-theme.css?v=4" />\n<script src="/custom-static/js/ra-welcome.js?v=2" defer></script>\n</head>';
+sub_filter '</head>' '<link rel="stylesheet" href="/custom-static/css/custom-theme.css?v=4" />\n<script src="/custom-static/js/ra-welcome.js?v=2" defer></script>\n<script src="/custom-static/js/ra-submission-badge.js?v=1" defer></script>\n</head>';
 sub_filter_types text/html;
 
 location /custom-static {
@@ -42,7 +42,7 @@ cat > "$ENKETO_BRANDING_CONF" << 'NGINX'
 sub_filter_once off;
 sub_filter 'href="/x/images/favicon.ico"' 'href="/custom-static/images/favicon.png"';
 sub_filter 'href="/x/images/icon_180x180.png"' 'href="/custom-static/images/favicon.png"';
-sub_filter '</head>' '<style>.form-header__branding .logo-wrapper{cursor:pointer}.form-header__branding img[alt="brand logo"],.form-header__branding img[src^="data:image/svg"]{content:url(/custom-static/images/ra-logo-dark.png)!important;visibility:visible!important}.enketo-power img[alt="Enketo logo"]{content:url(/custom-static/images/ra-logo-dark.png)!important}</style><script>(function(){var RA_LOGO="/custom-static/images/ra-logo-dark.png";var RA_URL="https://resilienceacademy.ac.tz";function fix(){document.querySelectorAll("img").forEach(function(img){if((img.alt==="brand logo"||img.alt==="Ramani Yangu"||(img.src&&img.src.indexOf("data:image/svg+xml")===0))&&img.closest(".form-header__branding")){img.src=RA_LOGO;img.alt="Ramani Yangu";img.removeAttribute("data-original");var wrapper=img.closest(".logo-wrapper");if(wrapper&&wrapper.tagName!=="A"){var link=document.createElement("a");link.href=RA_URL;link.target="_blank";link.rel="noopener";wrapper.parentNode.insertBefore(link,wrapper);link.appendChild(wrapper)}}});document.querySelectorAll("img[alt=\\"Enketo logo\\"]").forEach(function(img){img.src=RA_LOGO;img.alt="Ramani Yangu"})}var obs=new MutationObserver(fix);document.addEventListener("DOMContentLoaded",function(){fix();obs.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["src"]})});setTimeout(fix,1000);setTimeout(fix,3000);setTimeout(fix,5000);setInterval(fix,2000)})()</script>\n</head>';
+sub_filter '</head>' '<style>.form-header__branding img[alt="brand logo"],.form-header__branding img[src^="data:image/svg"]{content:url(/custom-static/images/ra-logo-dark.png)!important}.enketo-power img[alt="Enketo logo"]{content:url(/custom-static/images/ra-logo-dark.png)!important}</style><script>(function(){function fix(){var done=document.querySelector(".ra-link-done");if(done)return;var w=document.querySelector(".form-header__branding .logo-wrapper");if(w&&w.tagName!=="A"){var a=document.createElement("a");a.href="https://resilienceacademy.ac.tz";a.target="_blank";a.rel="noopener";a.className="ra-link-done";w.parentNode.insertBefore(a,w);a.appendChild(w)}}document.addEventListener("DOMContentLoaded",function(){fix();setTimeout(fix,2000);setTimeout(fix,5000)})})()</script>\n</head>';
 sub_filter_types text/html;
 
 location /custom-static {
