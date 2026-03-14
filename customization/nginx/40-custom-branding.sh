@@ -43,6 +43,7 @@ sub_filter_once off;
 sub_filter 'src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJhIi' 'src="/custom-static/images/ra-logo-dark.png" data-original="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJhIi';
 sub_filter 'alt="brand logo"' 'alt="Ramani Yangu"';
 sub_filter 'alt="Enketo logo"' 'alt="Ramani Yangu"';
+sub_filter '<div class="logo-wrapper">' '<a href="https://resilienceacademy.ac.tz" target="_blank" rel="noopener" class="logo-wrapper" style="display:block">';
 sub_filter_types text/html;
 
 location /custom-static {
