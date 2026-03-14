@@ -265,6 +265,53 @@ input[type="checkbox"]:checked + label::after {
   padding-bottom: 7px !important;
 }
 
+/* Header text — all white */
+.form-header,
+.form-header *,
+.form-header .form-language-selector,
+.form-header .form-language-selector span,
+.form-header button,
+.form-header a {
+  color: #ffffff !important;
+}
+
+/* Language dropdown — white border, readable on blue background */
+.form-header .form-language-selector select,
+.form-header select {
+  border: 1px solid #ffffff !important;
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-radius: 4px !important;
+}
+
+.form-header .form-language-selector select option {
+  color: #333 !important;
+  background-color: #ffffff !important;
+}
+
+/* Print icon white */
+.form-header .form-header__button--print {
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   GROUP HEADINGS — black text and arrows
+   ========================================================================== */
+
+.or-group > h4,
+.or-group > h4 span,
+.or-group > h4 .question-label {
+  color: #000000 !important;
+}
+
+/* Group collapse/expand arrows — black */
+.or-group > h4::before,
+.or-group > h4::after,
+.or-group.or-appearance-field-list > h4::before {
+  color: #000000 !important;
+  border-color: #000000 !important;
+}
+
 /* Modal headers */
 .modal-header {
   background-color: var(--ra-primary) !important;
