@@ -164,6 +164,22 @@
   font-weight: 500 !important;
 }
 
+/* Login page links - Create account, Forgot password */
+.registration a {
+  color: var(--ra-primary-dark) !important;
+}
+
+.registration a:hover {
+  color: var(--ra-primary) !important;
+}
+
+/* All text inside the login form card */
+.registration p,
+.registration span,
+.registration div {
+  color: #2c3e50 !important;
+}
+
 /* ==========================================================================
    SIDEBAR / NAVIGATION
    ========================================================================== */

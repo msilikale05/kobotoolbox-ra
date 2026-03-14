@@ -1,7 +1,7 @@
 {% load account %}{% user_display user as user_display %}{% load i18n %}
 Hello {{ user_display }},
 
-Thank you for registering with the Resilience Academy Data Collection Platform.
+Thank you for registering with the Ramani Yangu Data Collection Platform.
 
 Please confirm your email address by clicking the link below:
 

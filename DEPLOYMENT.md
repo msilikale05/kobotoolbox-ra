@@ -214,6 +214,20 @@ docker exec POSTGRES_CONTAINER psql -U kobo koboform -c \
 docker restart KPI_CONTAINER
 ```
 
+### Login hangs indefinitely (HARAKIRI timeout)
+
+**Cause:** `EMAIL_BACKEND` defaults to SMTP but `EMAIL_HOST` is empty.
+When KPI tries to send any email (login signal, verification), it hangs
+trying to connect to a non-existent SMTP server on port 25.
+
+**Fix:** Either configure SMTP during `run.py --setup`, or add to the
+custom compose file under `kpi.environment`:
+```yaml
+- EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+```
+This logs emails to the console instead of sending them. Remove this
+line once SMTP is properly configured.
+
 ### HTTPS redirect loop (301 to same URL)
 
 **Cause:** The reverse proxy sends `X-Forwarded-Proto: $scheme` which
