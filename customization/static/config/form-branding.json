@@ -10,9 +10,9 @@
   },
   "forms": {
     "boFXa8gH": {
-      "banner": "/custom-static/images/default-banner.jpg",
-      "thankyou_logo": "/custom-static/images/ra-logo-dark.png",
-      "thankyou_message": "Thank you for your contribution to the ProWaS SASA project!"
+      "banner": "/custom-static/config/banners/banner.jpg",
+      "thankyou_logo": "/custom-static/config/thankyou/thankyou-logo.png",
+      "thankyou_message": "Your submission has been recorded successfully. Thank you for submitting the form as part of the LVBWB mapping activities."
     }
   }
 }
