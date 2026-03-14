@@ -202,9 +202,15 @@
   margin-left: 3px !important;
 }
 
+/* Remove default black left border on all questions */
+.or .question {
+  border-left: none !important;
+}
+
 /* Active question highlight — subtle background only */
 .question.focus,
 .question:focus-within {
+  border-left: none !important;
   background-color: rgba(84, 168, 220, 0.03) !important;
 }
 
