@@ -64,10 +64,10 @@
   text-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
-/* Fix multilingual labels — hide non-active language */
-.question-label span[lang]:not(.active),
-.or-group > h4 span[lang]:not(.active),
-.or-group-data > h4 span[lang]:not(.active) {
+/* Fix multilingual labels — hide non-active language everywhere */
+.or span[lang]:not(.active),
+.or label[lang]:not(.active),
+.or option[lang]:not(.active) {
   display: none !important;
 }
 
