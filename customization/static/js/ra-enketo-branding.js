@@ -79,10 +79,10 @@
     title.textContent = formTitle || 'Data Collection Form';
     banner.appendChild(title);
 
-    // Insert banner at the top of the form
-    var header = document.querySelector('.form-header');
-    if (header && header.parentNode) {
-      header.parentNode.insertBefore(banner, header);
+    // Insert banner before article.paper so it spans the full .main width
+    var paper = document.querySelector('article.paper');
+    if (paper && paper.parentNode) {
+      paper.parentNode.insertBefore(banner, paper);
       document.body.classList.add('ra-has-banner');
     }
   }
