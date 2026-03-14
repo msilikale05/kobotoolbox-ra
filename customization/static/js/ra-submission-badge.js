@@ -22,24 +22,31 @@
     '  position: relative;',
     '  display: inline-flex;',
     '  align-items: center;',
-    '  margin-right: 16px;',
+    '  justify-content: center;',
+    '  width: 40px;',
+    '  height: 40px;',
     '  cursor: pointer;',
     '  user-select: none;',
-    '  vertical-align: middle;',
+    '  margin-right: 4px;',
     '}',
     '#' + BADGE_ID + ' .ra-badge__bell {',
-    '  font-size: 18px;',
-    '  line-height: 1;',
-    '  color: rgba(255,255,255,0.75);',
-    '  transition: color 0.2s;',
+    '  display: inline-flex;',
+    '  align-items: center;',
+    '  justify-content: center;',
     '}',
-    '#' + BADGE_ID + ':hover .ra-badge__bell {',
-    '  color: #fff;',
+    '#' + BADGE_ID + ' .ra-badge__bell svg {',
+    '  width: 22px;',
+    '  height: 22px;',
+    '  fill: rgba(255,255,255,0.7);',
+    '  transition: fill 0.2s;',
+    '}',
+    '#' + BADGE_ID + ':hover .ra-badge__bell svg {',
+    '  fill: #fff;',
     '}',
     '#' + BADGE_ID + ' .ra-badge__count {',
     '  position: absolute;',
-    '  top: -6px;',
-    '  right: -10px;',
+    '  top: 2px;',
+    '  right: 0px;',
     '  min-width: 18px;',
     '  height: 18px;',
     '  padding: 0 5px;',
@@ -242,36 +249,36 @@
   function createBadge() {
     if (document.getElementById(BADGE_ID)) return true;
 
-    // Target the header row's account section area (right side of top bar)
-    // KPI layout: .mdl-layout__header-row > ... > .accountSection (with badgeWrapper)
-    var accountSection = document.querySelector('[class*="accountSection"]')
-      || document.querySelector('[class*="badgeWrapper"]');
+    // Place inside KPI's badgeWrapper (inside accountSection, left of avatar)
+    var target = document.querySelector('[class*="badgeWrapper"]');
 
-    // Fallback: find the header row itself
-    var headerRow = document.querySelector('.mdl-layout__header-row');
-
-    if (!accountSection && !headerRow) return false;
-
-    // Insert before the account section, or append to header row
-    var navLinks = accountSection ? accountSection.parentElement : headerRow;
+    // Fallback: before the account-box
+    if (!target) {
+      target = document.querySelector('[class*="accountSection"]');
+    }
+    // Last resort: the header row
+    if (!target) {
+      target = document.querySelector('.mdl-layout__header-row');
+    }
+    if (!target) return false;
 
     var badge = document.createElement('div');
     badge.id = BADGE_ID;
     badge.title = "Today's submissions";
     badge.innerHTML = [
-      '<span class="ra-badge__bell">&#9993;</span>',
+      '<span class="ra-badge__bell">',
+      '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">',
+      '<path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>',
+      '</svg>',
+      '</span>',
       '<span class="ra-badge__count ra-badge__count--zero">-</span>',
       '<div id="' + DROPDOWN_ID + '">',
       '  <div class="ra-dropdown__loading">Loading submissions...</div>',
       '</div>'
     ].join('');
 
-    // Place before account section so it sits left of the avatar
-    if (accountSection) {
-      navLinks.insertBefore(badge, accountSection);
-    } else {
-      navLinks.appendChild(badge);
-    }
+    // Append inside the target container
+    target.appendChild(badge);
 
     // Toggle dropdown on click
     badge.addEventListener('click', function (e) {
@@ -338,7 +345,7 @@
       data.forms.forEach(function (f) {
         var countClass = f.todayCount === 0 ? ' ra-dropdown__item-count--zero' : '';
         html.push(
-          '<a class="ra-dropdown__item" href="/#/forms/' + f.uid + '/landing" title="' +
+          '<a class="ra-dropdown__item" href="/#/forms/' + f.uid + '/data/table" title="' +
           f.name.replace(/"/g, '&quot;') + '">' +
           '<span class="ra-dropdown__item-name">' + escapeHtml(f.name) + '</span>' +
           '<span class="ra-dropdown__item-count' + countClass + '">' + f.todayCount + '</span>' +

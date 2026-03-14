@@ -20,7 +20,7 @@ sub_filter 'href="/static/favicon.png"' 'href="/custom-static/images/favicon.png
 sub_filter 'href="/static/apple-touch-icon.png"' 'href="/custom-static/images/favicon.png"';
 sub_filter 'href="/static/safari-pinned-tab.svg" color="#2095f3"' 'href="/custom-static/images/favicon.png" color="#54a8dc"';
 sub_filter '<meta name="description" content="KoboToolbox is a free toolkit for collecting and managing data in challenging environments and is the most widely-used tool in humanitarian emergencies">' '<meta name="description" content="Ramani Yangu - Resilience Academy Data Collection Platform for urban resilience research across Tanzania">\n<meta property="og:title" content="Ramani Yangu - Data Collection">\n<meta property="og:description" content="Resilience Academy Data Collection Platform for urban resilience research across Tanzania">\n<meta property="og:image" content="https://kf.ramaniyangu.com/custom-static/images/ra-logo-dark.png">\n<meta property="og:type" content="website">\n<meta property="og:url" content="https://kf.ramaniyangu.com">\n<meta name="twitter:card" content="summary">\n<meta name="twitter:title" content="Ramani Yangu - Data Collection">\n<meta name="twitter:image" content="https://kf.ramaniyangu.com/custom-static/images/ra-logo-dark.png">';
-sub_filter '</head>' '<link rel="stylesheet" href="/custom-static/css/custom-theme.css?v=4" />\n<script src="/custom-static/js/ra-welcome.js?v=2" defer></script>\n<script src="/custom-static/js/ra-submission-badge.js?v=3" defer></script>\n</head>';
+sub_filter '</head>' '<link rel="stylesheet" href="/custom-static/css/custom-theme.css?v=4" />\n<script src="/custom-static/js/ra-welcome.js?v=2" defer></script>\n<script src="/custom-static/js/ra-submission-badge.js?v=4" defer></script>\n</head>';
 sub_filter_types text/html;
 
 location /custom-static {
@@ -68,7 +68,12 @@ sed -i '/server_name.*ee\./,/^}/{
 # Also set Host header so Enketo generates public URLs (not internal docker hostname)
 sed -i '/proxy_pass.*enketo_express/i\        proxy_set_header Accept-Encoding "";\n        proxy_set_header Host ee.'"${PUBLIC_DOMAIN_NAME:-ramaniyangu.com}"';' "$NGINX_CONF"
 
-# Fix X-Frame-Options: DENY -> SAMEORIGIN so form preview iframe works
-sed -i '/proxy_pass.*kpi/i\        proxy_hide_header X-Frame-Options;\n        add_header X-Frame-Options SAMEORIGIN;' "$NGINX_CONF"
+# Fix X-Frame-Options: DENY so form preview iframe works.
+# The preview embeds ee.domain inside kf.domain (cross-origin), so we must
+# strip X-Frame-Options entirely from all upstream responses.
+# - uwsgi_hide_header: for KPI/KoboCAT (served via uwsgi)
+# - proxy_hide_header: for Enketo (served via proxy_pass)
+sed -i '/include.*proxy_pass\.conf/i\        uwsgi_hide_header X-Frame-Options;' "$NGINX_CONF"
+sed -i '/proxy_pass.*enketo_express/i\        proxy_hide_header X-Frame-Options;' "$NGINX_CONF"
 
 echo "Custom branding applied successfully."
