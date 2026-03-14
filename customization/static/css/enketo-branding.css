@@ -174,8 +174,8 @@
   display: block !important;
 }
 
-/* Hint text — breathing space */
-.or .or-hint {
+/* Hint text — breathing space (only active language) */
+.or .or-hint.active {
   margin-top: 4px !important;
   margin-bottom: 10px !important;
   padding: 4px 0 !important;
@@ -202,11 +202,9 @@
   margin-left: 3px !important;
 }
 
-/* Active question highlight */
+/* Active question highlight — subtle background only */
 .question.focus,
 .question:focus-within {
-  border-left: 3px solid var(--ra-primary) !important;
-  padding-left: 12px !important;
   background-color: rgba(84, 168, 220, 0.03) !important;
 }
 
