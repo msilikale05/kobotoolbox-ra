@@ -80,9 +80,20 @@
     banner.appendChild(title);
 
     // Insert banner after .form-header but before the form content
+    var inserted = false;
     var header = document.querySelector('.form-header');
-    if (header && header.parentNode) {
+    var form = document.querySelector('form.or');
+
+    if (header && form) {
+      // Insert between header and form
+      header.parentNode.insertBefore(banner, form);
+      inserted = true;
+    } else if (header && header.parentNode) {
       header.parentNode.insertBefore(banner, header.nextSibling);
+      inserted = true;
+    }
+
+    if (inserted) {
       document.body.classList.add('ra-has-banner');
 
       // Make banner full width by negating article.paper padding
