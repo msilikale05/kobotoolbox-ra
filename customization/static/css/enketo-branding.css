@@ -130,18 +130,109 @@
   background-color: var(--ra-primary) !important;
 }
 
+/* ==========================================================================
+   FORM FIELDS — clear visual definition
+   ========================================================================== */
+
+/* All input fields — visible border and background */
+.or input[type="text"],
+.or input[type="number"],
+.or input[type="tel"],
+.or input[type="email"],
+.or input[type="url"],
+.or input[type="date"],
+.or input[type="time"],
+.or input[type="datetime-local"],
+.or textarea,
+.or select {
+  border: 1px solid #ccc !important;
+  border-radius: 4px !important;
+  padding: 10px 12px !important;
+  background-color: #fafbfc !important;
+  font-size: 15px !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+
+/* Focus state — blue highlight */
+.or input[type="text"]:focus,
+.or input[type="number"]:focus,
+.or input[type="tel"]:focus,
+.or input[type="email"]:focus,
+.or textarea:focus,
+.or select:focus {
+  border-color: var(--ra-primary) !important;
+  box-shadow: 0 0 0 3px rgba(84, 168, 220, 0.2) !important;
+  background-color: #ffffff !important;
+  outline: none !important;
+}
+
+/* Question labels — clear and bold */
+.or .question-label {
+  font-weight: 600 !important;
+  color: #2c3e50 !important;
+  margin-bottom: 6px !important;
+  display: block !important;
+}
+
+/* Hint text — breathing space */
+.or .or-hint {
+  margin-top: 4px !important;
+  margin-bottom: 10px !important;
+  padding: 4px 0 !important;
+  font-size: 13px !important;
+  color: #6c757d !important;
+  line-height: 1.5 !important;
+}
+
+/* Each question block — card-like separation */
+.or .question {
+  padding: 12px 0 !important;
+  margin-bottom: 4px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+}
+
+.or .question:last-child {
+  border-bottom: none !important;
+}
+
+/* Required asterisk — red and visible */
+.or .required {
+  color: #e74c3c !important;
+  font-size: 16px !important;
+  margin-left: 3px !important;
+}
+
 /* Active question highlight */
 .question.focus,
 .question:focus-within {
-  border-left-color: var(--ra-primary) !important;
+  border-left: 3px solid var(--ra-primary) !important;
+  padding-left: 12px !important;
+  background-color: rgba(84, 168, 220, 0.03) !important;
 }
 
-/* Select focus states */
-select:focus,
-input:focus,
-textarea:focus {
-  border-color: var(--ra-primary) !important;
-  box-shadow: 0 0 0 2px rgba(84, 168, 220, 0.25) !important;
+/* Dropdown (bootstrap-select) — styled to match */
+.or .btn-group .btn-default {
+  border: 1px solid #ccc !important;
+  border-radius: 4px !important;
+  padding: 10px 12px !important;
+  background-color: #fafbfc !important;
+}
+
+/* File upload — clear boundary */
+.or .file-picker .fake-file-input {
+  border: 1px dashed #ccc !important;
+  border-radius: 4px !important;
+  padding: 10px 12px !important;
+  background-color: #fafbfc !important;
+}
+
+/* Group sections — subtle card effect */
+.or .or-group {
+  background-color: #ffffff !important;
+  border-radius: 6px !important;
+  padding: 16px !important;
+  margin-bottom: 12px !important;
+  border: 1px solid #e8ecf0 !important;
 }
 
 /* Radio/checkbox selected */
@@ -281,6 +372,7 @@ input[type="checkbox"]:checked + label::after {
   color: #ffffff !important;
   background-color: rgba(255, 255, 255, 0.15) !important;
   border-radius: 4px !important;
+  padding: 6px 10px !important;
 }
 
 .form-header .form-language-selector select option {
