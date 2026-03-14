@@ -220,37 +220,54 @@
   // INITIALIZATION
   // ========================================================================
 
-  function init() {
-    if (!isFormPage()) return;
+  function tryInsertBanner() {
+    if (document.getElementById(BANNER_ID)) return true;
+    var header = document.querySelector('.form-header');
+    var form = document.querySelector('form.or');
+    if (header && form) {
+      // Create banner immediately with default image
+      createBanner(DEFAULT_BANNER);
 
-    var formId = getFormId();
-
-    loadConfig(function (config) {
-      var formConfig = null;
-      var bannerImage = DEFAULT_BANNER;
-
-      if (config) {
-        // Check for form-specific config
-        if (formId && config.forms && config.forms[formId]) {
-          formConfig = config.forms[formId];
-          bannerImage = formConfig.banner || config.defaults.banner || DEFAULT_BANNER;
-        } else if (config.defaults) {
-          formConfig = config.defaults;
-          bannerImage = config.defaults.banner || DEFAULT_BANNER;
+      // Then load config and update banner/setup thank you
+      var formId = getFormId();
+      loadConfig(function (config) {
+        var formConfig = null;
+        if (config) {
+          if (formId && config.forms && config.forms[formId]) {
+            formConfig = config.forms[formId];
+            var customBanner = formConfig.banner || (config.defaults && config.defaults.banner);
+            if (customBanner && customBanner !== DEFAULT_BANNER) {
+              var bannerEl = document.getElementById(BANNER_ID);
+              if (bannerEl) bannerEl.style.backgroundImage = 'url(' + customBanner + ')';
+            }
+          } else if (config.defaults) {
+            formConfig = config.defaults;
+          }
         }
-      }
-
-      createBanner(bannerImage);
-      listenForSubmission(formConfig);
-    });
+        listenForSubmission(formConfig);
+      });
+      return true;
+    }
+    return false;
   }
 
-  // Wait for DOM and Enketo to render
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () {
-      setTimeout(init, 800);
+  function init() {
+    if (!isFormPage()) return;
+    if (tryInsertBanner()) return;
+
+    // If form.or not yet in DOM, watch for it
+    var obs = new MutationObserver(function () {
+      if (tryInsertBanner()) obs.disconnect();
     });
+    obs.observe(document.body, { childList: true, subtree: true });
+    // Safety timeout
+    setTimeout(function () { obs.disconnect(); tryInsertBanner(); }, 10000);
+  }
+
+  // Run as early as possible
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    setTimeout(init, 800);
+    init();
   }
 })();
