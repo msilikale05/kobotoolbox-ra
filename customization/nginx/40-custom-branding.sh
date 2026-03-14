@@ -36,14 +36,11 @@ sed -i '/server_name.*kc\./,/^}/{
     /location \/static {/i\    include /etc/nginx/includes/custom_branding.conf;
 }' "$NGINX_CONF"
 
-# Enketo branding - replace logo using sub_filter to swap base64 SVG with RA logo
+# Enketo branding - inject CSS + JS to replace logo permanently
 ENKETO_BRANDING_CONF="/etc/nginx/includes/enketo_branding.conf"
 cat > "$ENKETO_BRANDING_CONF" << 'NGINX'
-sub_filter_once off;
-sub_filter 'src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJhIi' 'src="/custom-static/images/ra-logo-dark.png" data-original="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJhIi';
-sub_filter 'alt="brand logo"' 'alt="Ramani Yangu"';
-sub_filter 'alt="Enketo logo"' 'alt="Ramani Yangu"';
-sub_filter '<div class="logo-wrapper">' '<a href="https://resilienceacademy.ac.tz" target="_blank" rel="noopener" class="logo-wrapper" style="display:block">';
+sub_filter_once on;
+sub_filter '</head>' '<style>.form-header__branding .logo-wrapper{cursor:pointer}.form-header__branding img[alt="brand logo"],.form-header__branding img[src^="data:image/svg"]{content:url(/custom-static/images/ra-logo-dark.png)!important;visibility:visible!important}.enketo-power img[alt="Enketo logo"]{content:url(/custom-static/images/ra-logo-dark.png)!important}</style><script>(function(){var RA_LOGO="/custom-static/images/ra-logo-dark.png";var RA_URL="https://resilienceacademy.ac.tz";function fix(){document.querySelectorAll("img").forEach(function(img){if((img.alt==="brand logo"||img.alt==="Ramani Yangu"||(img.src&&img.src.indexOf("data:image/svg+xml")===0))&&img.closest(".form-header__branding")){img.src=RA_LOGO;img.alt="Ramani Yangu";img.removeAttribute("data-original");var wrapper=img.closest(".logo-wrapper");if(wrapper&&wrapper.tagName!=="A"){var link=document.createElement("a");link.href=RA_URL;link.target="_blank";link.rel="noopener";wrapper.parentNode.insertBefore(link,wrapper);link.appendChild(wrapper)}}});document.querySelectorAll("img[alt=\\"Enketo logo\\"]").forEach(function(img){img.src=RA_LOGO;img.alt="Ramani Yangu"})}var obs=new MutationObserver(fix);document.addEventListener("DOMContentLoaded",function(){fix();obs.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["src"]})});setTimeout(fix,1000);setTimeout(fix,3000);setTimeout(fix,5000);setInterval(fix,2000)})()</script>\n</head>';
 sub_filter_types text/html;
 
 location /custom-static {
