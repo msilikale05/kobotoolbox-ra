@@ -13,16 +13,55 @@
 
 /* Form header / branding bar */
 .form-header {
-  background-color: var(--ra-primary) !important;
-  border-bottom: 3px solid var(--ra-primary-dark) !important;
+  background-color: var(--ra-secondary) !important;
+  border-bottom: 3px solid var(--ra-primary) !important;
+  padding: 8px 16px !important;
 }
 
-/* Replace Enketo logo with RA logo */
+/* Header text — "Choose Language" label */
+.form-header .form-language-selector,
+.form-header .form-language-selector label,
+.form-header__branding,
+.form-header * {
+  color: #ffffff !important;
+}
+
+/* Language dropdown — white border and text on dark background */
+.form-header .form-language-selector select,
+.form-header select {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+}
+
+.form-header .form-language-selector select option {
+  background-color: var(--ra-secondary) !important;
+  color: #ffffff !important;
+}
+
+/* Print icon */
+.form-header .print-hint,
+.form-header .print-hint a,
+.form-header button,
+.form-header a {
+  color: #ffffff !important;
+  opacity: 0.9;
+}
+
+.form-header .print-hint:hover,
+.form-header button:hover,
+.form-header a:hover {
+  opacity: 1;
+}
+
+/* Replace Enketo logo with RA white logo (on dark header) */
 .form-header__branding img {
   max-height: 48px !important;
   width: 200px !important;
   object-position: -9999px !important;
-  background: url('https://kf.ramaniyangu.com/custom-static/images/ra-logo-dark.png') no-repeat center / contain !important;
+  background: url('/custom-static/images/ra-logo.png') no-repeat center / contain !important;
 }
 
 /* Primary buttons (Submit, Next, etc.) */
