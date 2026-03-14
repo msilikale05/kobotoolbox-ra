@@ -127,6 +127,18 @@
   display: none !important;
 }
 
+/* Welcome text below the logo */
+.registration--logo::after {
+  content: 'Welcome to the Resilience Academy Data Collection Platform';
+  display: block;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ra-secondary);
+  text-align: center;
+  line-height: 1.4;
+}
+
 /* Hide the default photo credit (optional) */
 .registration__credit {
   display: none !important;
