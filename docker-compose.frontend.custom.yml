@@ -4,31 +4,39 @@
 # any core files. Loaded by kobo-install when `use_frontend_custom_yml`
 # is set to true in .run.conf.
 #
-# IMPORTANT: Before deploying, replace ramaniyangu.com below with your actual
-# public domain (e.g., odk.utu.fi). The ENKETO_URL must be the public
-# HTTPS URL so that form collect/preview links work in the browser.
-# The extra_hosts entries allow containers to reach the public URL via
-# the host machine's reverse proxy (port 443).
+# SETUP INSTRUCTIONS:
+# 1. Copy this file into kobo-docker/:
+#      cp basic-kobotoolbox/docker-compose.frontend.custom.yml kobo-docker/
+# 2. Replace YOUR_DOMAIN with your actual domain:
+#      sed -i 's/YOUR_DOMAIN/example.com/g' kobo-docker/docker-compose.frontend.custom.yml
+# 3. If you have NO SMTP server configured, uncomment the EMAIL_BACKEND line
+#    below to prevent login from hanging.
 #
-# Features:
-#   F1: Welcome dashboard (JS injection via nginx)
-#   F2: Survey templates (mounted into KPI for import)
-#   F3: Registration restriction (via setup script)
-#   F4: Enketo form theme (CSS mounted into Enketo)
-#   F5: Custom email templates (mounted into KPI + workers)
+# WHY extra_hosts?
+#   Docker containers cannot reach public URLs (kf.domain, ee.domain) because
+#   the hostname resolves to 127.0.1.1 inside the container. extra_hosts with
+#   host-gateway makes containers route these through the Docker host, where
+#   the reverse proxy (port 443) is listening.
+#
+# WHY ENKETO_URL override?
+#   Without this, KPI generates form collect/preview links using the internal
+#   Docker URL (http://ee.domain.internal) which doesn't work in browsers.
+#   Setting it to the public HTTPS URL ensures correct links.
 
 services:
   # ===== KPI (main web app) =====
   kpi:
     environment:
-      # Public Enketo URL — used for form links shown to users.
-      # ENKETO_INTERNAL_URL is auto-set from the env file for server-to-server calls.
-      - ENKETO_URL=https://ee.ramaniyangu.com
+      # Public Enketo URL — form collect/preview links shown to users.
+      - ENKETO_URL=https://ee.YOUR_DOMAIN
+      # Uncomment the line below if NO SMTP server is configured.
+      # Without this, login will hang trying to connect to a non-existent
+      # SMTP server. Remove once SMTP is properly set up.
+      #- EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
     extra_hosts:
-      # Allow KPI to reach public URLs via the host's reverse proxy
-      - "ee.ramaniyangu.com:host-gateway"
-      - "kf.ramaniyangu.com:host-gateway"
-      - "kc.ramaniyangu.com:host-gateway"
+      - "ee.YOUR_DOMAIN:host-gateway"
+      - "kf.YOUR_DOMAIN:host-gateway"
+      - "kc.YOUR_DOMAIN:host-gateway"
     volumes:
       # F5: Email templates
       - ../basic-kobotoolbox/customization/email-templates/account/email/password_reset_key_message.txt:/srv/src/kpi/kobo/apps/accounts/templates/account/email/password_reset_key_message.txt:ro
@@ -37,22 +45,21 @@ services:
       - ../basic-kobotoolbox/customization/email-templates/account/email/email_confirmation_subject.txt:/srv/src/kpi/kobo/apps/accounts/templates/account/email/email_confirmation_subject.txt:ro
       - ../basic-kobotoolbox/customization/email-templates/account/email/email_confirmation_signup_message.txt:/srv/src/kpi/kobo/apps/accounts/templates/account/email/email_confirmation_signup_message.txt:ro
       - ../basic-kobotoolbox/customization/email-templates/account/email/email_confirmation_signup_subject.txt:/srv/src/kpi/kobo/apps/accounts/templates/account/email/email_confirmation_signup_subject.txt:ro
-      # F3: Setup scripts (run manually via docker exec)
+      # Setup scripts (run manually via docker exec)
       - ../basic-kobotoolbox/customization/scripts/01-setup-constance.py:/srv/scripts/01-setup-constance.py:ro
       - ../basic-kobotoolbox/customization/scripts/02-setup-welcome.py:/srv/scripts/02-setup-welcome.py:ro
       - ../basic-kobotoolbox/customization/scripts/03-import-templates.py:/srv/scripts/03-import-templates.py:ro
-      # F2: Survey templates
+      # Survey templates
       - ../basic-kobotoolbox/customization/templates:/srv/templates:ro
 
   # ===== Enketo Express =====
   enketo_express:
     extra_hosts:
-      # Allow Enketo to reach KPI/KC via the host's reverse proxy
-      - "kf.ramaniyangu.com:host-gateway"
-      - "kc.ramaniyangu.com:host-gateway"
-      - "ee.ramaniyangu.com:host-gateway"
+      - "kf.YOUR_DOMAIN:host-gateway"
+      - "kc.YOUR_DOMAIN:host-gateway"
+      - "ee.YOUR_DOMAIN:host-gateway"
     volumes:
-      # F4: Enketo RA theme CSS
+      # Enketo RA theme CSS
       - ../basic-kobotoolbox/customization/static/css/enketo-ra-theme.css:/srv/src/enketo/packages/enketo-express/public/css/ra-theme.css:ro
 
   # ===== Nginx (branding + JS) =====
