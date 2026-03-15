@@ -213,6 +213,89 @@
     '.ra-map__color-swatch:hover { transform: scale(1.2); }',
     '.ra-map__color-swatch--selected { border-color: #333; }',
 
+    /* Export modal */
+    '.ra-map__export-overlay {',
+    '  position: fixed;',
+    '  top: 0; left: 0; right: 0; bottom: 0;',
+    '  background: rgba(0,0,0,0.4);',
+    '  z-index: 10000;',
+    '  display: flex;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '}',
+    '.ra-map__export-modal {',
+    '  background: #fff;',
+    '  border-radius: 12px;',
+    '  box-shadow: 0 12px 40px rgba(0,0,0,0.25);',
+    '  width: 420px;',
+    '  max-width: 90vw;',
+    '  overflow: hidden;',
+    '  cursor: move;',
+    '}',
+    '.ra-map__export-header {',
+    '  background: linear-gradient(135deg, #1a2a3a 0%, #54a8dc 100%);',
+    '  color: #fff;',
+    '  padding: 16px 20px;',
+    '  display: flex;',
+    '  justify-content: space-between;',
+    '  align-items: center;',
+    '}',
+    '.ra-map__export-header h3 { margin: 0; font-size: 16px; font-weight: 600; }',
+    '.ra-map__export-close {',
+    '  background: none; border: none; color: #fff; font-size: 20px;',
+    '  cursor: pointer; padding: 0; line-height: 1; opacity: 0.8;',
+    '}',
+    '.ra-map__export-close:hover { opacity: 1; }',
+    '.ra-map__export-body { padding: 20px; }',
+    '.ra-map__export-field { margin-bottom: 16px; }',
+    '.ra-map__export-field label {',
+    '  display: block; font-size: 12px; font-weight: 600;',
+    '  color: #666; text-transform: uppercase; letter-spacing: 0.5px;',
+    '  margin-bottom: 6px;',
+    '}',
+    '.ra-map__export-field select, .ra-map__export-field input {',
+    '  width: 100%; padding: 10px 12px; font-size: 14px;',
+    '  border: 1px solid #d0d5dd; border-radius: 6px; background: #fff;',
+    '  color: #333;',
+    '}',
+    '.ra-map__export-field select:focus, .ra-map__export-field input:focus {',
+    '  outline: none; border-color: #54a8dc;',
+    '  box-shadow: 0 0 0 3px rgba(84,168,220,0.15);',
+    '}',
+    '.ra-map__export-info {',
+    '  background: #f7f9fb; border-radius: 6px; padding: 12px;',
+    '  font-size: 12px; color: #666; margin-bottom: 16px;',
+    '  display: flex; gap: 12px; flex-wrap: wrap;',
+    '}',
+    '.ra-map__export-info div { display: flex; gap: 4px; }',
+    '.ra-map__export-info strong { color: #1a2a3a; }',
+    '.ra-map__export-formats {',
+    '  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px;',
+    '}',
+    '.ra-map__export-fmt {',
+    '  padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px;',
+    '  cursor: pointer; text-align: center; transition: all 0.15s;',
+    '}',
+    '.ra-map__export-fmt:hover { border-color: #54a8dc; background: #f7f9fb; }',
+    '.ra-map__export-fmt--selected {',
+    '  border-color: #54a8dc !important; background: #eff8ff !important;',
+    '}',
+    '.ra-map__export-fmt-icon { font-size: 24px; margin-bottom: 4px; }',
+    '.ra-map__export-fmt-name { font-size: 13px; font-weight: 600; color: #333; }',
+    '.ra-map__export-fmt-desc { font-size: 11px; color: #999; }',
+    '.ra-map__export-btn {',
+    '  width: 100%; padding: 12px; border: none; border-radius: 6px;',
+    '  background: #54a8dc; color: #fff; font-size: 14px; font-weight: 600;',
+    '  cursor: pointer; transition: background 0.15s;',
+    '}',
+    '.ra-map__export-btn:hover { background: #4090c0; }',
+    '.ra-map__export-btn:disabled {',
+    '  background: #ccc; cursor: not-allowed;',
+    '}',
+    '.ra-map__export-progress {',
+    '  text-align: center; padding: 20px; color: #666; font-size: 13px;',
+    '}',
+
     /* Loading overlay */
     '.ra-map__loading {',
     '  position: absolute;',
@@ -754,6 +837,9 @@
         '<button class="ra-map__ctx-menu-item" data-action="showall">' +
           '<svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>' +
           'Show all forms</button>' +
+        '<button class="ra-map__ctx-menu-item" data-action="export">' +
+          '<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>' +
+          'Export data</button>' +
         '<button class="ra-map__ctx-menu-item" data-action="data" style="color:#54a8dc;">' +
           '<svg viewBox="0 0 24 24" fill="#54a8dc"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>' +
           'View data table</button>';
@@ -811,6 +897,8 @@
             if (row) row.classList.remove('ra-map__legend-item--hidden');
             if (cb) cb.checked = true;
           });
+        } else if (act === 'export') {
+          openExportModal(uid, g.name, g.count);
         } else if (act === 'data') {
           window.location.hash = '#/forms/' + uid + '/data/table';
         }
