@@ -71,6 +71,7 @@
     function getPageName() {
       var hash = window.location.hash;
       if (hash === '#/leaderboard') return 'Leaderboard';
+      if (hash === '#/map') return 'Map';
       if (hash.indexOf('#/library') === 0) return 'Library';
       if (hash.indexOf('#/forms/') === 0) {
         // For form pages, extract name from the existing title if KPI set it

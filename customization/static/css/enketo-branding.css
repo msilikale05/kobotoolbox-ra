@@ -246,6 +246,39 @@
   border: 1px solid #e8ecf0 !important;
 }
 
+/* Mobile fix — ensure text visible in fields */
+@media (max-width: 768px) {
+  .or input[type="text"],
+  .or input[type="number"],
+  .or input[type="tel"],
+  .or input[type="email"],
+  .or input[type="url"],
+  .or input[type="date"],
+  .or input[type="time"],
+  .or textarea,
+  .or select {
+    font-size: 16px !important;
+    padding: 8px 10px !important;
+    height: auto !important;
+    min-height: 40px !important;
+    line-height: 1.4 !important;
+    overflow: visible !important;
+    text-overflow: ellipsis !important;
+    color: #333 !important;
+  }
+
+  .or .btn-group .btn-default {
+    padding: 8px 10px !important;
+    height: auto !important;
+    min-height: 40px !important;
+    line-height: 1.4 !important;
+  }
+
+  .or .btn-group .btn-default .selected {
+    color: #333 !important;
+  }
+}
+
 /* Radio/checkbox selected */
 input[type="radio"]:checked + label::before,
 input[type="checkbox"]:checked + label::before {
