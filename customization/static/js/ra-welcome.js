@@ -103,11 +103,19 @@
       }
     }
     setTitle();
-    setTimeout(setTitle, 1000);
-    setTimeout(setTitle, 3000);
+
+    // Poll every 300ms to catch React title changes instantly
+    // React sets document.title directly — no DOM mutation to observe
+    setInterval(function () {
+      if (document.title.indexOf('KoboToolbox') !== -1) {
+        setTitle();
+      }
+    }, 300);
+
     // Update title on navigation
     window.addEventListener('hashchange', function () {
-      setTimeout(setTitle, 200);
+      setTimeout(setTitle, 100);
+      setTimeout(setTitle, 500);
     });
   })();
 
