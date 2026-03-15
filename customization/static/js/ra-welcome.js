@@ -58,12 +58,12 @@
       });
       return replaced;
     }
-    // Try immediately and also observe for React rendering
+    // Try immediately and retry a few times for React rendering
     replaceLogo();
-    var observer = new MutationObserver(function () { replaceLogo(); });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-    // Stop observing after 10 seconds to save resources
-    setTimeout(function () { observer.disconnect(); }, 10000);
+    setTimeout(replaceLogo, 500);
+    setTimeout(replaceLogo, 1500);
+    setTimeout(replaceLogo, 3000);
+    setTimeout(replaceLogo, 5000);
   })();
 
   // Persistently override the browser tab title with page context
@@ -72,25 +72,34 @@
       var hash = window.location.hash;
       if (hash === '#/leaderboard') return 'Leaderboard';
       if (hash.indexOf('#/library') === 0) return 'Library';
-      if (hash.indexOf('#/forms/') === 0) return null; // let KPI set form name
-      if (hash === '' || hash === '#/' || hash.indexOf('#/projects') === 0) return 'Projects';
+      if (hash.indexOf('#/forms/') === 0) {
+        // For form pages, extract name from the existing title if KPI set it
+        var current = document.title
+          .replace(/KoboToolbox/gi, '')
+          .replace(/\s*\|\s*/g, '|')
+          .split('|')
+          .filter(function (s) { return s.trim() && s.trim() !== BRAND_NAME; });
+        return current.length ? current[0].trim() : null;
+      }
+      if (hash === '' || hash === '#/' || hash.indexOf('#/projects') === 0 || hash.indexOf('#/forms') === 0) return 'Projects';
       return null;
     }
 
     function setTitle() {
-      // If another script set a custom title with " | Ramani Yangu", keep it
-      if (document.title.indexOf(' | ' + BRAND_NAME) !== -1) return;
-
       var pageName = getPageName();
-      // Replace KoboToolbox with brand name
-      var title = document.title.replace(/KoboToolbox/gi, BRAND_NAME);
 
-      if (pageName && title.indexOf(pageName) === -1) {
+      // Always remove KoboToolbox from the title
+      if (document.title.indexOf('KoboToolbox') !== -1) {
+        document.title = document.title.replace(/KoboToolbox/gi, BRAND_NAME);
+      }
+
+      // If leaderboard script already set the title, don't override
+      if (document.title.indexOf('Leaderboard | ' + BRAND_NAME) !== -1) return;
+
+      if (pageName) {
         document.title = pageName + ' | ' + BRAND_NAME;
-      } else if (title.indexOf(BRAND_NAME) === -1) {
+      } else if (document.title.indexOf(BRAND_NAME) === -1) {
         document.title = BRAND_NAME;
-      } else {
-        document.title = title;
       }
     }
     setTitle();
@@ -106,7 +115,7 @@
     }
     // Update title on navigation
     window.addEventListener('hashchange', function () {
-      setTimeout(setTitle, 100);
+      setTimeout(setTitle, 200);
     });
   })();
 
