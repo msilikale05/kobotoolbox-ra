@@ -103,16 +103,8 @@
       }
     }
     setTitle();
-    var titleEl = document.querySelector('title');
-    if (titleEl) {
-      new MutationObserver(setTitle).observe(titleEl, { childList: true });
-    } else {
-      document.addEventListener('DOMContentLoaded', function () {
-        setTitle();
-        var t = document.querySelector('title');
-        if (t) new MutationObserver(setTitle).observe(t, { childList: true });
-      });
-    }
+    setTimeout(setTitle, 1000);
+    setTimeout(setTitle, 3000);
     // Update title on navigation
     window.addEventListener('hashchange', function () {
       setTimeout(setTitle, 200);
