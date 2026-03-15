@@ -310,6 +310,26 @@
   }
 }
 
+/* Mobile form width — use 98% on phones */
+@media (max-width: 768px) {
+  .or.theme-grid,
+  form.or {
+    width: 98% !important;
+    max-width: 98% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  article.paper {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  .or .or-group {
+    padding: 10px 8px !important;
+  }
+}
+
 /* Radio/checkbox selected */
 input[type="radio"]:checked + label::before,
 input[type="checkbox"]:checked + label::before {
