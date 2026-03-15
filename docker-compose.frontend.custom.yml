@@ -29,6 +29,8 @@ services:
     environment:
       # Public Enketo URL — form collect/preview links shown to users.
       - ENKETO_URL=https://ee.YOUR_DOMAIN
+      # Skip email verification on registration
+      - ACCOUNT_EMAIL_VERIFICATION=none
       # Uncomment the line below if NO SMTP server is configured.
       # Without this, login will hang trying to connect to a non-existent
       # SMTP server. Remove once SMTP is properly set up.
