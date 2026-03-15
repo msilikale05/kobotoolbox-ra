@@ -504,8 +504,13 @@ input[type="checkbox"]:checked + label::after {
     display: none !important;
   }
 
+  .form-header .form-language-selector {
+    flex: 1 1 auto !important;
+  }
+
   .form-header .form-language-selector select {
-    max-width: 100px !important;
+    width: 100% !important;
+    max-width: none !important;
     font-size: 13px !important;
     padding: 4px 6px !important;
   }
