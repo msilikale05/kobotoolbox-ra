@@ -51,19 +51,19 @@
     'body.ra-st-active .k-drawer { width: 58px !important; }',
     'body.ra-st-active .k-drawer__sidebar { display: none !important; }',
 
-    /* Header */
+    /* Header - flat, matches KoboToolbox */
     '.ra-st__header {',
     '  padding: 20px 30px 0;',
-    '  color: #29292a;',
-    '  padding: 28px 40px 24px;',
     '}',
-    '.ra-st__header h1 { margin: 0; font-size: 24px; font-weight: 700; color: #29292a; }',
+    '.ra-st__header h1 {',
+    '  margin: 0; font-size: 24px; font-weight: 700;',
+    '  color: #29292a; font-family: Roboto, sans-serif;',
+    '}',
     '.ra-st__header p { margin: 4px 0 0; font-size: 13px; color: #888; }',
 
     /* Content */
     '.ra-st__content {',
     '  max-width: 800px;',
-    '  margin: 0 auto;',
     '  padding: 20px 30px 60px;',
     '}',
 

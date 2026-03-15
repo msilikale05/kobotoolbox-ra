@@ -67,8 +67,6 @@
 
     /* Header */
     '.ra-lb__header {',
-    '  background: linear-gradient(135deg, #1a2a3a 0%, #54a8dc 100%);',
-    '  color: #29292a;',
     '  padding: 20px 30px 0;',
     '}',
     '.ra-lb__header h1 {',
@@ -353,7 +351,10 @@
         return;
       }
 
-      var options = '<option value="">-- Select a form --</option>';
+      var totalSubs = 0;
+      forms.forEach(function (f) { totalSubs += (f.deployment__submission_count || 0); });
+
+      var options = '<option value="__all__">All Forms (' + totalSubs + ' total submissions)</option>';
       forms.forEach(function (f) {
         var count = f.deployment__submission_count || 0;
         options += '<option value="' + f.uid + '">' +
@@ -361,23 +362,46 @@
       });
       select.innerHTML = options;
 
-      // Auto-select first form
-      if (forms.length > 0) {
-        select.value = forms[0].uid;
-        loadLeaderboard(forms[0].uid);
-      }
+      // Auto-select "All Forms"
+      select.value = '__all__';
+      loadLeaderboard('__all__');
     }).catch(function () {
       select.innerHTML = '<option value="">Error loading forms</option>';
     });
   }
 
+  var refreshTimer = null;
+  var currentFormUid = null;
+
   function loadLeaderboard(uid) {
+    currentFormUid = uid;
     var content = document.getElementById('ra-lb-content');
     var stats = document.getElementById('ra-lb-stats');
-    content.innerHTML = '<div class="ra-lb__loading">Loading submissions...</div>';
+
+    // Show loading only on first load (not refresh)
+    if (!content.querySelector('.ra-lb__table')) {
+      content.innerHTML = '<div class="ra-lb__loading">Loading submissions...</div>';
+    }
     stats.innerHTML = '';
 
-    fetchSubmissions(uid).then(function (submissions) {
+    var fetchPromise;
+    if (uid === '__all__') {
+      // Aggregate all forms
+      fetchPromise = fetchDeployedForms().then(function (forms) {
+        var allPromises = forms.map(function (f) {
+          return fetchSubmissions(f.uid).catch(function () { return []; });
+        });
+        return Promise.all(allPromises).then(function (results) {
+          var all = [];
+          results.forEach(function (subs) { all = all.concat(subs); });
+          return all;
+        });
+      });
+    } else {
+      fetchPromise = fetchSubmissions(uid);
+    }
+
+    fetchPromise.then(function (submissions) {
       var leaders = buildLeaderboard(submissions);
       var totalSubmissions = submissions.length;
       var totalContributors = leaders.length;
@@ -385,11 +409,12 @@
       // Stats
       stats.innerHTML = [
         '<div><span class="ra-lb__stat-value">' + totalSubmissions + '</span> submissions</div>',
-        '<div><span class="ra-lb__stat-value">' + totalContributors + '</span> contributors</div>'
+        '<div><span class="ra-lb__stat-value">' + totalContributors + '</span> contributors</div>',
+        '<div style="font-size:11px;color:#999;">Updated: ' + new Date().toLocaleTimeString() + '</div>'
       ].join('');
 
       if (!leaders.length) {
-        content.innerHTML = '<div class="ra-lb__empty">No submissions yet for this form.</div>';
+        content.innerHTML = '<div class="ra-lb__empty">No submissions yet. Data will appear here as forms are submitted.</div>';
         return;
       }
 
@@ -426,6 +451,16 @@
     }).catch(function (err) {
       content.innerHTML = '<div class="ra-lb__empty">Error loading submissions. ' + escapeHtml(String(err)) + '</div>';
     });
+
+    // Auto-refresh every 30 seconds
+    clearInterval(refreshTimer);
+    refreshTimer = setInterval(function () {
+      if (isLeaderboardPage() && currentFormUid) {
+        loadLeaderboard(currentFormUid);
+      } else {
+        clearInterval(refreshTimer);
+      }
+    }, 30000);
   }
 
   // ── Navigation ──
