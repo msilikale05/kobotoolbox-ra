@@ -66,14 +66,31 @@
     setTimeout(function () { observer.disconnect(); }, 10000);
   })();
 
-  // Persistently override the browser tab title
+  // Persistently override the browser tab title with page context
   (function overrideTitle() {
+    function getPageName() {
+      var hash = window.location.hash;
+      if (hash === '#/leaderboard') return 'Leaderboard';
+      if (hash.indexOf('#/library') === 0) return 'Library';
+      if (hash.indexOf('#/forms/') === 0) return null; // let KPI set form name
+      if (hash === '' || hash === '#/' || hash.indexOf('#/projects') === 0) return 'Projects';
+      return null;
+    }
+
     function setTitle() {
-      if (document.title.indexOf(BRAND_NAME) === -1) {
-        document.title = document.title.replace(/KoboToolbox/gi, BRAND_NAME);
-        if (document.title.indexOf(BRAND_NAME) === -1) {
-          document.title = BRAND_NAME;
-        }
+      // If another script set a custom title with " | Ramani Yangu", keep it
+      if (document.title.indexOf(' | ' + BRAND_NAME) !== -1) return;
+
+      var pageName = getPageName();
+      // Replace KoboToolbox with brand name
+      var title = document.title.replace(/KoboToolbox/gi, BRAND_NAME);
+
+      if (pageName && title.indexOf(pageName) === -1) {
+        document.title = pageName + ' | ' + BRAND_NAME;
+      } else if (title.indexOf(BRAND_NAME) === -1) {
+        document.title = BRAND_NAME;
+      } else {
+        document.title = title;
       }
     }
     setTitle();
@@ -87,6 +104,10 @@
         if (t) new MutationObserver(setTitle).observe(t, { childList: true });
       });
     }
+    // Update title on navigation
+    window.addEventListener('hashchange', function () {
+      setTimeout(setTitle, 100);
+    });
   })();
 
   function isProjectListPage() {

@@ -332,7 +332,14 @@
     // Form change handler
     document.getElementById('ra-lb-form-select').addEventListener('change', function () {
       var uid = this.value;
-      if (uid) loadLeaderboard(uid);
+      if (uid) {
+        loadLeaderboard(uid);
+      } else {
+        // No form selected — clear the table and stats
+        document.getElementById('ra-lb-content').innerHTML =
+          '<div class="ra-lb__empty">Select a form above to view the submission leaderboard.</div>';
+        document.getElementById('ra-lb-stats').innerHTML = '';
+      }
     });
   }
 
@@ -426,10 +433,13 @@
     return window.location.hash === HASH;
   }
 
+  var BRAND_NAME = 'Ramani Yangu';
+
   function showPage() {
     var page = document.getElementById(PAGE_ID);
     if (page) page.classList.add('ra-lb--visible');
     document.body.classList.add('ra-lb-active');
+    document.title = 'Leaderboard | ' + BRAND_NAME;
     var nav = document.getElementById(NAV_ID);
     if (nav) nav.classList.add('active');
 

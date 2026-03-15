@@ -7,8 +7,8 @@
 # SETUP INSTRUCTIONS:
 # 1. Copy this file into kobo-docker/:
 #      cp basic-kobotoolbox/docker-compose.frontend.custom.yml kobo-docker/
-# 2. Replace YOUR_DOMAIN with your actual domain:
-#      sed -i 's/YOUR_DOMAIN/example.com/g' kobo-docker/docker-compose.frontend.custom.yml
+# 2. Replace ramaniyangu.com with your actual domain:
+#      sed -i 's/ramaniyangu.com/example.com/g' kobo-docker/docker-compose.frontend.custom.yml
 # 3. If you have NO SMTP server configured, uncomment the EMAIL_BACKEND line
 #    below to prevent login from hanging.
 #
@@ -28,7 +28,7 @@ services:
   kpi:
     environment:
       # Public Enketo URL — form collect/preview links shown to users.
-      - ENKETO_URL=https://ee.YOUR_DOMAIN
+      - ENKETO_URL=https://ee.ramaniyangu.com
       # Skip email verification on registration
       - ACCOUNT_EMAIL_VERIFICATION=none
       # Uncomment the line below if NO SMTP server is configured.
@@ -36,9 +36,9 @@ services:
       # SMTP server. Remove once SMTP is properly set up.
       #- EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
     extra_hosts:
-      - "ee.YOUR_DOMAIN:host-gateway"
-      - "kf.YOUR_DOMAIN:host-gateway"
-      - "kc.YOUR_DOMAIN:host-gateway"
+      - "ee.ramaniyangu.com:host-gateway"
+      - "kf.ramaniyangu.com:host-gateway"
+      - "kc.ramaniyangu.com:host-gateway"
     volumes:
       # F5: Email templates
       - ../basic-kobotoolbox/customization/email-templates/account/email/password_reset_key_message.txt:/srv/src/kpi/kobo/apps/accounts/templates/account/email/password_reset_key_message.txt:ro
@@ -57,9 +57,9 @@ services:
   # ===== Enketo Express =====
   enketo_express:
     extra_hosts:
-      - "kf.YOUR_DOMAIN:host-gateway"
-      - "kc.YOUR_DOMAIN:host-gateway"
-      - "ee.YOUR_DOMAIN:host-gateway"
+      - "kf.ramaniyangu.com:host-gateway"
+      - "kc.ramaniyangu.com:host-gateway"
+      - "ee.ramaniyangu.com:host-gateway"
     volumes:
       # Enketo RA theme CSS
       - ../basic-kobotoolbox/customization/static/css/enketo-ra-theme.css:/srv/src/enketo/packages/enketo-express/public/css/ra-theme.css:ro
@@ -69,9 +69,9 @@ services:
     networks:
       kobo-fe-network:
         aliases:
-          - kf.YOUR_DOMAIN
-          - kc.YOUR_DOMAIN
-          - ee.YOUR_DOMAIN
+          - kf.ramaniyangu.com
+          - kc.ramaniyangu.com
+          - ee.ramaniyangu.com
     volumes:
       # Custom static assets (CSS, images, JS, favicon)
       - ../basic-kobotoolbox/customization/static:/srv/custom-static:ro
