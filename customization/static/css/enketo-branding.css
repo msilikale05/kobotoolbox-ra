@@ -156,7 +156,16 @@
   border-radius: 4px !important;
   padding: 10px 12px !important;
   background-color: #fafbfc !important;
-  font-size: 15px !important;
+  font-size: 16px !important;
+  color: #333333 !important;
+  -webkit-text-fill-color: #333333 !important;
+  opacity: 1 !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  height: auto !important;
+  min-height: 44px !important;
+  line-height: 1.4 !important;
   transition: border-color 0.2s, box-shadow 0.2s !important;
 }
 
@@ -246,7 +255,7 @@
   border: 1px solid #e8ecf0 !important;
 }
 
-/* Mobile fix — ensure text visible in fields */
+/* Mobile/iOS fix — ensure text visible in fields */
 @media (max-width: 768px) {
   .or input[type="text"],
   .or input[type="number"],
@@ -260,22 +269,44 @@
     font-size: 16px !important;
     padding: 8px 10px !important;
     height: auto !important;
-    min-height: 40px !important;
-    line-height: 1.4 !important;
+    min-height: 44px !important;
+    line-height: 1.5 !important;
+    color: #333333 !important;
+    -webkit-text-fill-color: #333333 !important;
+    opacity: 1 !important;
+    -webkit-appearance: none !important;
+    background-color: #ffffff !important;
+    box-sizing: border-box !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    clip: auto !important;
     overflow: visible !important;
-    text-overflow: ellipsis !important;
-    color: #333 !important;
+    text-indent: 0 !important;
   }
 
+  /* Dropdown selected text visible */
   .or .btn-group .btn-default {
     padding: 8px 10px !important;
     height: auto !important;
-    min-height: 40px !important;
-    line-height: 1.4 !important;
+    min-height: 44px !important;
+    line-height: 1.5 !important;
+    color: #333333 !important;
+    -webkit-text-fill-color: #333333 !important;
   }
 
   .or .btn-group .btn-default .selected {
-    color: #333 !important;
+    color: #333333 !important;
+    -webkit-text-fill-color: #333333 !important;
+  }
+
+  /* Disabled fields still visible */
+  .or input:disabled,
+  .or textarea:disabled,
+  .or select:disabled {
+    color: #666666 !important;
+    -webkit-text-fill-color: #666666 !important;
+    opacity: 1 !important;
   }
 }
 
