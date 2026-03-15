@@ -64,25 +64,21 @@
   text-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
-/* Fix multilingual labels — ONLY hide non-active language text spans */
-.or .question-label > span[lang]:not(.active),
-.or .or-hint > span[lang]:not(.active),
-.or-group > h4 > span[lang]:not(.active),
-.or-group-data > h4 > span[lang]:not(.active),
-.or .option-label > span[lang]:not(.active),
-.or .or-form-short > span[lang]:not(.active),
-.or .or-form-long > span[lang]:not(.active) {
+/* Fix multilingual labels — hide non-active language spans at ANY depth */
+.or .question-label span[lang]:not(.active),
+.or .or-hint span[lang]:not(.active),
+.or-group > h4 span[lang]:not(.active),
+.or-group-data > h4 span[lang]:not(.active),
+.or .option-label span[lang]:not(.active),
+.or .or-form-short span[lang]:not(.active),
+.or .or-form-long span[lang]:not(.active),
+.or .or-repeat-info span[lang]:not(.active),
+.or .or-constraint-msg span[lang]:not(.active),
+.or .or-required-msg span[lang]:not(.active) {
   display: none !important;
 }
 
-/* Validation messages — NEVER hidden */
-.or .or-required-msg,
-.or .or-constraint-msg,
-.or .or-relevant-msg,
-.or .invalid-value-msg,
-.or .custom-error-msg {
-  display: revert !important;
-}
+/* Ensure validation messages themselves are visible */
 .or .or-required-msg.active,
 .or .or-constraint-msg.active,
 .or .or-relevant-msg.active,
@@ -91,7 +87,7 @@
   display: block !important;
 }
 
-/* Question containers — NEVER hidden by lang rules */
+/* Question containers must never be hidden by lang rules */
 .or .question[lang] {
   display: block !important;
 }
