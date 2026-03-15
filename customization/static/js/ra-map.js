@@ -97,17 +97,24 @@
     '  display: flex;',
     '  align-items: center;',
     '  gap: 8px;',
-    '  padding: 4px 0;',
-    '  cursor: pointer;',
+    '  padding: 6px 4px;',
+    '  border-radius: 4px;',
+    '  transition: background 0.15s;',
     '}',
-    '.ra-map__legend-item:hover { opacity: 0.8; }',
-    '.ra-map__legend-dot {',
-    '  width: 14px;',
-    '  height: 14px;',
-    '  border-radius: 50%;',
+    '.ra-map__legend-item:hover { background: #f0f4f8; }',
+    '.ra-map__legend-icon {',
+    '  width: 28px;',
+    '  height: 28px;',
     '  flex-shrink: 0;',
-    '  border: 2px solid #fff;',
-    '  box-shadow: 0 0 0 1px rgba(0,0,0,0.2);',
+    '  display: flex;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '  border-radius: 4px;',
+    '  background: rgba(0,0,0,0.04);',
+    '}',
+    '.ra-map__legend-icon svg {',
+    '  width: 18px;',
+    '  height: 18px;',
     '}',
     '.ra-map__legend-name {',
     '  flex: 1;',
@@ -115,7 +122,9 @@
     '  text-overflow: ellipsis;',
     '  white-space: nowrap;',
     '  color: #333;',
+    '  cursor: pointer;',
     '}',
+    '.ra-map__legend-icon { cursor: pointer; }',
     '.ra-map__legend-count {',
     '  color: #999;',
     '  font-size: 12px;',
@@ -124,6 +133,85 @@
     '.ra-map__legend-item.ra-map__legend-item--hidden {',
     '  opacity: 0.4;',
     '}',
+
+    /* Three-dot menu button */
+    '.ra-map__legend-menu-btn {',
+    '  flex-shrink: 0;',
+    '  width: 24px;',
+    '  height: 24px;',
+    '  display: flex;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '  border: none;',
+    '  background: none;',
+    '  cursor: pointer;',
+    '  color: #999;',
+    '  font-size: 16px;',
+    '  border-radius: 4px;',
+    '  padding: 0;',
+    '  line-height: 1;',
+    '  letter-spacing: 1px;',
+    '}',
+    '.ra-map__legend-menu-btn:hover {',
+    '  background: #e0e5ea;',
+    '  color: #333;',
+    '}',
+
+    /* Context menu dropdown - fixed to viewport, pops out of panel */
+    '.ra-map__ctx-menu {',
+    '  position: fixed;',
+    '  background: #fff;',
+    '  border-radius: 8px;',
+    '  box-shadow: 0 8px 30px rgba(0,0,0,0.22);',
+    '  z-index: 9999;',
+    '  min-width: 200px;',
+    '  padding: 6px 0;',
+    '  display: none;',
+    '}',
+    '.ra-map__ctx-menu--open { display: block; }',
+    '.ra-map__ctx-menu-item {',
+    '  display: flex;',
+    '  align-items: center;',
+    '  gap: 10px;',
+    '  padding: 8px 14px;',
+    '  font-size: 13px;',
+    '  color: #333;',
+    '  cursor: pointer;',
+    '  border: none;',
+    '  background: none;',
+    '  width: 100%;',
+    '  text-align: left;',
+    '}',
+    '.ra-map__ctx-menu-item:hover { background: #f0f4f8; }',
+    '.ra-map__ctx-menu-item svg {',
+    '  width: 16px;',
+    '  height: 16px;',
+    '  flex-shrink: 0;',
+    '  fill: #666;',
+    '}',
+    '.ra-map__ctx-sep {',
+    '  height: 1px;',
+    '  background: #eee;',
+    '  margin: 4px 0;',
+    '}',
+
+    /* Color picker inline */
+    '.ra-map__color-row {',
+    '  display: flex;',
+    '  gap: 6px;',
+    '  padding: 8px 14px;',
+    '  flex-wrap: wrap;',
+    '}',
+    '.ra-map__color-swatch {',
+    '  width: 22px;',
+    '  height: 22px;',
+    '  border-radius: 50%;',
+    '  cursor: pointer;',
+    '  border: 2px solid transparent;',
+    '  transition: border-color 0.15s, transform 0.15s;',
+    '}',
+    '.ra-map__color-swatch:hover { transform: scale(1.2); }',
+    '.ra-map__color-swatch--selected { border-color: #333; }',
 
     /* Loading overlay */
     '.ra-map__loading {',
@@ -192,7 +280,11 @@
 
   // ── Load Leaflet ──
   function loadLeaflet(callback) {
-    if (leafletLoaded && window.L) { callback(); return; }
+    if (window.L && window.L.map) {
+      leafletLoaded = true;
+      callback();
+      return;
+    }
 
     // CSS
     if (!document.querySelector('link[href*="leaflet"]')) {
@@ -207,21 +299,32 @@
       var script = document.createElement('script');
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
       script.onload = function () {
-        leafletLoaded = true;
-        // Small delay to ensure L is fully available
-        setTimeout(callback, 100);
+        waitForL(callback);
+      };
+      script.onerror = function () {
+        var loading = document.getElementById('ra-map-loading');
+        if (loading) loading.textContent = 'Error: Could not load map library. Check internet connection.';
       };
       document.head.appendChild(script);
     } else {
-      // Script tag exists but may still be loading
-      var check = setInterval(function () {
-        if (window.L) {
-          clearInterval(check);
-          leafletLoaded = true;
-          callback();
-        }
-      }, 100);
+      waitForL(callback);
     }
+  }
+
+  function waitForL(callback) {
+    var attempts = 0;
+    var check = setInterval(function () {
+      attempts++;
+      if (window.L && window.L.map) {
+        clearInterval(check);
+        leafletLoaded = true;
+        callback();
+      } else if (attempts > 50) { // 5 seconds max
+        clearInterval(check);
+        var loading = document.getElementById('ra-map-loading');
+        if (loading) loading.textContent = 'Error: Map library failed to initialize.';
+      }
+    }, 100);
   }
 
   // ── API ──
@@ -312,33 +415,50 @@
   function initMap() {
     if (map) return;
 
-    var L = window.L;
-    map = L.map(MAP_ID, {
-      center: [-6.8, 39.28], // Dar es Salaam
-      zoom: 12,
-      zoomControl: true
-    });
+    try {
+      var L = window.L;
+      var container = document.getElementById(MAP_ID);
+      if (!container || !L || !L.map) {
+        throw new Error('Map container or Leaflet not ready');
+      }
 
-    // Tile layers
-    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19
-    });
+      // Ensure container has dimensions before initializing
+      if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+        setTimeout(initMap, 200);
+        return;
+      }
 
-    var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: '&copy; Esri',
-      maxZoom: 18
-    });
+      map = L.map(MAP_ID, {
+        center: [-6.8, 39.28], // Dar es Salaam
+        zoom: 12,
+        zoomControl: true
+      });
 
-    osm.addTo(map);
+      // Tile layers
+      var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+      });
 
-    L.control.layers({
-      'Streets': osm,
-      'Satellite': satellite
-    }, null, { position: 'topleft' }).addTo(map);
+      var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '&copy; Esri',
+        maxZoom: 18
+      });
 
-    // Fix map size after display
-    setTimeout(function () { map.invalidateSize(); }, 200);
+      osm.addTo(map);
+
+      L.control.layers({
+        'Streets': osm,
+        'Satellite': satellite
+      }, null, { position: 'topleft' }).addTo(map);
+
+      // Fix map size after display
+      setTimeout(function () { map.invalidateSize(); }, 300);
+      setTimeout(function () { map.invalidateSize(); }, 1000);
+    } catch (err) {
+      var loading = document.getElementById('ra-map-loading');
+      if (loading) loading.textContent = 'Error initializing map: ' + err.message;
+    }
   }
 
   function loadAllGeoData() {
@@ -382,8 +502,13 @@
       return Promise.all(promises);
     }).then(function (formDataList) {
       if (!formDataList) return;
-      renderGeoData(formDataList);
-      if (loading) loading.style.display = 'none';
+      try {
+        if (map) map.invalidateSize();
+        renderGeoData(formDataList);
+        if (loading) loading.style.display = 'none';
+      } catch (err) {
+        if (loading) loading.textContent = 'Error rendering map: ' + err.message;
+      }
     }).catch(function (err) {
       if (loading) loading.textContent = 'Error loading data: ' + err.message;
     });
@@ -480,7 +605,10 @@
       });
 
       if (count > 0) {
-        group.addTo(map);
+        var hidden = getHiddenLayers();
+        if (hidden.indexOf(formData.uid) === -1) {
+          group.addTo(map);
+        }
         layerGroups[formData.uid] = { layer: group, name: formData.name, color: formData.color, count: count };
         totalPoints += count;
         totalForms++;
@@ -514,47 +642,251 @@
       var g = groups[uid];
       var visible = map.hasLayer(g.layer);
       var hiddenClass = visible ? '' : ' ra-map__legend-item--hidden';
-      var geoType = '';
       var fields = formGeoFieldsMap[uid] || [];
-      if (fields.length) {
-        geoType = fields.map(function (f) {
-          if (f.type === 'geopoint') return '<span title="Points">&#9679;</span>';
-          if (f.type === 'geotrace') return '<span title="Lines">&#9588;</span>';
-          if (f.type === 'geoshape') return '<span title="Polygons">&#9632;</span>';
-          return '';
-        }).join(' ');
-      }
 
-      html += '<div class="ra-map__legend-item' + hiddenClass + '" data-uid="' + uid + '">' +
-        '<input type="checkbox"' + (visible ? ' checked' : '') + ' style="margin:0;cursor:pointer;"> ' +
-        '<span class="ra-map__legend-dot" style="background:' + g.color + '"></span>' +
-        '<span class="ra-map__legend-name">' + escapeHtml(g.name) + ' ' + geoType + '</span>' +
+      // Determine primary geo type for the icon
+      var geoType = 'geopoint'; // default
+      if (fields.length) geoType = fields[0].type;
+
+      var icon = geoTypeIcon(geoType, g.color);
+
+      html += '<div class="ra-map__legend-item' + hiddenClass + '" data-uid="' + uid + '" style="position:relative;">' +
+        '<input type="checkbox"' + (visible ? ' checked' : '') + ' style="margin:0;cursor:pointer;flex-shrink:0;"> ' +
+        '<span class="ra-map__legend-icon">' + icon + '</span>' +
+        '<span class="ra-map__legend-name">' + escapeHtml(g.name) + '</span>' +
         '<span class="ra-map__legend-count">' + g.count + '</span>' +
+        '<button class="ra-map__legend-menu-btn" data-menu-uid="' + uid + '" title="More options">&#8942;</button>' +
         '</div>';
     });
     legend.innerHTML = html;
 
-    // Toggle layer visibility on click
-    legend.addEventListener('click', function (e) {
+    // Checkbox toggles layer visibility and saves state
+    legend.addEventListener('change', function (e) {
+      if (e.target.tagName !== 'INPUT') return;
       var item = e.target.closest('.ra-map__legend-item');
       if (!item) return;
       var uid = item.getAttribute('data-uid');
       var g = groups[uid];
       if (!g) return;
-      var checkbox = item.querySelector('input[type="checkbox"]');
 
-      if (map.hasLayer(g.layer)) {
-        map.removeLayer(g.layer);
-        item.classList.add('ra-map__legend-item--hidden');
-        if (checkbox) checkbox.checked = false;
-      } else {
+      if (e.target.checked) {
         g.layer.addTo(map);
         item.classList.remove('ra-map__legend-item--hidden');
-        if (checkbox) checkbox.checked = true;
+        toggleHiddenLayer(uid, false);
+      } else {
+        map.removeLayer(g.layer);
+        item.classList.add('ra-map__legend-item--hidden');
+        toggleHiddenLayer(uid, true);
       }
     });
 
+    // Clicking form name zooms to that form's data
+    legend.addEventListener('click', function (e) {
+      if (e.target.tagName === 'INPUT') return; // let checkbox handle its own
+      var nameEl = e.target.closest('.ra-map__legend-name, .ra-map__legend-icon');
+      if (!nameEl) return;
+      var item = nameEl.closest('.ra-map__legend-item');
+      if (!item) return;
+      var uid = item.getAttribute('data-uid');
+      var g = groups[uid];
+      if (!g) return;
+
+      // Only zoom if the layer is visible (ticked)
+      if (!map.hasLayer(g.layer)) return;
+
+      // Zoom to this form's bounds
+      var bounds = g.layer.getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+      }
+
+      // Highlight the selected row
+      legend.querySelectorAll('.ra-map__legend-item').forEach(function (el) {
+        el.style.background = '';
+      });
+      item.style.background = '#e8f4fd';
+    });
+
+    // Three-dot menu handler
+    legend.addEventListener('click', function (e) {
+      var menuBtn = e.target.closest('.ra-map__legend-menu-btn');
+      if (!menuBtn) return;
+      e.stopPropagation();
+
+      var uid = menuBtn.getAttribute('data-menu-uid');
+      var g = groups[uid];
+      if (!g) return;
+
+      // Close any open menu
+      closeContextMenu();
+
+      // Create context menu — fixed position, attached to body
+      var rect = menuBtn.getBoundingClientRect();
+
+      var menu = document.createElement('div');
+      menu.className = 'ra-map__ctx-menu ra-map__ctx-menu--open';
+      menu.id = 'ra-map-ctx-menu';
+      menu.setAttribute('data-uid', uid);
+
+      // Position to the left of the button, below it
+      menu.style.top = rect.bottom + 4 + 'px';
+      menu.style.right = (window.innerWidth - rect.right) + 'px';
+
+      var swatches = COLORS.map(function (c) {
+        var sel = c === g.color ? ' ra-map__color-swatch--selected' : '';
+        return '<span class="ra-map__color-swatch' + sel + '" data-color="' + c + '" style="background:' + c + '"></span>';
+      }).join('');
+
+      menu.innerHTML =
+        '<button class="ra-map__ctx-menu-item" data-action="zoom">' +
+          '<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>' +
+          'Zoom to layer</button>' +
+        '<button class="ra-map__ctx-menu-item" data-action="opacity">' +
+          '<svg viewBox="0 0 24 24"><path d="M17.66 8L12 2.35 6.34 8A8.02 8.02 0 004 13.64c0 2 .78 4.11 2.34 5.67a7.99 7.99 0 0011.32 0c1.56-1.56 2.34-3.67 2.34-5.67S19.22 9.56 17.66 8zM6 14c.01-2 .62-3.27 1.76-4.4L12 5.27l4.24 4.38C17.38 10.77 17.99 12 18 14H6z"/></svg>' +
+          'Change opacity</button>' +
+        '<div class="ra-map__ctx-sep"></div>' +
+        '<div style="padding:4px 14px;font-size:11px;color:#999;font-weight:600;">CHANGE COLOR</div>' +
+        '<div class="ra-map__color-row">' + swatches + '</div>' +
+        '<div class="ra-map__ctx-sep"></div>' +
+        '<button class="ra-map__ctx-menu-item" data-action="only">' +
+          '<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>' +
+          'Show only this</button>' +
+        '<button class="ra-map__ctx-menu-item" data-action="showall">' +
+          '<svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>' +
+          'Show all forms</button>' +
+        '<button class="ra-map__ctx-menu-item" data-action="data" style="color:#54a8dc;">' +
+          '<svg viewBox="0 0 24 24" fill="#54a8dc"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>' +
+          'View data table</button>';
+
+      document.body.appendChild(menu);
+
+      // Menu action handlers
+      menu.addEventListener('click', function (ev) {
+        var action = ev.target.closest('[data-action]');
+        var swatch = ev.target.closest('.ra-map__color-swatch');
+
+        if (swatch) {
+          // Change color
+          var newColor = swatch.getAttribute('data-color');
+          changeLayerColor(uid, newColor, groups);
+          closeContextMenu();
+          return;
+        }
+
+        if (!action) return;
+        var act = action.getAttribute('data-action');
+
+        if (act === 'zoom') {
+          if (map.hasLayer(g.layer)) {
+            var bounds = g.layer.getBounds();
+            if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+          }
+        } else if (act === 'opacity') {
+          cycleOpacity(uid, groups);
+        } else if (act === 'only') {
+          // Show only this, hide all others
+          Object.keys(groups).forEach(function (id) {
+            var gi = groups[id];
+            var row = legend.querySelector('[data-uid="' + id + '"]');
+            var cb = row ? row.querySelector('input[type="checkbox"]') : null;
+            if (id === uid) {
+              if (!map.hasLayer(gi.layer)) gi.layer.addTo(map);
+              if (row) row.classList.remove('ra-map__legend-item--hidden');
+              if (cb) cb.checked = true;
+              toggleHiddenLayer(id, false);
+            } else {
+              if (map.hasLayer(gi.layer)) map.removeLayer(gi.layer);
+              if (row) row.classList.add('ra-map__legend-item--hidden');
+              if (cb) cb.checked = false;
+              toggleHiddenLayer(id, true);
+            }
+          });
+        } else if (act === 'showall') {
+          saveHiddenLayers([]); // clear all hidden
+          Object.keys(groups).forEach(function (id) {
+            var gi = groups[id];
+            var row = legend.querySelector('[data-uid="' + id + '"]');
+            var cb = row ? row.querySelector('input[type="checkbox"]') : null;
+            if (!map.hasLayer(gi.layer)) gi.layer.addTo(map);
+            if (row) row.classList.remove('ra-map__legend-item--hidden');
+            if (cb) cb.checked = true;
+          });
+        } else if (act === 'data') {
+          window.location.hash = '#/forms/' + uid + '/data/table';
+        }
+
+        closeContextMenu();
+      });
+    });
+
+    // Close context menu on outside click
+    document.addEventListener('mousedown', function (e) {
+      if (e.target.closest('.ra-map__ctx-menu') || e.target.closest('.ra-map__legend-menu-btn')) return;
+      closeContextMenu();
+    });
+
     page.appendChild(legend);
+  }
+
+  // ── Persistence ──
+  var HIDDEN_KEY = 'ra_map_hidden_layers';
+
+  function getHiddenLayers() {
+    try {
+      return JSON.parse(localStorage.getItem(HIDDEN_KEY)) || [];
+    } catch (e) { return []; }
+  }
+
+  function saveHiddenLayers(hiddenUids) {
+    try {
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify(hiddenUids));
+    } catch (e) { /* ignore */ }
+  }
+
+  function toggleHiddenLayer(uid, hidden) {
+    var list = getHiddenLayers();
+    if (hidden && list.indexOf(uid) === -1) {
+      list.push(uid);
+    } else if (!hidden) {
+      list = list.filter(function (id) { return id !== uid; });
+    }
+    saveHiddenLayers(list);
+  }
+
+  function closeContextMenu() {
+    var existing = document.getElementById('ra-map-ctx-menu');
+    if (existing) existing.remove();
+  }
+
+  function changeLayerColor(uid, newColor, groups) {
+    var g = groups[uid];
+    if (!g) return;
+    g.color = newColor;
+    formColorMap[uid] = newColor;
+
+    // Update all markers/shapes in the layer
+    g.layer.eachLayer(function (layer) {
+      if (layer.setStyle) {
+        layer.setStyle({ fillColor: newColor, color: layer.options.weight > 2 ? newColor : '#fff' });
+      }
+    });
+
+    // Rebuild legend to reflect new color
+    createLegend(groups);
+  }
+
+  function cycleOpacity(uid, groups) {
+    var g = groups[uid];
+    if (!g) return;
+    // Cycle through opacity levels: 0.85 -> 0.5 -> 0.25 -> 0.85
+    var current = -1;
+    g.layer.eachLayer(function (layer) {
+      if (current === -1 && layer.options) current = layer.options.fillOpacity || 0.85;
+    });
+    var next = current > 0.7 ? 0.5 : (current > 0.3 ? 0.25 : 0.85);
+    g.layer.eachLayer(function (layer) {
+      if (layer.setStyle) layer.setStyle({ fillOpacity: next, opacity: next + 0.15 });
+    });
   }
 
   function createStats(formCount, pointCount) {
@@ -665,6 +997,19 @@
     });
   }
 
+  function geoTypeIcon(type, color) {
+    if (type === 'geotrace') {
+      // Line icon
+      return '<svg viewBox="0 0 24 24"><path d="M3 17l4-4 4 4 4-4 4 4" fill="none" stroke="' + color + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }
+    if (type === 'geoshape') {
+      // Polygon icon
+      return '<svg viewBox="0 0 24 24"><polygon points="12,3 21,10 18,20 6,20 3,10" fill="' + color + '" fill-opacity="0.3" stroke="' + color + '" stroke-width="2" stroke-linejoin="round"/></svg>';
+    }
+    // Default: Point (circle with pin)
+    return '<svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="6" fill="' + color + '" stroke="#fff" stroke-width="2"/><path d="M12 16l-1 4h2l-1-4z" fill="' + color + '"/></svg>';
+  }
+
   function escapeHtml(str) {
     var div = document.createElement('div');
     div.appendChild(document.createTextNode(str || ''));
@@ -698,12 +1043,20 @@
       if (link.id !== NAV_ID) link.classList.remove('active');
     });
 
-    // Initialize map if needed
-    loadLeaflet(function () {
-      initMap();
-      loadAllGeoData();
-      startLivePolling();
-    });
+    // Initialize map AFTER page is visible (needs dimensions)
+    setTimeout(function () {
+      loadLeaflet(function () {
+        initMap();
+        // Wait for map to be ready before loading data
+        setTimeout(function () {
+          if (map) {
+            map.invalidateSize();
+            loadAllGeoData();
+            startLivePolling();
+          }
+        }, 500);
+      });
+    }, 100);
   }
 
   function hidePage() {
