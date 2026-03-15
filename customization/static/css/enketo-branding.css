@@ -87,6 +87,16 @@
   display: block !important;
 }
 
+/* Override "none selected" placeholder to "Select..." */
+.or .btn-group .selected[data-i18n="selectpicker.noneselected"] {
+  font-size: 0 !important;
+}
+.or .btn-group .selected[data-i18n="selectpicker.noneselected"]::after {
+  content: "Select..." !important;
+  font-size: 15px !important;
+  color: #999 !important;
+}
+
 /* Question containers must never be hidden by lang rules */
 .or .question[lang] {
   display: block !important;

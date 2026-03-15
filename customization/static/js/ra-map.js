@@ -941,6 +941,287 @@
     saveHiddenLayers(list);
   }
 
+  // ── Export Modal ──
+  function openExportModal(uid, formName, pointCount) {
+    // Remove any existing modal
+    var old = document.querySelector('.ra-map__export-overlay');
+    if (old) old.remove();
+
+    var geoFields = formGeoFieldsMap[uid] || [];
+    var geoTypes = geoFields.map(function (f) {
+      return f.type === 'geopoint' ? 'Points' : f.type === 'geotrace' ? 'Lines' : 'Polygons';
+    });
+    if (!geoTypes.length) geoTypes = ['Points'];
+
+    var overlay = document.createElement('div');
+    overlay.className = 'ra-map__export-overlay';
+    overlay.innerHTML =
+      '<div class="ra-map__export-modal" id="ra-export-modal">' +
+        '<div class="ra-map__export-header">' +
+          '<h3>Export Data</h3>' +
+          '<button class="ra-map__export-close">&times;</button>' +
+        '</div>' +
+        '<div class="ra-map__export-body">' +
+          '<div class="ra-map__export-info">' +
+            '<div><strong>' + escapeHtml(formName) + '</strong></div>' +
+            '<div>Locations: <strong>' + pointCount + '</strong></div>' +
+            '<div>Type: <strong>' + geoTypes.join(', ') + '</strong></div>' +
+          '</div>' +
+          '<div class="ra-map__export-field">' +
+            '<label>Export Format</label>' +
+          '</div>' +
+          '<div class="ra-map__export-formats" id="ra-export-formats">' +
+            '<div class="ra-map__export-fmt ra-map__export-fmt--selected" data-format="geojson">' +
+              '<div class="ra-map__export-fmt-icon">{}</div>' +
+              '<div class="ra-map__export-fmt-name">GeoJSON</div>' +
+              '<div class="ra-map__export-fmt-desc">For QGIS, web maps</div>' +
+            '</div>' +
+            '<div class="ra-map__export-fmt" data-format="kml">' +
+              '<div class="ra-map__export-fmt-icon">&#127758;</div>' +
+              '<div class="ra-map__export-fmt-name">KML</div>' +
+              '<div class="ra-map__export-fmt-desc">For Google Earth</div>' +
+            '</div>' +
+            '<div class="ra-map__export-fmt" data-format="csv">' +
+              '<div class="ra-map__export-fmt-icon">&#128196;</div>' +
+              '<div class="ra-map__export-fmt-name">CSV</div>' +
+              '<div class="ra-map__export-fmt-desc">Spreadsheet with coords</div>' +
+            '</div>' +
+            '<div class="ra-map__export-fmt" data-format="gpx">' +
+              '<div class="ra-map__export-fmt-icon">&#128204;</div>' +
+              '<div class="ra-map__export-fmt-name">GPX</div>' +
+              '<div class="ra-map__export-fmt-desc">For GPS devices</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="ra-map__export-field">' +
+            '<label>Include Fields</label>' +
+            '<select id="ra-export-fields">' +
+              '<option value="all">All fields</option>' +
+              '<option value="geo">Coordinates only</option>' +
+            '</select>' +
+          '</div>' +
+          '<button class="ra-map__export-btn" id="ra-export-go">Export</button>' +
+          '<div class="ra-map__export-progress" id="ra-export-progress" style="display:none;"></div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+
+    var selectedFormat = 'geojson';
+
+    // Format selection
+    overlay.querySelector('#ra-export-formats').addEventListener('click', function (e) {
+      var fmt = e.target.closest('.ra-map__export-fmt');
+      if (!fmt) return;
+      overlay.querySelectorAll('.ra-map__export-fmt').forEach(function (f) {
+        f.classList.remove('ra-map__export-fmt--selected');
+      });
+      fmt.classList.add('ra-map__export-fmt--selected');
+      selectedFormat = fmt.getAttribute('data-format');
+    });
+
+    // Close button
+    overlay.querySelector('.ra-map__export-close').addEventListener('click', function () {
+      overlay.remove();
+    });
+
+    // Click overlay background to close
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) overlay.remove();
+    });
+
+    // Make modal draggable
+    makeDraggable(overlay.querySelector('#ra-export-modal'));
+
+    // Export button
+    overlay.querySelector('#ra-export-go').addEventListener('click', function () {
+      var btn = this;
+      var progress = overlay.querySelector('#ra-export-progress');
+      var fieldsOpt = overlay.querySelector('#ra-export-fields').value;
+      btn.disabled = true;
+      btn.textContent = 'Exporting...';
+      progress.style.display = 'block';
+      progress.textContent = 'Fetching all submissions...';
+
+      // Fetch full submission data
+      fetchJSON('/api/v2/assets/' + uid + '/data/?limit=30000')
+        .then(function (data) {
+          var subs = data.results || [];
+          progress.textContent = 'Processing ' + subs.length + ' submissions...';
+
+          var geoFieldNames = geoFields.map(function (f) { return f.name; });
+
+          if (selectedFormat === 'geojson') {
+            exportGeoJSON(subs, geoFieldNames, formName, fieldsOpt);
+          } else if (selectedFormat === 'kml') {
+            exportKML(subs, geoFieldNames, formName, fieldsOpt);
+          } else if (selectedFormat === 'csv') {
+            exportCSV(subs, formName, fieldsOpt);
+          } else if (selectedFormat === 'gpx') {
+            exportGPX(subs, geoFieldNames, formName);
+          }
+
+          progress.textContent = 'Export complete!';
+          setTimeout(function () { overlay.remove(); }, 1500);
+        })
+        .catch(function (err) {
+          progress.textContent = 'Error: ' + err.message;
+          btn.disabled = false;
+          btn.textContent = 'Export';
+        });
+    });
+  }
+
+  function makeDraggable(el) {
+    var header = el.querySelector('.ra-map__export-header');
+    var offsetX = 0, offsetY = 0, isDragging = false;
+
+    header.addEventListener('mousedown', function (e) {
+      if (e.target.closest('.ra-map__export-close')) return;
+      isDragging = true;
+      offsetX = e.clientX - el.getBoundingClientRect().left;
+      offsetY = e.clientY - el.getBoundingClientRect().top;
+      el.style.cursor = 'grabbing';
+    });
+
+    document.addEventListener('mousemove', function (e) {
+      if (!isDragging) return;
+      el.style.position = 'fixed';
+      el.style.left = (e.clientX - offsetX) + 'px';
+      el.style.top = (e.clientY - offsetY) + 'px';
+      el.style.margin = '0';
+    });
+
+    document.addEventListener('mouseup', function () {
+      isDragging = false;
+      if (el) el.style.cursor = 'move';
+    });
+  }
+
+  // ── Export functions ──
+  function downloadFile(content, filename, mimeType) {
+    var blob = new Blob([content], { type: mimeType });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function getSubFields(sub, fieldsOpt) {
+    if (fieldsOpt === 'geo') return {};
+    var props = {};
+    Object.keys(sub).forEach(function (k) {
+      if (k.indexOf('_') === 0 && k !== '_submitted_by' && k !== '_submission_time' && k !== '_id') return;
+      if (k === '_geolocation' || k === 'meta' || k === 'formhub') return;
+      props[k] = sub[k];
+    });
+    return props;
+  }
+
+  function exportGeoJSON(subs, geoFieldNames, formName, fieldsOpt) {
+    var features = [];
+    subs.forEach(function (sub) {
+      var geoloc = sub._geolocation;
+      if (!geoloc || !geoloc[0] || !geoloc[1]) return;
+      var lat = parseFloat(geoloc[0]);
+      var lon = parseFloat(geoloc[1]);
+      if (isNaN(lat) || isNaN(lon)) return;
+
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [lon, lat] },
+        properties: getSubFields(sub, fieldsOpt)
+      });
+    });
+
+    var geojson = { type: 'FeatureCollection', features: features };
+    var safe = formName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    downloadFile(JSON.stringify(geojson, null, 2), safe + '.geojson', 'application/geo+json');
+  }
+
+  function exportKML(subs, geoFieldNames, formName, fieldsOpt) {
+    var placemarks = '';
+    subs.forEach(function (sub) {
+      var geoloc = sub._geolocation;
+      if (!geoloc || !geoloc[0] || !geoloc[1]) return;
+      var lat = parseFloat(geoloc[0]);
+      var lon = parseFloat(geoloc[1]);
+      if (isNaN(lat) || isNaN(lon)) return;
+
+      var name = sub._submitted_by || sub._id || 'Submission';
+      var desc = Object.keys(getSubFields(sub, fieldsOpt)).map(function (k) {
+        return k + ': ' + sub[k];
+      }).join('\n');
+
+      placemarks += '<Placemark><name>' + escapeHtml(String(name)) + '</name>' +
+        '<description>' + escapeHtml(desc) + '</description>' +
+        '<Point><coordinates>' + lon + ',' + lat + ',0</coordinates></Point></Placemark>\n';
+    });
+
+    var kml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n' +
+      '<name>' + escapeHtml(formName) + '</name>\n' +
+      placemarks + '</Document>\n</kml>';
+
+    var safe = formName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    downloadFile(kml, safe + '.kml', 'application/vnd.google-earth.kml+xml');
+  }
+
+  function exportCSV(subs, formName, fieldsOpt) {
+    if (!subs.length) return;
+    // Collect all field keys
+    var allKeys = {};
+    subs.forEach(function (sub) {
+      Object.keys(getSubFields(sub, fieldsOpt)).forEach(function (k) { allKeys[k] = true; });
+    });
+    var keys = ['latitude', 'longitude'].concat(Object.keys(allKeys));
+
+    var lines = [keys.join(',')];
+    subs.forEach(function (sub) {
+      var geoloc = sub._geolocation;
+      if (!geoloc || !geoloc[0] || !geoloc[1]) return;
+      var row = [geoloc[0], geoloc[1]];
+      var fields = getSubFields(sub, fieldsOpt);
+      Object.keys(allKeys).forEach(function (k) {
+        var val = fields[k] !== undefined ? String(fields[k]).replace(/"/g, '""') : '';
+        row.push('"' + val + '"');
+      });
+      lines.push(row.join(','));
+    });
+
+    var safe = formName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    downloadFile(lines.join('\n'), safe + '.csv', 'text/csv');
+  }
+
+  function exportGPX(subs, geoFieldNames, formName) {
+    var wpts = '';
+    subs.forEach(function (sub) {
+      var geoloc = sub._geolocation;
+      if (!geoloc || !geoloc[0] || !geoloc[1]) return;
+      var lat = parseFloat(geoloc[0]);
+      var lon = parseFloat(geoloc[1]);
+      if (isNaN(lat) || isNaN(lon)) return;
+
+      var name = sub._submitted_by || sub._id || 'Point';
+      var time = sub._submission_time || '';
+      wpts += '<wpt lat="' + lat + '" lon="' + lon + '">' +
+        '<name>' + escapeHtml(String(name)) + '</name>' +
+        (time ? '<time>' + time + '</time>' : '') +
+        '</wpt>\n';
+    });
+
+    var gpx = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<gpx version="1.1" creator="Ramani Yangu">\n' +
+      '<metadata><name>' + escapeHtml(formName) + '</name></metadata>\n' +
+      wpts + '</gpx>';
+
+    var safe = formName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    downloadFile(gpx, safe + '.gpx', 'application/gpx+xml');
+  }
+
   function closeContextMenu() {
     var existing = document.getElementById('ra-map-ctx-menu');
     if (existing) existing.remove();
