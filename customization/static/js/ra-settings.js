@@ -673,7 +673,8 @@
   }
 
   // ── Layout Tab ──
-  var _editingDashboardId = null; // null = showing list, string = editing a dashboard
+  var _editingDashboardId = null;
+  try { _editingDashboardId = sessionStorage.getItem("ra_editing_dashboard") || null; } catch (e) {}
 
   function renderDashLayoutTab(container) {
     if (_editingDashboardId) {
@@ -739,6 +740,7 @@
           '</div>' +
           '<div style="display:flex;gap:8px;">' +
             '<button class="ra-st__btn ra-st__btn--primary ra-dl-edit-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;">Edit</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-rename-dash" data-id="' + escapeHtml(d.id) + '" data-name="' + escapeHtml(d.name) + '" style="padding:8px 16px;font-size:13px;">Rename</button>' +
             '<button class="ra-st__btn ra-st__btn--secondary ra-dl-preview-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;">Preview</button>' +
             '<button class="ra-st__btn ra-st__btn--secondary ra-dl-delete-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;color:#e74c3c;">Delete</button>' +
           '</div>' +
@@ -748,7 +750,7 @@
 
     listEl.querySelectorAll('.ra-dl-edit-dash').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        _editingDashboardId = this.getAttribute('data-id');
+        _editingDashboardId = this.getAttribute("data-id"); try { sessionStorage.setItem("ra_editing_dashboard", _editingDashboardId); } catch (e) {}
         renderDashTabContent();
       });
     });
@@ -773,6 +775,62 @@
           }
         });
       });
+    });
+    listEl.querySelectorAll('.ra-dl-rename-dash').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        showRenameDashboardModal(this.getAttribute('data-id'), this.getAttribute('data-name'));
+      });
+    });
+  }
+
+  function showRenameDashboardModal(dashId, currentName, onRenamed) {
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:10px;width:400px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,0.2);">' +
+        '<div style="padding:18px 20px;border-bottom:1px solid #e2e8f0;font-size:16px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">' +
+          'Rename Dashboard<button id="ra-dl-rn-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:20px;">' +
+          '<div class="ra-st__field"><label>Dashboard Name</label><input type="text" id="ra-dl-rn-name" value="' + escapeHtml(currentName) + '"></div>' +
+          '<div style="display:flex;gap:10px;margin-top:16px;">' +
+            '<button class="ra-st__btn ra-st__btn--primary" id="ra-dl-rn-save">Save</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary" id="ra-dl-rn-cancel">Cancel</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(modal);
+
+    var nameInput = document.getElementById('ra-dl-rn-name');
+    nameInput.focus();
+    nameInput.select();
+
+    function closeModal() { modal.remove(); }
+    document.getElementById('ra-dl-rn-close').addEventListener('click', closeModal);
+    document.getElementById('ra-dl-rn-cancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+
+    document.getElementById('ra-dl-rn-save').addEventListener('click', function () {
+      var newName = nameInput.value.trim();
+      if (!newName) { nameInput.style.borderColor = '#e74c3c'; return; }
+      if (_dashConfig && _dashConfig.dashboards && _dashConfig.dashboards[dashId]) {
+        _dashConfig.dashboards[dashId].name = newName;
+        saveDashConfig(function (err) {
+          if (err) {
+            showStatus(document.getElementById('ra-st-dl-status'), 'err', err);
+          } else {
+            showStatus(document.getElementById('ra-st-dl-status'), 'ok', 'Dashboard renamed.');
+            renderDashCards();
+            if (typeof onRenamed === 'function') onRenamed(newName);
+          }
+        });
+      }
+      closeModal();
+    });
+
+    nameInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') document.getElementById('ra-dl-rn-save').click();
+      if (e.key === 'Escape') closeModal();
     });
   }
 
@@ -823,13 +881,16 @@
   // ── Dashboard Editor View (opened when clicking Edit on a dashboard) ──
   function renderDashboardEditor(container, dashId) {
     var dash = (_dashConfig && _dashConfig.dashboards) ? _dashConfig.dashboards[dashId] : null;
-    if (!dash) { _editingDashboardId = null; renderDashboardList(container); return; }
+    if (!dash) { _editingDashboardId = null; try { sessionStorage.removeItem("ra_editing_dashboard"); } catch (e) {} renderDashboardList(container); return; }
 
     container.innerHTML =
       '<div class="ra-st__content" style="max-width:900px;">' +
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">' +
           '<button class="ra-st__btn ra-st__btn--secondary" id="ra-dl-back" style="padding:6px 12px;">&larr; Back</button>' +
-          '<h2 style="margin:0;font-size:18px;font-weight:600;color:#1e293b;">' + escapeHtml(dash.name) + '</h2>' +
+          '<h2 style="margin:0;font-size:18px;font-weight:600;color:#1e293b;display:flex;align-items:center;gap:8px;">' +
+            '<span id="ra-dl-editor-name">' + escapeHtml(dash.name) + '</span>' +
+            '<button id="ra-dl-editor-rename" style="background:none;border:none;cursor:pointer;font-size:14px;color:#94a3b8;padding:2px;" title="Rename dashboard">&#9998;</button>' +
+          '</h2>' +
         '</div>' +
         '<div class="ra-st__status" id="ra-st-dl-status"></div>' +
         '<div id="ra-st-dl-widgets" style="margin:16px 0;min-height:80px;"></div>' +
@@ -849,7 +910,7 @@
     renderWidgetList();
 
     document.getElementById('ra-dl-back').addEventListener('click', function () {
-      _editingDashboardId = null;
+      _editingDashboardId = null; try { sessionStorage.removeItem("ra_editing_dashboard"); } catch (e) {}
       renderDashTabContent();
     });
     document.getElementById('ra-st-dl-add').addEventListener('click', function () { showWidgetEditor(-1); });
@@ -863,6 +924,12 @@
         renderWidgetList();
         autoSaveDashConfig();
       }
+    });
+    document.getElementById('ra-dl-editor-rename').addEventListener('click', function () {
+      showRenameDashboardModal(dashId, dash.name, function (newName) {
+        var nameEl = document.getElementById('ra-dl-editor-name');
+        if (nameEl) nameEl.textContent = newName;
+      });
     });
   }
 

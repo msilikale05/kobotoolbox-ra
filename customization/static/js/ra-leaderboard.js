@@ -249,9 +249,9 @@
   }
 
   function fetchSubmissions(uid) {
-    // Fetch all submissions with just the fields we need for the leaderboard
+    // Fetch all submissions — no field filter so any field can be used as identifier
     return fetchJSON(
-      '/api/v2/assets/' + uid + '/data/?fields=["_submitted_by","_submission_time","start","end","meta/instanceID"]&limit=10000&sort={"_submission_time":-1}'
+      '/api/v2/assets/' + uid + '/data/?limit=10000&sort={"_submission_time":-1}'
     ).then(function (data) {
       return data.results || [];
     });
@@ -262,32 +262,65 @@
     // Use the selected field as the contributor identifier
     var fieldSelect = document.getElementById('ra-lb-field-select');
     selectedField = fieldSelect ? fieldSelect.value : '_submitted_by';
+    var numeric = isNumericField(selectedField);
 
     var contributors = {};
     submissions.forEach(function (sub) {
-      var user = selectedField === '_submitted_by'
-        ? (sub._submitted_by || 'anonymous')
-        : (sub[selectedField] || 'unknown');
+      // Determine the contributor name — always use _submitted_by for grouping
+      var user = sub._submitted_by || 'anonymous';
+
+      // If a non-default text field is selected, use that as the name instead
+      if (selectedField !== '_submitted_by' && !numeric) {
+        var fieldVal = getFieldValue(sub, selectedField);
+        user = fieldVal || 'unknown';
+      }
+
       if (!contributors[user]) {
         contributors[user] = {
           username: user,
           count: 0,
+          total: 0,
           lastSubmission: null
         };
       }
       contributors[user].count++;
+
+      // If numeric field selected, sum the value
+      if (numeric) {
+        var numVal = parseFloat(getFieldValue(sub, selectedField));
+        if (!isNaN(numVal)) {
+          contributors[user].total += numVal;
+        }
+      }
+
       var time = sub._submission_time;
       if (time && (!contributors[user].lastSubmission || time > contributors[user].lastSubmission)) {
         contributors[user].lastSubmission = time;
       }
     });
 
-    // Sort by count descending
+    // Sort by total (for numeric) or count (for text) descending
     var sorted = Object.values(contributors).sort(function (a, b) {
+      if (numeric) return b.total - a.total;
       return b.count - a.count;
     });
 
+    // Attach mode for rendering
+    sorted._numeric = numeric;
     return sorted;
+  }
+
+  function getFieldValue(sub, fieldName) {
+    var val = sub[fieldName];
+    if (val !== undefined && val !== null) return val;
+    // Try nested path
+    var keys = Object.keys(sub);
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i] === fieldName || keys[i].endsWith('/' + fieldName)) {
+        return sub[keys[i]];
+      }
+    }
+    return undefined;
   }
 
   function timeAgo(dateStr) {
@@ -357,36 +390,53 @@
   }
 
   var selectedField = '_submitted_by';
+  var fieldTypeMap = {}; // field name -> type (text, integer, decimal, etc.)
+
+  function isNumericField(fieldName) {
+    var t = fieldTypeMap[fieldName] || '';
+    return t === 'integer' || t === 'decimal' || t === 'calculate' || t === 'range';
+  }
 
   function loadFormFields(uid) {
     var fieldSelect = document.getElementById('ra-lb-field-select');
     if (!fieldSelect) return;
 
     if (uid === '__all__') {
-      fieldSelect.innerHTML = '<option value="_submitted_by">Submitted by (default)</option>';
+      fieldSelect.innerHTML = '<option value="_submitted_by" data-type="text">Submitted by (default)</option>';
       selectedField = '_submitted_by';
+      fieldTypeMap = {};
       return;
     }
 
-    // Fetch form content to get field names
+    // Fetch form content to get field names and types
     fetchJSON('/api/v2/assets/' + uid + '/?fields=["content"]')
       .then(function (data) {
         var survey = (data.content || {}).survey || [];
-        var options = '<option value="_submitted_by">Submitted by (default)</option>';
+        fieldTypeMap = {};
+        var options = '<option value="_submitted_by" data-type="text">Submitted by (default)</option>';
         survey.forEach(function (row) {
           var t = row.type || '';
-          // Only show text, select_one, integer fields as identifier candidates
-          if (t === 'text' || t.indexOf('select_one') === 0 || t === 'integer') {
-            var name = row.name || row.$autoname || '';
-            var label = (row.label && row.label[0]) || name;
-            options += '<option value="' + escapeHtml(name) + '">' + escapeHtml(label) + '</option>';
+          var name = row.name || row.$autoname || '';
+          var label = (row.label && row.label[0]) || name;
+
+          // Text-like fields (count submissions)
+          if (t === 'text' || t.indexOf('select_one') === 0) {
+            fieldTypeMap[name] = 'text';
+            options += '<option value="' + escapeHtml(name) + '" data-type="text">' +
+              escapeHtml(label) + '</option>';
+          }
+          // Number fields (sum values)
+          if (t === 'integer' || t === 'decimal' || t === 'calculate' || t === 'range') {
+            fieldTypeMap[name] = t;
+            options += '<option value="' + escapeHtml(name) + '" data-type="number">' +
+              escapeHtml(label) + ' (sum)</option>';
           }
         });
         fieldSelect.innerHTML = options;
         selectedField = '_submitted_by';
       })
       .catch(function () {
-        fieldSelect.innerHTML = '<option value="_submitted_by">Submitted by (default)</option>';
+        fieldSelect.innerHTML = '<option value="_submitted_by" data-type="text">Submitted by (default)</option>';
       });
   }
 
@@ -452,13 +502,21 @@
 
     fetchPromise.then(function (submissions) {
       var leaders = buildLeaderboard(submissions);
+      var numeric = leaders._numeric || false;
       var totalSubmissions = submissions.length;
       var totalContributors = leaders.length;
+
+      // Column header and value label based on mode
+      var valueLabel = numeric ? 'Total' : 'Submissions';
+      var grandTotal = numeric
+        ? leaders.reduce(function (s, l) { return s + l.total; }, 0)
+        : totalSubmissions;
 
       // Stats
       stats.innerHTML = [
         '<div><span class="ra-lb__stat-value">' + totalSubmissions + '</span> submissions</div>',
         '<div><span class="ra-lb__stat-value">' + totalContributors + '</span> contributors</div>',
+        numeric ? '<div><span class="ra-lb__stat-value">' + grandTotal.toLocaleString() + '</span> total</div>' : '',
         '<div style="font-size:11px;color:#999;">Updated: ' + new Date().toLocaleTimeString() + '</div>'
       ].join('');
 
@@ -467,16 +525,17 @@
         return;
       }
 
-      var maxCount = leaders[0].count;
+      var maxValue = numeric ? (leaders[0].total || 1) : (leaders[0].count || 1);
 
       var html = [
         '<table class="ra-lb__table">',
         '<thead><tr>',
         '<th style="width:60px">Rank</th>',
         '<th>Contributor</th>',
+        numeric ? '<th>Submissions</th>' : '',
         '<th>Last Submission</th>',
         '<th style="width:200px">Progress</th>',
-        '<th style="width:100px">Submissions</th>',
+        '<th style="width:120px">' + valueLabel + '</th>',
         '</tr></thead>',
         '<tbody>'
       ];
@@ -484,14 +543,16 @@
       leaders.forEach(function (leader, i) {
         var rank = i + 1;
         var rankClass = rank <= 3 ? ' ra-lb__rank--' + rank : '';
-        var pct = Math.round((leader.count / maxCount) * 100);
+        var displayValue = numeric ? leader.total.toLocaleString() : leader.count;
+        var pct = Math.round(((numeric ? leader.total : leader.count) / maxValue) * 100);
 
         html.push('<tr>');
         html.push('<td><span class="ra-lb__rank' + rankClass + '">' + rank + '</span></td>');
         html.push('<td>' + escapeHtml(leader.username) + '</td>');
+        if (numeric) html.push('<td>' + leader.count + '</td>');
         html.push('<td>' + timeAgo(leader.lastSubmission) + '</td>');
         html.push('<td><div class="ra-lb__bar-wrap"><div class="ra-lb__bar" style="width:' + pct + '%"></div></div></td>');
-        html.push('<td>' + leader.count + '</td>');
+        html.push('<td>' + displayValue + '</td>');
         html.push('</tr>');
       });
 

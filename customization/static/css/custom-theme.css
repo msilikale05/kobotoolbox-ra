@@ -176,6 +176,38 @@
   font-weight: 500 !important;
 }
 
+/* Auth footer navigation buttons — matches .kobo-button.kobo-button--blue.kobo-button--fullwidth */
+.ra-auth-footer a.ra-auth-btn {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  text-decoration: none;
+  text-align: center;
+  border-radius: 6px;
+  border: none;
+  color: #fff !important;
+  background-color: var(--ra-primary) !important;
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.25);
+  min-height: 40px;
+  line-height: 40px;
+  padding: 0 16px;
+  margin-bottom: 8px;
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.ra-auth-footer a.ra-auth-btn:hover {
+  background-color: var(--ra-primary-dark) !important;
+  box-shadow: 0 3px 8px 0 rgba(0, 0, 0, 0.3);
+}
+
+.ra-auth-footer a.ra-auth-btn:active {
+  background-color: #2e78a8 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
 /* Login page links - Create account, Forgot password */
 .registration a {
   color: var(--ra-primary-dark) !important;
@@ -185,12 +217,20 @@
   color: var(--ra-primary) !important;
 }
 
+/* Force white text on auth footer buttons (override .registration a color) */
+.registration .ra-auth-footer a.ra-auth-btn,
+.registration .ra-auth-footer a.ra-auth-btn:hover,
+.registration .ra-auth-footer a.ra-auth-btn:active {
+  color: #fff !important;
+}
+
 /* All text inside the login form card */
 .registration p,
 .registration span,
 .registration div {
   color: #2c3e50 !important;
 }
+
 
 /* ==========================================================================
    SIDEBAR / NAVIGATION
@@ -276,5 +316,95 @@
 [class*="service-usage"],
 [class*="ServiceUsage"],
 .banner--error[data-cy="usage"] {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Custom Access Denied / 404 Page
+   ========================================================================== */
+/*
+ * Hide the default KoboToolbox access-denied styling IMMEDIATELY via CSS
+ * (CSS loads before JS, so no flash of unstyled content)
+ * Our JS then repositions and resyles it with the RA branding
+ */
+
+/* Hide default access-denied content until JS resyles it */
+.access-denied:not([data-ra-custom]) {
+  visibility: hidden !important;
+}
+
+/* When access-denied is active, hide ALL UI except the top header bar and the overlay */
+body.ra-access-denied-active nav { display: none !important; }
+body.ra-access-denied-active .k-drawer { display: none !important; }
+body.ra-access-denied-active [class*="drawer"] { display: none !important; }
+body.ra-access-denied-active [class*="form-view"] { display: none !important; }
+body.ra-access-denied-active [class*="toptabs"] { display: none !important; }
+body.ra-access-denied-active [class*="sidebar"] { display: none !important; }
+body.ra-access-denied-active [class*="page-title"] { display: none !important; }
+body.ra-access-denied-active #ra-welcome-panel { display: none !important; }
+body.ra-access-denied-active #ra-leaderboard-page { display: none !important; }
+body.ra-access-denied-active #ra-map-page { display: none !important; }
+body.ra-access-denied-active #ra-settings-page { display: none !important; }
+body.ra-access-denied-active #kpi-app > div > div:not(:first-child) { display: none !important; }
+
+/* Once JS has customized it, make it visible again */
+.access-denied[data-ra-custom] {
+  visibility: visible !important;
+}
+
+.access-denied {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 70vh !important;
+  text-align: center !important;
+  padding: 40px 20px !important;
+  background: #fff !important;
+}
+
+.access-denied::before {
+  content: '' !important;
+  display: block !important;
+  width: 160px !important;
+  height: 60px !important;
+  background: url('/custom-static/images/ra-logo-dark.png') no-repeat center !important;
+  background-size: contain !important;
+  margin-bottom: 32px !important;
+}
+
+.access-denied .access-denied__lock {
+  font-size: 48px !important;
+  color: #54a8dc !important;
+  margin-bottom: 12px !important;
+}
+
+.access-denied .access-denied__title {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  color: #1e293b !important;
+  margin: 0 0 16px !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+.access-denied .access-denied__body {
+  font-size: 15px !important;
+  color: #64748b !important;
+  max-width: 480px !important;
+  line-height: 1.6 !important;
+  margin: 0 auto 24px !important;
+}
+
+.access-denied .access-denied__body a {
+  color: #54a8dc !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+}
+
+.access-denied .access-denied__body a:hover {
+  text-decoration: underline !important;
+}
+
+.access-denied .access-denied__details {
   display: none !important;
 }

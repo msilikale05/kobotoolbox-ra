@@ -792,18 +792,180 @@
     createLegend(layerGroups);
   }
 
+  function parseBounds(dataset) {
+    var bounds = null;
+    if (dataset.bbox) {
+      var bb = dataset.bbox;
+      if (bb.x0 != null && bb.y0 != null) bounds = [[bb.y0, bb.x0], [bb.y1, bb.x1]];
+      else if (Array.isArray(bb) && bb.length >= 4) bounds = [[bb[1], bb[0]], [bb[3], bb[2]]];
+      else if (bb.minx != null) bounds = [[bb.miny, bb.minx], [bb.maxy, bb.maxx]];
+    }
+    if (!bounds && dataset.ll_bbox_polygon) {
+      try {
+        var coords = dataset.ll_bbox_polygon.coordinates || dataset.ll_bbox_polygon;
+        if (Array.isArray(coords) && coords[0] && coords[0].length >= 4) {
+          var lats = coords[0].map(function (c) { return c[1]; });
+          var lons = coords[0].map(function (c) { return c[0]; });
+          bounds = [[Math.min.apply(null, lats), Math.min.apply(null, lons)], [Math.max.apply(null, lats), Math.max.apply(null, lons)]];
+        }
+      } catch (e) {}
+    }
+    return bounds;
+  }
+
   function addGeoNodeWMSLayer(dataset, gs) {
     var L = window.L;
     if (!L || !map) return;
 
     var baseUrl = gs.url.replace(/\/+$/, '');
-    // GeoNode WMS endpoint
-    var wmsUrl = baseUrl + '/geoserver/ows';
     var layerName = dataset.alternate || dataset.typename || dataset.name;
     var displayName = dataset.title || dataset.name || layerName;
     var dsId = dataset.pk || dataset.id || layerName;
+    var gnId = 'gn_' + dsId;
+    var bounds = parseBounds(dataset);
+    var geomType = (dataset.geom_type || 'vector').toLowerCase();
+    var defaultColor = '#54a8dc';
+    var defaultStroke = '#2980b9';
 
-    // Try multiple WMS URL patterns for compatibility
+    // Determine if this is raster (use WMS) or vector (try WFS first)
+    var isRaster = geomType === 'raster' || geomType === 'coverage';
+
+    if (isRaster) {
+      // Raster data — must use WMS
+      addAsWMS(baseUrl, layerName, displayName, dsId, gnId, bounds, geomType, gs);
+    } else {
+      // Vector data — try WFS (GeoJSON) first for proper styling, fallback to WMS
+      var wfsUrls = [
+        baseUrl + '/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=application/json&maxFeatures=5000',
+        baseUrl + '/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=application/json&maxFeatures=5000',
+        baseUrl + '/gs/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=application/json&maxFeatures=5000'
+      ];
+
+      tryWFS(wfsUrls, 0, function (geojson) {
+        if (geojson && geojson.features && geojson.features.length > 0) {
+          addAsVector(geojson, displayName, dsId, gnId, bounds, geomType, gs, defaultColor, defaultStroke);
+        } else {
+          // WFS failed or empty — fall back to WMS
+          addAsWMS(baseUrl, layerName, displayName, dsId, gnId, bounds, geomType, gs);
+        }
+      });
+    }
+  }
+
+  function tryWFS(urls, idx, callback) {
+    if (idx >= urls.length) { callback(null); return; }
+    fetch(urls[idx])
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        if (data && data.type === 'FeatureCollection') {
+          callback(data);
+        } else {
+          tryWFS(urls, idx + 1, callback);
+        }
+      })
+      .catch(function () {
+        tryWFS(urls, idx + 1, callback);
+      });
+  }
+
+  function addAsVector(geojson, displayName, dsId, gnId, bounds, geomType, gs, fillColor, strokeColor) {
+    var L = window.L;
+    var featureCount = geojson.features.length;
+
+    var vectorLayer = L.geoJSON(geojson, {
+      style: function (feature) {
+        var gType = feature.geometry ? feature.geometry.type : '';
+        if (gType === 'Polygon' || gType === 'MultiPolygon') {
+          return { color: strokeColor, fillColor: fillColor, fillOpacity: 0.3, weight: 2, opacity: 0.8 };
+        } else if (gType === 'LineString' || gType === 'MultiLineString') {
+          return { color: fillColor, weight: 3, opacity: 0.8 };
+        }
+        return { color: fillColor, fillColor: fillColor, fillOpacity: 0.8 };
+      },
+      pointToLayer: function (feature, latlng) {
+        return L.circleMarker(latlng, {
+          radius: 6, fillColor: fillColor, color: '#fff', weight: 2, fillOpacity: 0.85
+        });
+      },
+      onEachFeature: function (feature, layer) {
+        if (feature.properties) {
+          var props = feature.properties;
+          var popupHtml = '<div style="max-height:200px;overflow-y:auto;font-size:12px;">';
+          popupHtml += '<div style="font-weight:600;margin-bottom:6px;color:#1e293b;">' + escapeHtml(displayName) + '</div>';
+          var keys = Object.keys(props);
+          for (var i = 0; i < keys.length && i < 10; i++) {
+            var val = props[keys[i]];
+            if (val !== null && val !== undefined && val !== '') {
+              popupHtml += '<div><span style="color:#64748b;">' + escapeHtml(keys[i]) + ':</span> ' + escapeHtml(String(val)) + '</div>';
+            }
+          }
+          if (keys.length > 10) popupHtml += '<div style="color:#94a3b8;">... ' + (keys.length - 10) + ' more fields</div>';
+          popupHtml += '</div>';
+          layer.bindPopup(popupHtml, { maxWidth: 300 });
+        }
+      }
+    });
+
+    vectorLayer.addTo(map);
+
+    // Detect actual geometry type from features
+    var detectedType = geomType;
+    if (geojson.features.length > 0) {
+      var firstGeom = geojson.features[0].geometry;
+      if (firstGeom) {
+        var gt = firstGeom.type.toLowerCase();
+        if (gt.indexOf('polygon') !== -1) detectedType = 'polygon';
+        else if (gt.indexOf('line') !== -1) detectedType = 'line';
+        else if (gt.indexOf('point') !== -1) detectedType = 'point';
+      }
+    }
+
+    // Use vector layer bounds if parsed bounds missing
+    if (!bounds) {
+      try {
+        var vBounds = vectorLayer.getBounds();
+        if (vBounds.isValid()) bounds = vBounds;
+      } catch (e) {}
+    }
+
+    geonodeLayers[gnId] = {
+      layer: vectorLayer,
+      name: displayName,
+      color: fillColor,
+      strokeColor: strokeColor,
+      count: featureCount,
+      isGeoNode: true,
+      isVector: true,
+      layerName: dsId,
+      bounds: bounds,
+      geomType: detectedType,
+      sourceId: gs ? (gs.id || '') : '',
+      sourceName: gs ? (gs.name || 'GeoNode') : 'GeoNode'
+    };
+    layerGroups[gnId] = geonodeLayers[gnId];
+
+    var saved = getSavedGeoNodeLayers();
+    saved.push({
+      id: dsId, name: displayName, layerName: dsId,
+      wmsUrl: gs.url.replace(/\/+$/, '') + '/geoserver/ows',
+      bounds: bounds, geomType: detectedType,
+      sourceId: gs ? (gs.id || '') : '',
+      sourceName: gs ? (gs.name || 'GeoNode') : 'GeoNode'
+    });
+    saveGeoNodeLayers(saved);
+    createLegend(layerGroups);
+
+    // Zoom to new layer
+    if (bounds) {
+      try { map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 }); } catch (e) {}
+    }
+  }
+
+  function addAsWMS(baseUrl, layerName, displayName, dsId, gnId, bounds, geomType, gs) {
+    var L = window.L;
     var wmsEndpoints = [
       baseUrl + '/geoserver/ows',
       baseUrl + '/geoserver/wms',
@@ -824,9 +986,8 @@
       zIndex: 500
     });
 
-    wmsLayer.on('tileerror', function() {
+    wmsLayer.on('tileerror', function () {
       errorCount++;
-      // After 3 failed tiles, try next endpoint
       if (errorCount >= 3 && currentEndpointIdx < wmsEndpoints.length - 1) {
         currentEndpointIdx++;
         errorCount = 0;
@@ -836,40 +997,13 @@
 
     wmsLayer.addTo(map);
 
-    // Store in geonodeLayers
-    var gnId = 'gn_' + dsId;
-    var bounds = null;
-    if (dataset.bbox) {
-      var bb = dataset.bbox;
-      if (bb.x0 != null && bb.y0 != null) {
-        // GeoNode format: {x0, y0, x1, y1}
-        bounds = [[bb.y0, bb.x0], [bb.y1, bb.x1]];
-      } else if (Array.isArray(bb) && bb.length >= 4) {
-        // Array format: [minx, miny, maxx, maxy]
-        bounds = [[bb[1], bb[0]], [bb[3], bb[2]]];
-      } else if (bb.minx != null) {
-        // Alternative: {minx, miny, maxx, maxy}
-        bounds = [[bb.miny, bb.minx], [bb.maxy, bb.maxx]];
-      }
-    }
-    // Also try ll_bbox_polygon or spatial_extent
-    if (!bounds && dataset.ll_bbox_polygon) {
-      try {
-        var coords = dataset.ll_bbox_polygon.coordinates || dataset.ll_bbox_polygon;
-        if (Array.isArray(coords) && coords[0] && coords[0].length >= 4) {
-          var lats = coords[0].map(function (c) { return c[1]; });
-          var lons = coords[0].map(function (c) { return c[0]; });
-          bounds = [[Math.min.apply(null, lats), Math.min.apply(null, lons)], [Math.max.apply(null, lats), Math.max.apply(null, lons)]];
-        }
-      } catch (e) {}
-    }
-    var geomType = dataset.geom_type || 'vector';
     geonodeLayers[gnId] = {
       layer: wmsLayer,
       name: displayName,
       color: '#54a8dc',
       count: 0,
       isGeoNode: true,
+      isVector: false,
       wmsUrl: wmsEndpoints[0],
       layerName: layerName,
       bounds: bounds,
@@ -877,26 +1011,21 @@
       sourceId: gs ? (gs.id || '') : '',
       sourceName: gs ? (gs.name || 'GeoNode') : 'GeoNode'
     };
-
-    // Also add to layerGroups for legend compatibility
     layerGroups[gnId] = geonodeLayers[gnId];
 
-    // Save to localStorage
     var saved = getSavedGeoNodeLayers();
     saved.push({
-      id: dsId,
-      name: displayName,
-      layerName: layerName,
-      wmsUrl: wmsUrl,
-      bounds: bounds,
-      geomType: geomType,
+      id: dsId, name: displayName, layerName: layerName,
+      wmsUrl: wmsEndpoints[0], bounds: bounds, geomType: geomType,
       sourceId: gs ? (gs.id || '') : '',
       sourceName: gs ? (gs.name || 'GeoNode') : 'GeoNode'
     });
     saveGeoNodeLayers(saved);
-
-    // Refresh legend
     createLegend(layerGroups);
+
+    if (bounds) {
+      try { map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 }); } catch (e) {}
+    }
   }
 
   function loadSavedGeoNodeLayers() {
@@ -904,58 +1033,106 @@
     if (!L || !map) return;
 
     var saved = getSavedGeoNodeLayers();
+    var hidden = getHiddenLayers();
+
     saved.forEach(function (sl) {
       var gnId = 'gn_' + sl.id;
-      var layer;
+      var isHidden = hidden.indexOf(gnId) !== -1;
+      var geomType = (sl.geomType || 'vector').toLowerCase();
+      var isRaster = geomType === 'raster' || geomType === 'coverage';
 
       if (sl.isTile) {
-        // XYZ / Google / Esri tile layer
-        layer = L.tileLayer(sl.wmsUrl, {
-          maxZoom: 20,
-          attribution: sl.name || 'Tiles',
-          zIndex: 400
-        });
-      } else {
-        // WMS layer from GeoNode
-        layer = L.tileLayer.wms(sl.wmsUrl, {
-          layers: sl.layerName,
-          format: 'image/png',
-          transparent: true,
-          version: '1.1.1',
-          attribution: 'GeoNode',
-          uppercase: true,
-          maxZoom: 20,
-          zIndex: 500
-        });
+        // XYZ tile layer
+        var tileLayer = L.tileLayer(sl.wmsUrl, { maxZoom: 20, attribution: sl.name || 'Tiles', zIndex: 400 });
+        if (!isHidden) tileLayer.addTo(map);
+        geonodeLayers[gnId] = {
+          layer: tileLayer, name: sl.name, color: '#54a8dc', count: 0,
+          isGeoNode: true, isVector: false, wmsUrl: sl.wmsUrl, layerName: sl.layerName,
+          bounds: sl.bounds || null, geomType: sl.geomType || 'vector',
+          sourceId: sl.sourceId || '', sourceName: sl.sourceName || 'GeoNode'
+        };
+        layerGroups[gnId] = geonodeLayers[gnId];
+      } else if (!isRaster && sl.wmsUrl) {
+        // Vector — try WFS first
+        var baseUrl = sl.wmsUrl.replace(/\/geoserver\/(ows|wms).*$/, '');
+        var layerName = sl.layerName || sl.id;
+        var wfsUrls = [
+          baseUrl + '/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=application/json&maxFeatures=5000',
+          baseUrl + '/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=application/json&maxFeatures=5000'
+        ];
 
-        layer.on('tileerror', function() {
-            if (sl.wmsUrl.indexOf('/geoserver/ows') !== -1) {
-                var altUrl = sl.wmsUrl.replace('/geoserver/ows', '/geoserver/wms');
-                layer.setUrl(altUrl);
+        (function (savedLayer, geoNodeId, isLayerHidden) {
+          tryWFS(wfsUrls, 0, function (geojson) {
+            if (geojson && geojson.features && geojson.features.length > 0) {
+              var fillColor = '#54a8dc';
+              var strokeColor = '#2980b9';
+              var vectorLayer = L.geoJSON(geojson, {
+                style: function (feature) {
+                  var gType = feature.geometry ? feature.geometry.type : '';
+                  if (gType === 'Polygon' || gType === 'MultiPolygon') return { color: strokeColor, fillColor: fillColor, fillOpacity: 0.3, weight: 2, opacity: 0.8 };
+                  if (gType === 'LineString' || gType === 'MultiLineString') return { color: fillColor, weight: 3, opacity: 0.8 };
+                  return { color: fillColor, fillColor: fillColor, fillOpacity: 0.8 };
+                },
+                pointToLayer: function (feature, latlng) {
+                  return L.circleMarker(latlng, { radius: 6, fillColor: fillColor, color: '#fff', weight: 2, fillOpacity: 0.85 });
+                },
+                onEachFeature: function (feature, layer) {
+                  if (feature.properties) {
+                    var props = feature.properties;
+                    var html = '<div style="max-height:200px;overflow-y:auto;font-size:12px;">';
+                    html += '<div style="font-weight:600;margin-bottom:6px;">' + escapeHtml(savedLayer.name) + '</div>';
+                    var keys = Object.keys(props);
+                    for (var i = 0; i < keys.length && i < 10; i++) {
+                      if (props[keys[i]] != null && props[keys[i]] !== '') html += '<div><span style="color:#64748b;">' + escapeHtml(keys[i]) + ':</span> ' + escapeHtml(String(props[keys[i]])) + '</div>';
+                    }
+                    html += '</div>';
+                    layer.bindPopup(html, { maxWidth: 300 });
+                  }
+                }
+              });
+              if (!isLayerHidden) vectorLayer.addTo(map);
+              var detectedType = geojson.features[0] && geojson.features[0].geometry ? geojson.features[0].geometry.type.toLowerCase() : 'point';
+              if (detectedType.indexOf('polygon') !== -1) detectedType = 'polygon';
+              else if (detectedType.indexOf('line') !== -1) detectedType = 'line';
+              else detectedType = 'point';
+              geonodeLayers[geoNodeId] = {
+                layer: vectorLayer, name: savedLayer.name, color: fillColor, strokeColor: strokeColor,
+                count: geojson.features.length, isGeoNode: true, isVector: true,
+                layerName: savedLayer.layerName, bounds: savedLayer.bounds || null, geomType: detectedType,
+                sourceId: savedLayer.sourceId || '', sourceName: savedLayer.sourceName || 'GeoNode'
+              };
+              layerGroups[geoNodeId] = geonodeLayers[geoNodeId];
+              createLegend(layerGroups);
+            } else {
+              // WFS failed — fall back to WMS
+              loadAsWMS(savedLayer, geoNodeId, isLayerHidden);
             }
-        });
+          });
+        })(sl, gnId, isHidden);
+      } else {
+        // Raster or no WMS URL — use WMS directly
+        loadAsWMS(sl, gnId, isHidden);
       }
+    });
 
-      var hidden = getHiddenLayers();
-      if (hidden.indexOf(gnId) === -1) {
-        layer.addTo(map);
-      }
-
+    function loadAsWMS(sl, gnId, isHidden) {
+      var layer = L.tileLayer.wms(sl.wmsUrl, {
+        layers: sl.layerName, format: 'image/png', transparent: true,
+        version: '1.1.1', attribution: 'GeoNode', uppercase: true, maxZoom: 20, zIndex: 500
+      });
+      layer.on('tileerror', function () {
+        if (sl.wmsUrl.indexOf('/geoserver/ows') !== -1) layer.setUrl(sl.wmsUrl.replace('/geoserver/ows', '/geoserver/wms'));
+      });
+      if (!isHidden) layer.addTo(map);
       geonodeLayers[gnId] = {
-        layer: layer,
-        name: sl.name,
-        color: '#54a8dc',
-        count: 0,
-        isGeoNode: true,
-        wmsUrl: sl.wmsUrl,
-        layerName: sl.layerName,
-        bounds: sl.bounds || null,
-        geomType: sl.geomType || 'vector',
-        sourceId: sl.sourceId || '',
-        sourceName: sl.sourceName || 'GeoNode'
+        layer: layer, name: sl.name, color: '#54a8dc', count: 0,
+        isGeoNode: true, isVector: false, wmsUrl: sl.wmsUrl, layerName: sl.layerName,
+        bounds: sl.bounds || null, geomType: sl.geomType || 'vector',
+        sourceId: sl.sourceId || '', sourceName: sl.sourceName || 'GeoNode'
       };
       layerGroups[gnId] = geonodeLayers[gnId];
-    });
+      createLegend(layerGroups);
+    }
   }
 
   function removeGeoNodeLayer(gnId) {
@@ -1246,56 +1423,61 @@
     var legend = document.createElement('div');
     legend.className = 'ra-map__legend';
 
-    var html = '<h3>Layers</h3>';
+    // Build ordered layer list — use saved order if available, otherwise forms first then GeoNode
+    var savedOrder = getLayerOrder();
     var formKeys = Object.keys(groups).filter(function (k) { return k.indexOf('gn_') !== 0; });
     var gnKeys = Object.keys(groups).filter(function (k) { return k.indexOf('gn_') === 0; });
+    var allKeys = formKeys.concat(gnKeys);
 
-    // Form layers
-    formKeys.forEach(function (uid) {
+    // Sort by saved order if available
+    if (savedOrder.length > 0) {
+      allKeys.sort(function (a, b) {
+        var ia = savedOrder.indexOf(a);
+        var ib = savedOrder.indexOf(b);
+        if (ia === -1) ia = 9999;
+        if (ib === -1) ib = 9999;
+        return ia - ib;
+      });
+    }
+
+    var html = '<h3>Layers</h3>';
+
+    allKeys.forEach(function (uid) {
       var g = groups[uid];
+      if (!g) return;
       var visible = map.hasLayer(g.layer);
       var hiddenClass = visible ? '' : ' ra-map__legend-item--hidden';
-      var fields = formGeoFieldsMap[uid] || [];
+      var isGN = uid.indexOf('gn_') === 0;
 
-      // Determine primary geo type for the icon
-      var geoType = 'geopoint'; // default
-      if (fields.length) geoType = fields[0].type;
+      var icon;
+      if (isGN) {
+        var gnData = geonodeLayers[uid];
+        var geomType = (gnData && gnData.geomType) || 'vector';
+        icon = gnGeomIcon(geomType, g.color || '#54a8dc');
+      } else {
+        var fields = formGeoFieldsMap[uid] || [];
+        var geoType = 'geopoint';
+        if (fields.length) geoType = fields[0].type;
+        icon = geoTypeIcon(geoType, g.color);
+      }
 
-      var icon = geoTypeIcon(geoType, g.color);
+      var badge = isGN ? '<span class="ra-map__legend-badge">GeoNode</span>' : '';
+      var countSpan = !isGN ? '<span class="ra-map__legend-count">' + g.count + '</span>' : '';
 
-      html += '<div class="ra-map__legend-item' + hiddenClass + '" data-uid="' + uid + '" style="position:relative;">' +
+      html += '<div class="ra-map__legend-item' + hiddenClass + '" data-uid="' + uid + '" draggable="true" style="position:relative;cursor:grab;">' +
+        '<span class="ra-map__legend-drag" title="Drag to reorder" style="color:#cbd5e1;font-size:12px;cursor:grab;flex-shrink:0;margin-right:2px;">&#9776;</span>' +
         '<input type="checkbox"' + (visible ? ' checked' : '') + ' style="margin:0;cursor:pointer;flex-shrink:0;"> ' +
         '<span class="ra-map__legend-icon">' + icon + '</span>' +
-        '<span class="ra-map__legend-name">' + escapeHtml(g.name) + '</span>' +
-        '<span class="ra-map__legend-count">' + g.count + '</span>' +
+        '<span class="ra-map__legend-name">' + escapeHtml(g.name) + badge + '</span>' +
+        countSpan +
         '<button class="ra-map__legend-menu-btn" data-menu-uid="' + uid + '" title="More options">&#8942;</button>' +
         '</div>';
     });
 
-    // GeoNode layers section
-    if (gnKeys.length > 0) {
-      html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #eee;">' +
-        '<div style="font-size:11px;color:#999;font-weight:600;margin-bottom:4px;">GEONODE LAYERS</div></div>';
-
-      gnKeys.forEach(function (gnId) {
-        var g = groups[gnId];
-        var visible = map.hasLayer(g.layer);
-        var hiddenClass = visible ? '' : ' ra-map__legend-item--hidden';
-        // Use geometry-type icon if available, else globe
-        var gnData = geonodeLayers[gnId];
-        var geomType = (gnData && gnData.geomType) || 'vector';
-        var gnIcon = gnGeomIcon(geomType, g.color || '#54a8dc');
-
-        html += '<div class="ra-map__legend-item' + hiddenClass + '" data-uid="' + gnId + '" style="position:relative;">' +
-          '<input type="checkbox"' + (visible ? ' checked' : '') + ' style="margin:0;cursor:pointer;flex-shrink:0;"> ' +
-          '<span class="ra-map__legend-icon">' + gnIcon + '</span>' +
-          '<span class="ra-map__legend-name">' + escapeHtml(g.name) + '<span class="ra-map__legend-badge">GeoNode</span></span>' +
-          '<button class="ra-map__legend-menu-btn" data-menu-uid="' + gnId + '" title="More options">&#8942;</button>' +
-          '</div>';
-      });
-    }
-
     legend.innerHTML = html;
+
+    // Apply z-index based on layer order (top of legend = highest z-index on map)
+    applyLayerZOrder(allKeys, groups);
 
     // Checkbox toggles layer visibility and saves state
     legend.addEventListener('change', function (e) {
@@ -1372,30 +1554,15 @@
       var isGeoNodeLayer = uid.indexOf('gn_') === 0;
 
       if (isGeoNodeLayer) {
-        // Simplified menu for GeoNode WMS layers
-        menu.innerHTML =
-          '<button class="ra-map__ctx-menu-item" data-action="zoom">' +
-            '<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>' +
-            'Zoom to layer</button>' +
-          '<button class="ra-map__ctx-menu-item" data-action="opacity">' +
-            '<svg viewBox="0 0 24 24"><path d="M17.66 8L12 2.35 6.34 8A8.02 8.02 0 004 13.64c0 2 .78 4.11 2.34 5.67a7.99 7.99 0 0011.32 0c1.56-1.56 2.34-3.67 2.34-5.67S19.22 9.56 17.66 8zM6 14c.01-2 .62-3.27 1.76-4.4L12 5.27l4.24 4.38C17.38 10.77 17.99 12 18 14H6z"/></svg>' +
-            'Change opacity</button>' +
-          '<div class="ra-map__ctx-sep"></div>' +
-          '<button class="ra-map__ctx-menu-item" data-action="only">' +
-            '<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>' +
-            'Show only this</button>' +
-          '<button class="ra-map__ctx-menu-item" data-action="showall">' +
-            '<svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>' +
-            'Show all layers</button>' +
-          '<div class="ra-map__ctx-sep"></div>' +
-          '<button class="ra-map__ctx-menu-item" data-action="remove" style="color:#e74c3c;">' +
-            '<svg viewBox="0 0 24 24" fill="#e74c3c"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>' +
-            'Remove layer</button>';
-      } else {
-        var swatches = COLORS.map(function (c) {
-          var sel = c === g.color ? ' ra-map__color-swatch--selected' : '';
-          return '<span class="ra-map__color-swatch' + sel + '" data-color="' + c + '" style="background:' + c + '"></span>';
-        }).join('');
+        var gnData = geonodeLayers[uid];
+        var gnIsVector = gnData && gnData.isVector;
+        var gnGeomType = (gnData && gnData.geomType) || 'point';
+
+        // Color edit option (only for vector GeoNode layers)
+        var colorOption = gnIsVector ?
+          '<button class="ra-map__ctx-menu-item" data-action="editcolor">' +
+            '<svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-1.01 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>' +
+            'Edit Color</button>' : '';
 
         menu.innerHTML =
           '<button class="ra-map__ctx-menu-item" data-action="zoom">' +
@@ -1404,9 +1571,44 @@
           '<button class="ra-map__ctx-menu-item" data-action="opacity">' +
             '<svg viewBox="0 0 24 24"><path d="M17.66 8L12 2.35 6.34 8A8.02 8.02 0 004 13.64c0 2 .78 4.11 2.34 5.67a7.99 7.99 0 0011.32 0c1.56-1.56 2.34-3.67 2.34-5.67S19.22 9.56 17.66 8zM6 14c.01-2 .62-3.27 1.76-4.4L12 5.27l4.24 4.38C17.38 10.77 17.99 12 18 14H6z"/></svg>' +
             'Change opacity</button>' +
+          colorOption +
           '<div class="ra-map__ctx-sep"></div>' +
-          '<div style="padding:4px 14px;font-size:11px;color:#999;font-weight:600;">CHANGE COLOR</div>' +
-          '<div class="ra-map__color-row">' + swatches + '</div>' +
+          '<button class="ra-map__ctx-menu-item" data-action="only">' +
+            '<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>' +
+            'Show only this</button>' +
+          '<button class="ra-map__ctx-menu-item" data-action="showall">' +
+            '<svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>' +
+            'Show all layers</button>' +
+          '<button class="ra-map__ctx-menu-item" data-action="export">' +
+            '<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>' +
+            'Export Layer</button>' +
+          '<div class="ra-map__ctx-sep"></div>' +
+          '<button class="ra-map__ctx-menu-item" data-action="remove" style="color:#e74c3c;">' +
+            '<svg viewBox="0 0 24 24" fill="#e74c3c"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>' +
+            'Remove layer</button>';
+
+        // Store geo type for the editcolor action
+        var layerGeoType = gnGeomType;
+      } else {
+        // Detect geometry type for this layer
+        var layerGeoType = 'point';
+        var geoFields = formGeoFieldsMap[uid] || [];
+        if (geoFields.length) {
+          var ft = geoFields[0].type || '';
+          if (ft.indexOf('shape') !== -1 || ft.indexOf('polygon') !== -1) layerGeoType = 'polygon';
+          else if (ft.indexOf('trace') !== -1 || ft.indexOf('line') !== -1) layerGeoType = 'line';
+        }
+
+        menu.innerHTML =
+          '<button class="ra-map__ctx-menu-item" data-action="zoom">' +
+            '<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>' +
+            'Zoom to layer</button>' +
+          '<button class="ra-map__ctx-menu-item" data-action="opacity">' +
+            '<svg viewBox="0 0 24 24"><path d="M17.66 8L12 2.35 6.34 8A8.02 8.02 0 004 13.64c0 2 .78 4.11 2.34 5.67a7.99 7.99 0 0011.32 0c1.56-1.56 2.34-3.67 2.34-5.67S19.22 9.56 17.66 8zM6 14c.01-2 .62-3.27 1.76-4.4L12 5.27l4.24 4.38C17.38 10.77 17.99 12 18 14H6z"/></svg>' +
+            'Change opacity</button>' +
+          '<button class="ra-map__ctx-menu-item" data-action="editcolor">' +
+            '<svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-1.01 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>' +
+            'Edit Color</button>' +
           '<div class="ra-map__ctx-sep"></div>' +
           '<button class="ra-map__ctx-menu-item" data-action="only">' +
             '<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>' +
@@ -1477,8 +1679,16 @@
             if (row) row.classList.remove('ra-map__legend-item--hidden');
             if (cb) cb.checked = true;
           });
+        } else if (act === 'editcolor') {
+          closeContextMenu();
+          showColorEditorModal(uid, layerGeoType, groups);
+          return; // don't close again
         } else if (act === 'export') {
-          openExportModal(uid, g.name, g.count);
+          if (isGeoNodeLayer && g.isGeoNode) {
+            openGeoNodeExportModal(uid, g);
+          } else {
+            openExportModal(uid, g.name, g.count);
+          }
         } else if (act === 'data') {
           window.location.hash = '#/forms/' + uid + '/data/table';
         } else if (act === 'remove') {
@@ -1502,6 +1712,104 @@
       if (menuBtn) menuBtn.click();
     });
 
+    // ── Double-click to zoom to layer ──
+    legend.addEventListener('dblclick', function (e) {
+      var item = e.target.closest('.ra-map__legend-item');
+      if (!item) return;
+      if (e.target.tagName === 'INPUT' || e.target.closest('.ra-map__legend-menu-btn')) return;
+      e.preventDefault();
+
+      var uid = item.getAttribute('data-uid');
+      var g = groups[uid];
+      if (!g) return;
+
+      // Zoom to layer bounds
+      if (g.isGeoNode && geonodeLayers[uid] && geonodeLayers[uid].bounds) {
+        var b = geonodeLayers[uid].bounds;
+        if (b instanceof window.L.LatLngBounds) {
+          map.fitBounds(b, { padding: [50, 50], maxZoom: 16 });
+        } else if (Array.isArray(b)) {
+          map.fitBounds(b, { padding: [50, 50], maxZoom: 16 });
+        }
+      } else if (map.hasLayer(g.layer)) {
+        try {
+          var bounds = g.layer.getBounds();
+          if (bounds && bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+        } catch (ex) {}
+      }
+
+      // Visual feedback
+      legend.querySelectorAll('.ra-map__legend-item').forEach(function (el) { el.style.background = ''; });
+      item.style.background = '#e8f4fd';
+      setTimeout(function () { item.style.background = ''; }, 1500);
+    });
+
+    // ── Drag and drop to reorder layers ──
+    var dragSrcUid = null;
+    var legendItems = legend.querySelectorAll('.ra-map__legend-item');
+
+    legendItems.forEach(function (item) {
+      item.addEventListener('dragstart', function (e) {
+        dragSrcUid = this.getAttribute('data-uid');
+        this.style.opacity = '0.3';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', dragSrcUid);
+      });
+      item.addEventListener('dragend', function () {
+        this.style.opacity = '1';
+        legendItems.forEach(function (el) {
+          el.style.borderTop = '';
+          el.style.borderBottom = '';
+        });
+      });
+      item.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        legendItems.forEach(function (el) { el.style.borderTop = ''; el.style.borderBottom = ''; });
+        // Show drop indicator
+        var rect = this.getBoundingClientRect();
+        var midY = rect.top + rect.height / 2;
+        if (e.clientY < midY) {
+          this.style.borderTop = '2px solid #54a8dc';
+        } else {
+          this.style.borderBottom = '2px solid #54a8dc';
+        }
+      });
+      item.addEventListener('dragleave', function () {
+        this.style.borderTop = '';
+        this.style.borderBottom = '';
+      });
+      item.addEventListener('drop', function (e) {
+        e.preventDefault();
+        var dropUid = this.getAttribute('data-uid');
+        if (!dragSrcUid || dragSrcUid === dropUid) return;
+
+        // Get current order from DOM
+        var items = legend.querySelectorAll('.ra-map__legend-item');
+        var order = [];
+        items.forEach(function (el) { order.push(el.getAttribute('data-uid')); });
+
+        // Move dragSrcUid to dropUid position
+        var fromIdx = order.indexOf(dragSrcUid);
+        var toIdx = order.indexOf(dropUid);
+        if (fromIdx === -1 || toIdx === -1) return;
+
+        // Determine if dropping above or below
+        var rect = this.getBoundingClientRect();
+        var midY = rect.top + rect.height / 2;
+        if (e.clientY > midY) toIdx++;
+
+        order.splice(fromIdx, 1);
+        if (toIdx > fromIdx) toIdx--;
+        order.splice(toIdx, 0, dragSrcUid);
+
+        // Save order and rebuild legend
+        saveLayerOrder(order);
+        createLegend(groups);
+        dragSrcUid = null;
+      });
+    });
+
     // Close context menu on outside click
     document.addEventListener('mousedown', function (e) {
       if (e.target.closest('.ra-map__ctx-menu') || e.target.closest('.ra-map__legend-menu-btn')) return;
@@ -1511,9 +1819,48 @@
     page.appendChild(legend);
   }
 
+  // ── Layer z-order (top of legend = drawn on top of map) ──
+  function applyLayerZOrder(orderedKeys, groups) {
+    // Top of legend list = highest z-index = drawn on top
+    var baseZ = 200;
+    for (var i = 0; i < orderedKeys.length; i++) {
+      var uid = orderedKeys[i];
+      var g = groups[uid];
+      if (!g || !g.layer) continue;
+      var zIndex = baseZ + (orderedKeys.length - i) * 10;
+
+      // Set z-index based on layer type
+      if (g.layer.setZIndex) {
+        // WMS tile layer
+        g.layer.setZIndex(zIndex);
+      } else if (g.layer.eachLayer) {
+        // FeatureGroup/LayerGroup — bring to front or set z-index on pane
+        try {
+          if (g.layer.bringToFront) g.layer.bringToFront();
+        } catch (ex) {}
+      }
+    }
+
+    // For vector layers, bring them to front in reverse order (last = top)
+    for (var j = orderedKeys.length - 1; j >= 0; j--) {
+      var g2 = groups[orderedKeys[j]];
+      if (g2 && g2.layer && g2.layer.bringToFront && map.hasLayer(g2.layer)) {
+        try { g2.layer.bringToFront(); } catch (ex) {}
+      }
+    }
+  }
+
   // ── Persistence ──
   var HIDDEN_KEY = 'ra_map_hidden_layers';
   var COLORS_KEY = 'ra_map_layer_colors';
+  var ORDER_KEY = 'ra_map_layer_order';
+
+  function getLayerOrder() {
+    try { return JSON.parse(localStorage.getItem(ORDER_KEY)) || []; } catch (e) { return []; }
+  }
+  function saveLayerOrder(order) {
+    try { localStorage.setItem(ORDER_KEY, JSON.stringify(order)); } catch (e) {}
+  }
 
   function getHiddenLayers() {
     try {
@@ -1549,6 +1896,248 @@
       colors[uid] = color;
       localStorage.setItem(COLORS_KEY, JSON.stringify(colors));
     } catch (e) { /* ignore */ }
+  }
+
+  // ── GeoNode Layer Export ──
+  function openGeoNodeExportModal(uid, g) {
+    var old = document.querySelector('.ra-map__export-overlay');
+    if (old) old.remove();
+
+    var isVector = g.isVector && g.layer && g.layer.toGeoJSON;
+    var featureCount = g.count || 0;
+
+    var overlay = document.createElement('div');
+    overlay.className = 'ra-map__export-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;';
+
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:10px;width:420px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,0.2);">' +
+        '<div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">' +
+          '<div><div style="font-size:16px;font-weight:600;color:#1e293b;">Export Layer</div>' +
+          '<div style="font-size:12px;color:#94a3b8;">' + escapeHtml(g.name) + ' &middot; ' + featureCount + ' features</div></div>' +
+          '<button class="ra-gn-export-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:20px;">' +
+          (isVector ?
+            '<p style="color:#666;font-size:13px;margin:0 0 16px;">Choose an export format. The data will be downloaded directly from the layer visible on the map.</p>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
+              '<button class="ra-gn-export-btn" data-format="geojson" style="padding:14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;text-align:center;">' +
+                '<div style="font-size:20px;margin-bottom:4px;">&#127758;</div>' +
+                '<div style="font-size:13px;font-weight:600;color:#1e293b;">GeoJSON</div>' +
+                '<div style="font-size:11px;color:#94a3b8;">Web mapping standard</div>' +
+              '</button>' +
+              '<button class="ra-gn-export-btn" data-format="kml" style="padding:14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;text-align:center;">' +
+                '<div style="font-size:20px;margin-bottom:4px;">&#127759;</div>' +
+                '<div style="font-size:13px;font-weight:600;color:#1e293b;">KML</div>' +
+                '<div style="font-size:11px;color:#94a3b8;">Google Earth</div>' +
+              '</button>' +
+              '<button class="ra-gn-export-btn" data-format="csv" style="padding:14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;text-align:center;">' +
+                '<div style="font-size:20px;margin-bottom:4px;">&#128196;</div>' +
+                '<div style="font-size:13px;font-weight:600;color:#1e293b;">CSV</div>' +
+                '<div style="font-size:11px;color:#94a3b8;">With coordinates</div>' +
+              '</button>' +
+              '<button class="ra-gn-export-btn" data-format="gpx" style="padding:14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;text-align:center;">' +
+                '<div style="font-size:20px;margin-bottom:4px;">&#128204;</div>' +
+                '<div style="font-size:13px;font-weight:600;color:#1e293b;">GPX</div>' +
+                '<div style="font-size:11px;color:#94a3b8;">GPS devices</div>' +
+              '</button>' +
+            '</div>'
+          :
+            '<p style="color:#666;font-size:13px;margin:0 0 16px;">This is a WMS raster layer. You can download it directly from GeoNode.</p>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
+              '<button class="ra-gn-export-btn" data-format="wfs-shp" style="padding:14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;text-align:center;">' +
+                '<div style="font-size:20px;margin-bottom:4px;">&#128230;</div>' +
+                '<div style="font-size:13px;font-weight:600;color:#1e293b;">Shapefile</div>' +
+                '<div style="font-size:11px;color:#94a3b8;">Via GeoServer</div>' +
+              '</button>' +
+              '<button class="ra-gn-export-btn" data-format="wfs-geojson" style="padding:14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;text-align:center;">' +
+                '<div style="font-size:20px;margin-bottom:4px;">&#127758;</div>' +
+                '<div style="font-size:13px;font-weight:600;color:#1e293b;">GeoJSON</div>' +
+                '<div style="font-size:11px;color:#94a3b8;">Via GeoServer</div>' +
+              '</button>' +
+              '<button class="ra-gn-export-btn" data-format="wfs-csv" style="padding:14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;text-align:center;">' +
+                '<div style="font-size:20px;margin-bottom:4px;">&#128196;</div>' +
+                '<div style="font-size:13px;font-weight:600;color:#1e293b;">CSV</div>' +
+                '<div style="font-size:11px;color:#94a3b8;">Via GeoServer</div>' +
+              '</button>' +
+              '<button class="ra-gn-export-btn" data-format="wfs-kml" style="padding:14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;text-align:center;">' +
+                '<div style="font-size:20px;margin-bottom:4px;">&#127759;</div>' +
+                '<div style="font-size:13px;font-weight:600;color:#1e293b;">KML</div>' +
+                '<div style="font-size:11px;color:#94a3b8;">Via GeoServer</div>' +
+              '</button>' +
+            '</div>'
+          ) +
+          '<div class="ra-gn-export-status" style="margin-top:12px;display:none;"></div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('.ra-gn-export-close').addEventListener('click', function () { overlay.remove(); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+
+    overlay.querySelectorAll('.ra-gn-export-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var format = this.getAttribute('data-format');
+        var statusEl = overlay.querySelector('.ra-gn-export-status');
+        statusEl.style.display = 'block';
+        statusEl.style.cssText = 'margin-top:12px;padding:10px;background:#e8f4fd;color:#2980b9;border-radius:6px;font-size:13px;text-align:center;';
+        statusEl.textContent = 'Preparing export...';
+
+        if (isVector && g.layer.toGeoJSON) {
+          // Export from local vector data
+          var geojson = g.layer.toGeoJSON();
+          var filename = (g.name || 'layer').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+          if (format === 'geojson') {
+            downloadFile(JSON.stringify(geojson, null, 2), filename + '.geojson', 'application/geo+json');
+            statusEl.textContent = 'Downloaded ' + geojson.features.length + ' features as GeoJSON';
+          } else if (format === 'kml') {
+            downloadFile(geojsonToKML(geojson, g.name), filename + '.kml', 'application/vnd.google-earth.kml+xml');
+            statusEl.textContent = 'Downloaded as KML';
+          } else if (format === 'csv') {
+            downloadFile(geojsonToCSV(geojson), filename + '.csv', 'text/csv');
+            statusEl.textContent = 'Downloaded as CSV with coordinates';
+          } else if (format === 'gpx') {
+            downloadFile(geojsonToGPX(geojson, g.name), filename + '.gpx', 'application/gpx+xml');
+            statusEl.textContent = 'Downloaded as GPX';
+          }
+        } else {
+          // WMS/non-vector — download via GeoServer WFS
+          var gnData = geonodeLayers[uid];
+          var wmsUrl = (gnData && gnData.wmsUrl) || '';
+          var layerName = (gnData && gnData.layerName) || '';
+          var baseGS = wmsUrl.replace(/\/(ows|wms)(\?.*)?$/, '');
+
+          var dlUrl = '';
+          if (format === 'wfs-shp') {
+            dlUrl = baseGS + '/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=SHAPE-ZIP';
+          } else if (format === 'wfs-geojson') {
+            dlUrl = baseGS + '/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=application/json';
+          } else if (format === 'wfs-csv') {
+            dlUrl = baseGS + '/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=csv';
+          } else if (format === 'wfs-kml') {
+            dlUrl = baseGS + '/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=application/vnd.google-earth.kml+xml';
+          }
+
+          if (dlUrl) {
+            window.open(dlUrl, '_blank');
+            statusEl.textContent = 'Download started from GeoServer';
+          } else {
+            statusEl.style.background = '#fde8e8';
+            statusEl.style.color = '#e74c3c';
+            statusEl.textContent = 'Export format not supported for this layer type';
+          }
+        }
+      });
+    });
+  }
+
+  function downloadFile(content, filename, mime) {
+    var blob = new Blob([content], { type: mime });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function geojsonToKML(geojson, name) {
+    var placemarks = (geojson.features || []).map(function (f) {
+      var geom = f.geometry;
+      var props = f.properties || {};
+      var pName = Object.values(props)[0] || '';
+      var coordStr = '';
+
+      if (geom.type === 'Point') {
+        coordStr = '<Point><coordinates>' + geom.coordinates[0] + ',' + geom.coordinates[1] + '</coordinates></Point>';
+      } else if (geom.type === 'LineString') {
+        coordStr = '<LineString><coordinates>' + geom.coordinates.map(function (c) { return c[0] + ',' + c[1]; }).join(' ') + '</coordinates></LineString>';
+      } else if (geom.type === 'Polygon') {
+        coordStr = '<Polygon><outerBoundaryIs><LinearRing><coordinates>' + geom.coordinates[0].map(function (c) { return c[0] + ',' + c[1]; }).join(' ') + '</coordinates></LinearRing></outerBoundaryIs></Polygon>';
+      } else if (geom.type === 'MultiPolygon') {
+        coordStr = geom.coordinates.map(function (poly) {
+          return '<Polygon><outerBoundaryIs><LinearRing><coordinates>' + poly[0].map(function (c) { return c[0] + ',' + c[1]; }).join(' ') + '</coordinates></LinearRing></outerBoundaryIs></Polygon>';
+        }).join('');
+        coordStr = '<MultiGeometry>' + coordStr + '</MultiGeometry>';
+      } else if (geom.type === 'MultiLineString') {
+        coordStr = geom.coordinates.map(function (line) {
+          return '<LineString><coordinates>' + line.map(function (c) { return c[0] + ',' + c[1]; }).join(' ') + '</coordinates></LineString>';
+        }).join('');
+        coordStr = '<MultiGeometry>' + coordStr + '</MultiGeometry>';
+      } else if (geom.type === 'MultiPoint') {
+        coordStr = geom.coordinates.map(function (c) {
+          return '<Point><coordinates>' + c[0] + ',' + c[1] + '</coordinates></Point>';
+        }).join('');
+        coordStr = '<MultiGeometry>' + coordStr + '</MultiGeometry>';
+      }
+
+      var desc = Object.keys(props).map(function (k) { return k + ': ' + props[k]; }).join('\n');
+      return '<Placemark><name>' + escapeHtml(String(pName)) + '</name><description>' + escapeHtml(desc) + '</description>' + coordStr + '</Placemark>';
+    }).join('\n');
+
+    return '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>' + escapeHtml(name || 'Export') + '</name>\n' + placemarks + '\n</Document></kml>';
+  }
+
+  function geojsonToCSV(geojson) {
+    var features = geojson.features || [];
+    if (!features.length) return 'No data';
+
+    // Collect all property keys
+    var allKeys = {};
+    features.forEach(function (f) {
+      Object.keys(f.properties || {}).forEach(function (k) { allKeys[k] = true; });
+    });
+    var cols = ['latitude', 'longitude', 'geometry_type'].concat(Object.keys(allKeys));
+    var lines = [cols.join(',')];
+
+    features.forEach(function (f) {
+      var geom = f.geometry;
+      var lat = '', lon = '';
+      if (geom.type === 'Point') { lat = geom.coordinates[1]; lon = geom.coordinates[0]; }
+      else if (geom.coordinates && geom.coordinates[0]) {
+        // Use centroid for non-point
+        var flat = [];
+        function flatten(arr) { if (typeof arr[0] === 'number') flat.push(arr); else arr.forEach(flatten); }
+        flatten(geom.coordinates);
+        if (flat.length) {
+          var sumLat = 0, sumLon = 0;
+          flat.forEach(function (c) { sumLon += c[0]; sumLat += c[1]; });
+          lat = (sumLat / flat.length).toFixed(6);
+          lon = (sumLon / flat.length).toFixed(6);
+        }
+      }
+      var row = [lat, lon, geom.type];
+      Object.keys(allKeys).forEach(function (k) {
+        var v = (f.properties || {})[k];
+        row.push('"' + String(v !== undefined && v !== null ? v : '').replace(/"/g, '""') + '"');
+      });
+      lines.push(row.join(','));
+    });
+    return lines.join('\n');
+  }
+
+  function geojsonToGPX(geojson, name) {
+    var wpts = (geojson.features || []).map(function (f) {
+      var geom = f.geometry;
+      if (geom.type === 'Point') {
+        var pName = Object.values(f.properties || {})[0] || '';
+        return '<wpt lat="' + geom.coordinates[1] + '" lon="' + geom.coordinates[0] + '"><name>' + escapeHtml(String(pName)) + '</name></wpt>';
+      }
+      return '';
+    }).filter(function (s) { return s; }).join('\n');
+
+    var trks = (geojson.features || []).map(function (f) {
+      var geom = f.geometry;
+      if (geom.type === 'LineString') {
+        var pts = geom.coordinates.map(function (c) { return '<trkpt lat="' + c[1] + '" lon="' + c[0] + '"/>'; }).join('');
+        return '<trk><name>' + escapeHtml(String(Object.values(f.properties || {})[0] || '')) + '</name><trkseg>' + pts + '</trkseg></trk>';
+      }
+      return '';
+    }).filter(function (s) { return s; }).join('\n');
+
+    return '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Ramani Yangu">\n' + wpts + '\n' + trks + '\n</gpx>';
   }
 
   // ── Export Modal ──
@@ -1837,22 +2426,176 @@
     if (existing) existing.remove();
   }
 
-  function changeLayerColor(uid, newColor, groups) {
+  function changeLayerColor(uid, newColor, groups, strokeColor) {
     var g = groups[uid];
     if (!g) return;
     g.color = newColor;
+    if (strokeColor) g.strokeColor = strokeColor;
     formColorMap[uid] = newColor;
     saveColor(uid, newColor);
 
     // Update all markers/shapes in the layer
     g.layer.eachLayer(function (layer) {
       if (layer.setStyle) {
-        layer.setStyle({ fillColor: newColor, color: layer.options.weight > 2 ? newColor : '#fff' });
+        var style = { fillColor: newColor };
+        // For polygons: separate stroke color; for points/lines: use fill color
+        if (strokeColor) {
+          style.color = strokeColor;
+        } else if (layer.options && layer.options.weight > 2) {
+          style.color = newColor;
+        }
+        layer.setStyle(style);
       }
     });
 
     // Rebuild legend to reflect new color
     createLegend(groups);
+  }
+
+  function showColorEditorModal(uid, geoType, groups) {
+    var g = groups[uid];
+    if (!g) return;
+
+    var currentFill = g.color || '#54a8dc';
+    var currentStroke = g.strokeColor || g.color || '#54a8dc';
+
+    // Detect actual geo type from first layer feature
+    var detectedType = geoType || 'point';
+    if (g.layer && g.layer.eachLayer) {
+      g.layer.eachLayer(function (layer) {
+        if (layer instanceof window.L.Polygon) detectedType = 'polygon';
+        else if (layer instanceof window.L.Polyline) detectedType = 'line';
+      });
+    }
+
+    var isPolygon = detectedType === 'polygon';
+
+    var swatchRow = function (selectedColor, dataAttr) {
+      return COLORS.map(function (c) {
+        var sel = c === selectedColor ? 'border:2px solid #1e293b;transform:scale(1.2);' : 'border:2px solid transparent;';
+        return '<span class="ra-map__color-swatch" data-' + dataAttr + '="' + c + '" style="background:' + c + ';width:24px;height:24px;border-radius:50%;display:inline-block;cursor:pointer;margin:3px;' + sel + '"></span>';
+      }).join('');
+    };
+
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:10px;width:380px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,0.2);">' +
+        '<div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;font-size:15px;font-weight:600;color:#1e293b;display:flex;justify-content:space-between;align-items:center;">' +
+          'Edit Color — ' + escapeHtml(g.name) +
+          '<button id="ra-color-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:20px;">' +
+          // Fill color (for all types)
+          '<div style="margin-bottom:16px;">' +
+            '<label style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:8px;">' +
+              (isPolygon ? 'Fill Color (inside)' : 'Color') +
+            '</label>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:0;" id="ra-color-fill-row">' + swatchRow(currentFill, 'fillcolor') + '</div>' +
+            '<div style="margin-top:8px;display:flex;align-items:center;gap:8px;">' +
+              '<label style="font-size:11px;color:#94a3b8;">Custom:</label>' +
+              '<input type="color" id="ra-color-fill-custom" value="' + currentFill + '" style="width:36px;height:28px;border:1px solid #ddd;border-radius:4px;cursor:pointer;padding:0;">' +
+              '<span id="ra-color-fill-hex" style="font-size:12px;color:#64748b;font-family:monospace;">' + currentFill + '</span>' +
+            '</div>' +
+          '</div>' +
+          // Stroke color (only for polygons)
+          (isPolygon ?
+            '<div style="margin-bottom:16px;">' +
+              '<label style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:8px;">Stroke Color (outline)</label>' +
+              '<div style="display:flex;flex-wrap:wrap;gap:0;" id="ra-color-stroke-row">' + swatchRow(currentStroke, 'strokecolor') + '</div>' +
+              '<div style="margin-top:8px;display:flex;align-items:center;gap:8px;">' +
+                '<label style="font-size:11px;color:#94a3b8;">Custom:</label>' +
+                '<input type="color" id="ra-color-stroke-custom" value="' + currentStroke + '" style="width:36px;height:28px;border:1px solid #ddd;border-radius:4px;cursor:pointer;padding:0;">' +
+                '<span id="ra-color-stroke-hex" style="font-size:12px;color:#64748b;font-family:monospace;">' + currentStroke + '</span>' +
+              '</div>' +
+            '</div>'
+          : '') +
+          // Preview
+          '<div style="margin-bottom:16px;padding:12px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;text-align:center;">' +
+            '<div style="font-size:11px;color:#94a3b8;margin-bottom:8px;">Preview</div>' +
+            '<div id="ra-color-preview" style="display:inline-block;">' +
+              getColorPreview(detectedType, currentFill, currentStroke) +
+            '</div>' +
+          '</div>' +
+          // Buttons
+          '<div style="display:flex;gap:10px;">' +
+            '<button id="ra-color-apply" style="flex:1;padding:10px;background:#54a8dc;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Apply</button>' +
+            '<button id="ra-color-cancel" style="padding:10px 20px;background:#f1f5f9;color:#475569;border:none;border-radius:6px;font-size:14px;cursor:pointer;">Cancel</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+
+    var selectedFill = currentFill;
+    var selectedStroke = currentStroke;
+
+    function updatePreview() {
+      var prev = document.getElementById('ra-color-preview');
+      if (prev) prev.innerHTML = getColorPreview(detectedType, selectedFill, selectedStroke);
+      var fillHex = document.getElementById('ra-color-fill-hex');
+      if (fillHex) fillHex.textContent = selectedFill;
+      var strokeHex = document.getElementById('ra-color-stroke-hex');
+      if (strokeHex) strokeHex.textContent = selectedStroke;
+    }
+
+    // Fill swatch clicks
+    modal.addEventListener('click', function (e) {
+      var fc = e.target.getAttribute('data-fillcolor');
+      if (fc) {
+        selectedFill = fc;
+        var customInput = document.getElementById('ra-color-fill-custom');
+        if (customInput) customInput.value = fc;
+        // Update swatch selection
+        var row = document.getElementById('ra-color-fill-row');
+        if (row) row.querySelectorAll('.ra-map__color-swatch').forEach(function (s) {
+          s.style.border = s.getAttribute('data-fillcolor') === fc ? '2px solid #1e293b' : '2px solid transparent';
+          s.style.transform = s.getAttribute('data-fillcolor') === fc ? 'scale(1.2)' : '';
+        });
+        updatePreview();
+      }
+      var sc = e.target.getAttribute('data-strokecolor');
+      if (sc) {
+        selectedStroke = sc;
+        var customInput2 = document.getElementById('ra-color-stroke-custom');
+        if (customInput2) customInput2.value = sc;
+        var row2 = document.getElementById('ra-color-stroke-row');
+        if (row2) row2.querySelectorAll('.ra-map__color-swatch').forEach(function (s) {
+          s.style.border = s.getAttribute('data-strokecolor') === sc ? '2px solid #1e293b' : '2px solid transparent';
+          s.style.transform = s.getAttribute('data-strokecolor') === sc ? 'scale(1.2)' : '';
+        });
+        updatePreview();
+      }
+    });
+
+    // Custom color inputs
+    var fillInput = document.getElementById('ra-color-fill-custom');
+    if (fillInput) fillInput.addEventListener('input', function () { selectedFill = this.value; updatePreview(); });
+    var strokeInput = document.getElementById('ra-color-stroke-custom');
+    if (strokeInput) strokeInput.addEventListener('input', function () { selectedStroke = this.value; updatePreview(); });
+
+    document.getElementById('ra-color-close').addEventListener('click', function () { modal.remove(); });
+    document.getElementById('ra-color-cancel').addEventListener('click', function () { modal.remove(); });
+    document.getElementById('ra-color-apply').addEventListener('click', function () {
+      changeLayerColor(uid, selectedFill, groups, isPolygon ? selectedStroke : null);
+      modal.remove();
+    });
+  }
+
+  function getColorPreview(geoType, fill, stroke) {
+    if (geoType === 'polygon') {
+      return '<svg width="80" height="60" viewBox="0 0 80 60">' +
+        '<polygon points="10,50 40,5 70,50" fill="' + fill + '" fill-opacity="0.4" stroke="' + stroke + '" stroke-width="3"/>' +
+      '</svg>';
+    } else if (geoType === 'line') {
+      return '<svg width="80" height="40" viewBox="0 0 80 40">' +
+        '<polyline points="5,35 25,10 50,30 75,5" fill="none" stroke="' + fill + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '</svg>';
+    } else {
+      return '<svg width="40" height="40" viewBox="0 0 40 40">' +
+        '<circle cx="20" cy="20" r="12" fill="' + fill + '" stroke="#fff" stroke-width="2"/>' +
+      '</svg>';
+    }
   }
 
   function cycleOpacity(uid, groups) {

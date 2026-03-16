@@ -291,4 +291,127 @@
       waitForApp(tryInject);
     }
   });
+
+  // ── Login page: "Remember me" checkbox ──
+  (function rememberMe() {
+    if (!/\/accounts\/login\/?$/.test(window.location.pathname)) return;
+
+    function inject() {
+      var form = document.querySelector('form.registration--login');
+      if (!form || form.querySelector('.ra-remember-me')) return;
+
+      var submitBtn = form.querySelector('button[type="submit"]');
+      if (!submitBtn) return;
+
+      var wrapper = document.createElement('div');
+      wrapper.className = 'ra-remember-me';
+      wrapper.style.cssText = 'display:flex;align-items:center;margin:12px 0 4px;';
+      wrapper.innerHTML =
+        '<label style="display:flex;align-items:center;cursor:pointer;font-size:13px;color:#2c3e50;gap:8px;user-select:none;">' +
+        '<input type="checkbox" name="remember" checked style="width:16px;height:16px;accent-color:#54a8dc;cursor:pointer;">' +
+        'Remember me</label>';
+
+      submitBtn.parentNode.insertBefore(wrapper, submitBtn);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', inject);
+    } else {
+      inject();
+    }
+  })();
+
+  // ── Auth pages: add contact info + navigation links ──
+  (function authPageFooter() {
+    if (!/\/accounts\/(login|signup|password)/.test(window.location.pathname)) return;
+
+    function inject() {
+      var reg = document.querySelector('.registration');
+      if (!reg || reg.querySelector('.ra-auth-footer')) return;
+
+      var footer = document.createElement('div');
+      footer.className = 'ra-auth-footer';
+      footer.style.cssText = 'text-align:center;margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0;';
+
+      var isLogin = /\/login\/?$/.test(window.location.pathname);
+
+      var html = '';
+      if (!isLogin) html += '<a href="/accounts/login/" class="ra-auth-btn">Log In</a>';
+      html += '<div style="font-size:12px;color:#64748b;margin-top:12px;">Need help? <a href="mailto:info@ramaniyangu.com" style="color:#3d8abf;text-decoration:none;font-weight:500;">info@ramaniyangu.com</a></div>';
+
+      footer.innerHTML = html;
+
+      reg.appendChild(footer);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', inject);
+    } else {
+      inject();
+    }
+  })();
+
+  // ── Custom Access Denied / 404 page ──
+  function customizeAccessDenied() {
+    var el = document.querySelector('.access-denied');
+    if (!el || el.getAttribute('data-ra-custom')) return;
+    el.setAttribute('data-ra-custom', 'true');
+
+    // REMOVE (not just hide) all navigation, menus, tabs, sidebar from the DOM
+    var removeSelectors = [
+      'nav',
+      '.k-drawer',
+      '[class*="drawer"]',
+      '[class*="form-view__tab"]',
+      '[class*="toptabs"]',
+      '[class*="sidebar"]',
+      '[class*="page-title"]',
+      '.form-view__sidetabs',
+      '#ra-welcome-panel',
+      '#ra-leaderboard-page',
+      '#ra-map-page',
+      '#ra-settings-page'
+    ];
+    removeSelectors.forEach(function (sel) {
+      var els = document.querySelectorAll(sel);
+      els.forEach(function (e) { e.remove(); });
+    });
+
+    // Also add body class for any CSS-based hiding
+    document.body.classList.add('ra-access-denied-active');
+
+    // Make the access-denied page full-screen centered
+    el.style.cssText = 'position:fixed;top:64px;left:0;right:0;bottom:0;z-index:1000;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px;';
+
+    // Update support link
+    var links = el.querySelectorAll('a');
+    for (var i = 0; i < links.length; i++) {
+      if (links[i].textContent.indexOf('contact') !== -1 || links[i].textContent.indexOf('support') !== -1) {
+        links[i].href = 'mailto:info@ramaniyangu.com';
+        links[i].textContent = 'contact the support team';
+      }
+    }
+
+    // Update body text
+    var body = el.querySelector('.access-denied__body');
+    if (body) {
+      body.innerHTML = 'Either you don\'t have access to this page or it doesn\'t exist. ' +
+        'Please try <a href="/accounts/login/">logging in</a> or ' +
+        '<a href="mailto:info@ramaniyangu.com">contact the support team</a> if you think this is an error.';
+    }
+
+    // Add buttons
+    if (!el.querySelector('.ra-ad-btns')) {
+      var btns = document.createElement('div');
+      btns.className = 'ra-ad-btns';
+      btns.style.cssText = 'display:flex;gap:12px;justify-content:center;margin-top:20px;';
+      btns.innerHTML =
+        '<a href="/" style="display:inline-block;padding:12px 28px;background:#54a8dc;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Go to Home</a>' +
+        '<a href="mailto:info@ramaniyangu.com" style="display:inline-block;padding:12px 28px;background:#f1f5f9;color:#475569;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Contact Support</a>';
+      el.appendChild(btns);
+    }
+  }
+
+  // Poll for access-denied page (React renders async)
+  setInterval(customizeAccessDenied, 1000);
 })();

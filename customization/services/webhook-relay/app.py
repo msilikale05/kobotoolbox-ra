@@ -13,6 +13,7 @@ KoboToolbox Setup:
 
 UPDATE-PROOF: Standalone container using KoboToolbox's built-in Hook system.
 """
+import json
 import logging
 import os
 import re
@@ -27,8 +28,16 @@ from twilio.rest import Client as TwilioClient
 
 load_dotenv('/app/config.env')
 
+# CORS support for local development (browser cross-origin requests)
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
+
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'dev-key')
+app.after_request(add_cors_headers)
 
 # Configuration
 TWILIO_SID = os.getenv('TWILIO_ACCOUNT_SID', '')
@@ -112,20 +121,72 @@ def format_message(data, form_uid):
 
 
 def format_email_html(data, form_uid):
-    """Format submission data into a styled HTML email."""
+    """Format submission data into a styled HTML email with full details."""
+    from html import escape
+    from datetime import datetime
+
     submitted_by = data.get('_submitted_by', 'Anonymous')
-    submission_time = data.get('_submission_time', 'Unknown')
+    submission_time_raw = data.get('_submission_time', '')
     form_title = data.get('_xform_id_string', form_uid)
     submission_id = data.get('_id', '')
+    version = data.get('__version__', '')
+
+    # Format time nicely
+    submission_time = submission_time_raw
+    try:
+        dt = datetime.fromisoformat(submission_time_raw.replace('Z', '+00:00'))
+        submission_time = dt.strftime('%B %d, %Y at %I:%M %p')
+    except Exception:
+        pass
+
+    # Geolocation
+    geo = data.get('_geolocation', [])
+    geo_html = ''
+    if geo and len(geo) >= 2 and geo[0] and geo[1]:
+        lat, lon = geo[0], geo[1]
+        map_link = f'https://www.google.com/maps?q={lat},{lon}'
+        geo_html = f'''<tr>
+<td style="padding:12px 30px;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;overflow:hidden;">
+    <tr>
+      <td style="padding:12px 16px;">
+        <span style="color:#16a34a;font-size:12px;font-weight:600;text-transform:uppercase;">Location</span><br>
+        <span style="color:#1e293b;font-size:14px;">{lat:.6f}, {lon:.6f}</span>
+        <a href="{map_link}" style="color:#54a8dc;font-size:12px;margin-left:12px;text-decoration:none;">View on Map &rarr;</a>
+      </td>
+    </tr>
+  </table>
+</td>
+</tr>'''
+
+    # Attachments
+    attachments = data.get('_attachments', [])
+    attach_html = ''
+    if attachments:
+        attach_items = ''
+        for att in attachments[:5]:
+            fname = att.get('filename', 'file').split('/')[-1]
+            mime = att.get('mimetype', '')
+            url = att.get('download_url', '')
+            icon = '&#128247;' if 'image' in mime else '&#128206;'
+            attach_items += f'<div style="padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:13px;">{icon} <a href="{escape(url)}" style="color:#54a8dc;text-decoration:none;">{escape(fname)}</a> <span style="color:#94a3b8;font-size:11px;">{escape(mime)}</span></div>'
+        if len(attachments) > 5:
+            attach_items += f'<div style="padding:6px 0;font-size:12px;color:#94a3b8;">... and {len(attachments) - 5} more file(s)</div>'
+        attach_html = f'''<tr>
+<td style="padding:0 30px 16px;">
+  <p style="margin:0 0 8px;color:#475569;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Attachments ({len(attachments)})</p>
+  <div style="border:1px solid #e2e8f0;border-radius:6px;padding:8px 14px;">{attach_items}</div>
+</td>
+</tr>'''
 
     # Extract all non-internal fields
     fields = []
     for key, value in data.items():
-        if key.startswith('_') or key in ('meta', 'formhub'):
+        if key.startswith('_') or key in ('meta', 'formhub', '__version__'):
             continue
         if isinstance(value, (dict, list)):
             value = str(value)
-        if value:
+        if value is not None and str(value).strip():
             label = key.replace('_', ' ').replace('/', ' > ').title()
             fields.append((label, str(value)))
 
@@ -133,14 +194,17 @@ def format_email_html(data, form_uid):
     field_rows = ''
     for i, (label, value) in enumerate(fields):
         bg = '#f8fafc' if i % 2 == 0 else '#ffffff'
+        # Truncate very long values
+        display = escape(value[:300]) + ('...' if len(value) > 300 else '')
         field_rows += (
             f'<tr style="background:{bg};">'
-            f'<td style="padding:10px 14px;border-bottom:1px solid #eef2f7;color:#64748b;font-weight:600;font-size:13px;width:35%;vertical-align:top;">{label}</td>'
-            f'<td style="padding:10px 14px;border-bottom:1px solid #eef2f7;color:#334155;font-size:13px;">{value}</td>'
+            f'<td style="padding:10px 14px;border-bottom:1px solid #eef2f7;color:#64748b;font-weight:600;font-size:13px;width:35%;vertical-align:top;">{escape(label)}</td>'
+            f'<td style="padding:10px 14px;border-bottom:1px solid #eef2f7;color:#334155;font-size:13px;word-break:break-word;">{display}</td>'
             f'</tr>'
         )
 
     form_link = f'{KOBO_URL}/#/forms/{form_uid}/data'
+    sub_link = f'{KOBO_URL}/#/forms/{form_uid}/data/table?q=_id:{submission_id}' if submission_id else form_link
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -154,39 +218,70 @@ def format_email_html(data, form_uid):
 <tr>
 <td style="background:linear-gradient(135deg,#1a2a3a 0%,#54a8dc 100%);padding:24px 30px;">
   <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:600;">New Submission Received</h1>
-  <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">{form_title}</p>
+  <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">{escape(form_title)}</p>
 </td>
 </tr>
 
-<!-- Summary -->
+<!-- Summary info cards -->
 <tr>
-<td style="padding:20px 30px 10px;">
+<td style="padding:20px 30px 0;">
   <table width="100%" cellpadding="0" cellspacing="0">
     <tr>
-      <td style="padding:8px 0;"><span style="color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Submitted by</span><br><strong style="color:#1e293b;font-size:15px;">{submitted_by}</strong></td>
-      <td style="padding:8px 0;text-align:right;"><span style="color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Time</span><br><strong style="color:#1e293b;font-size:15px;">{submission_time}</strong></td>
+      <td width="50%" style="padding:8px 0;vertical-align:top;">
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 14px;">
+          <span style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Submitted by</span><br>
+          <strong style="color:#1e293b;font-size:16px;">{escape(submitted_by)}</strong>
+        </div>
+      </td>
+      <td width="4"></td>
+      <td width="50%" style="padding:8px 0;vertical-align:top;">
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 14px;">
+          <span style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Submission Time</span><br>
+          <strong style="color:#1e293b;font-size:14px;">{escape(submission_time)}</strong>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%" style="padding:4px 0 12px;vertical-align:top;">
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 14px;">
+          <span style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Form</span><br>
+          <strong style="color:#1e293b;font-size:13px;">{escape(form_title)}</strong>
+        </div>
+      </td>
+      <td width="4"></td>
+      <td width="50%" style="padding:4px 0 12px;vertical-align:top;">
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 14px;">
+          <span style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Submission ID</span><br>
+          <strong style="color:#1e293b;font-size:13px;">#{submission_id}</strong>
+          <span style="color:#94a3b8;font-size:11px;display:block;">{len(fields)} fields &middot; {len(attachments)} attachment(s)</span>
+        </div>
+      </td>
     </tr>
   </table>
 </td>
 </tr>
 
-<!-- Divider -->
-<tr><td style="padding:0 30px;"><hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0;"></td></tr>
+<!-- Geolocation (if available) -->
+{geo_html}
 
 <!-- Data fields -->
 <tr>
-<td style="padding:10px 30px 20px;">
-  <p style="margin:0 0 12px;color:#475569;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Submission Data</p>
+<td style="padding:10px 30px 16px;">
+  <p style="margin:0 0 12px;color:#475569;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Submission Data ({len(fields)} fields)</p>
   <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
-    {field_rows}
+    {field_rows if field_rows else '<tr><td style="padding:14px;color:#94a3b8;text-align:center;">No data fields</td></tr>'}
   </table>
 </td>
 </tr>
 
-<!-- Action button -->
+<!-- Attachments (if any) -->
+{attach_html}
+
+<!-- Action buttons -->
 <tr>
 <td style="padding:0 30px 24px;" align="center">
-  <a href="{form_link}" style="display:inline-block;padding:12px 28px;background:#54a8dc;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">View in KoboToolbox</a>
+  <a href="{sub_link}" style="display:inline-block;padding:12px 24px;background:#54a8dc;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;margin-right:8px;">View Submission</a>
+  <a href="{form_link}" style="display:inline-block;padding:12px 24px;background:#e2e8f0;color:#475569;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">All Data</a>
 </td>
 </tr>
 
@@ -371,6 +466,80 @@ def health():
         'whatsapp_recipients': len(WHATSAPP_RECIPIENTS),
         'stats': _stats,
     })
+
+
+# ── Multi-Dashboard Config ──
+DASHBOARD_CONFIG_PATH = os.getenv(
+    'DASHBOARD_CONFIG_PATH', '/app/config/dashboard-config.json'
+)
+
+
+def read_dashboard_config():
+    """Read multi-dashboard config from JSON file."""
+    try:
+        with open(DASHBOARD_CONFIG_PATH, 'r') as f:
+            data = json.load(f)
+            # Ensure required keys exist
+            if 'dashboards' not in data:
+                data['dashboards'] = {}
+            if 'users' not in data:
+                data['users'] = {}
+            return data
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {'dashboards': {}, 'users': {}}
+
+
+def write_dashboard_config(config):
+    """Write multi-dashboard config to JSON file."""
+    os.makedirs(os.path.dirname(DASHBOARD_CONFIG_PATH), exist_ok=True)
+    with open(DASHBOARD_CONFIG_PATH, 'w') as f:
+        json.dump(config, f, indent=2)
+
+
+@app.route('/api/dashboard-config', methods=['GET'])
+def get_dashboard_config():
+    """Get full multi-dashboard config."""
+    return jsonify(read_dashboard_config())
+
+
+@app.route('/api/dashboard-config', methods=['POST'])
+def set_dashboard_config():
+    """Save full multi-dashboard config."""
+    try:
+        config = request.get_json(force=True)
+        if not isinstance(config, dict):
+            return jsonify({'error': 'Config must be a JSON object'}), 400
+        # Ensure required keys
+        if 'dashboards' not in config:
+            config['dashboards'] = {}
+        if 'users' not in config:
+            config['users'] = {}
+        # Sanitize usernames in the users map
+        clean_users = {}
+        for username, dashboard_id in config.get('users', {}).items():
+            username = username.strip()
+            if re.match(r'^[\w.\-]+$', username) and isinstance(dashboard_id, str):
+                clean_users[username] = dashboard_id.strip()
+        config['users'] = clean_users
+        write_dashboard_config(config)
+        log.info(f"Dashboard config updated: {len(config['dashboards'])} dashboards, {len(config['users'])} users")
+        return jsonify({'status': 'ok'})
+    except Exception as e:
+        log.error(f"Failed to update dashboard config: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/dashboard-config/user/<username>', methods=['GET'])
+def get_user_dashboard(username):
+    """Get dashboard ID assigned to a specific user."""
+    if not re.match(r'^[\w.\-]+$', username):
+        return jsonify({'error': 'Invalid username'}), 400
+    config = read_dashboard_config()
+    dashboard_id = config.get('users', {}).get(username)
+    if dashboard_id:
+        return jsonify({'username': username, 'dashboard': dashboard_id})
+    else:
+        return jsonify({'username': username, 'dashboard': None})
 
 
 if __name__ == '__main__':

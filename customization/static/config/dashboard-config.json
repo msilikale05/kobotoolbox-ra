@@ -1,0 +1,110 @@
+{
+  "dashboards": {
+    "dashboard-2": {
+      "name": "test",
+      "widgets": []
+    },
+    "data-for-lake-victoria-water-board": {
+      "name": "Data for Lake Victoria Water Board",
+      "widgets": [
+        {
+          "config": {},
+          "forms": [
+            "__all__"
+          ],
+          "id": "w1773663552152",
+          "title": "Overview",
+          "type": "form-status",
+          "width": "full"
+        },
+        {
+          "config": {},
+          "forms": [
+            "__all__"
+          ],
+          "id": "w1773663564094",
+          "title": "Submissions",
+          "type": "submissions-by-day",
+          "width": "full"
+        },
+        {
+          "config": {},
+          "forms": [
+            "__all__"
+          ],
+          "id": "w1773663583836",
+          "title": "Form Status",
+          "type": "form-status",
+          "width": "half"
+        },
+        {
+          "config": {},
+          "forms": [
+            "__all__"
+          ],
+          "id": "w1773663597665",
+          "title": "Top Contributors",
+          "type": "top-contributors",
+          "width": "half"
+        },
+        {
+          "config": {},
+          "forms": [
+            "__all__"
+          ],
+          "id": "w1773663621131",
+          "title": "Submissions by Form",
+          "type": "submissions-by-form",
+          "width": "half"
+        },
+        {
+          "config": {},
+          "forms": [
+            "__all__"
+          ],
+          "id": "w1773663656440",
+          "title": "Submissions by Day",
+          "type": "submissions-by-day",
+          "width": "half"
+        },
+        {
+          "config": {
+            "limit": 5
+          },
+          "forms": [
+            "__all__"
+          ],
+          "id": "w1773663675257",
+          "title": "Recent Submissions",
+          "type": "recent-feed",
+          "width": "half"
+        },
+        {
+          "config": {},
+          "forms": [
+            "__all__"
+          ],
+          "id": "w1773663704021",
+          "title": "Geographic Coverage",
+          "type": "geo-coverage",
+          "width": "half"
+        },
+        {
+          "id": "w1773665305396",
+          "type": "info-text",
+          "title": "Info / Contact Card",
+          "width": "full",
+          "forms": [
+            "__all__"
+          ],
+          "config": {
+            "html": "<p>Contact the administrator at <b>info@ramaniyangu.com</b>&nbsp;for any questions.</p>"
+          }
+        }
+      ]
+    }
+  },
+  "users": {
+    "testing": "dashboard-2"
+  }
+}

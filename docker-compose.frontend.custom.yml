@@ -51,8 +51,11 @@ services:
       - ../basic-kobotoolbox/customization/scripts/01-setup-constance.py:/srv/scripts/01-setup-constance.py:ro
       - ../basic-kobotoolbox/customization/scripts/02-setup-welcome.py:/srv/scripts/02-setup-welcome.py:ro
       - ../basic-kobotoolbox/customization/scripts/03-import-templates.py:/srv/scripts/03-import-templates.py:ro
+      - ../basic-kobotoolbox/customization/scripts/05-sync-dashboard-users.py:/srv/scripts/05-sync-dashboard-users.py:ro
       # Survey templates
       - ../basic-kobotoolbox/customization/templates:/srv/templates:ro
+      # Shared config dir (writable — sync script writes dashboard-users.json)
+      - ../basic-kobotoolbox/customization/static/config:/srv/custom-static/config
 
   # ===== Enketo Express =====
   enketo_express:
@@ -70,6 +73,7 @@ services:
       context: ../basic-kobotoolbox/customization/services/webhook-relay
     volumes:
       - ../basic-kobotoolbox/customization/services/webhook-relay/config.env:/app/config.env:ro
+      - ../basic-kobotoolbox/customization/static/config:/app/config
     networks:
       kobo-fe-network:
     restart: unless-stopped
