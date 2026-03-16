@@ -576,9 +576,9 @@
     var toolbar = document.createElement('div');
     toolbar.className = 'ra-map__toolbar';
     toolbar.innerHTML =
-      '<button class="ra-map__toolbar-btn" id="ra-gn-browse-btn" title="Add GeoNode Layer">' +
-        '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>' +
-        'Add GeoNode Layer' +
+      '<button class="ra-map__toolbar-btn" id="ra-gn-browse-btn" title="Add Layer">' +
+        '<svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>' +
+        'Add Layer' +
       '</button>';
 
     toolbar.querySelector('#ra-gn-browse-btn').addEventListener('click', openGeoNodeBrowser);
@@ -588,23 +588,48 @@
   function openGeoNodeBrowser() {
     var connections = getGeoNodeSettings();
     if (!connections.length) {
-        alert('No GeoNode connections configured. Go to Settings > GeoNode to add one.');
+        alert('No data sources configured. Go to Settings > Data Sources to add one.');
         return;
     }
 
-    var activeConn = connections[0];
+    // Separate browsable (geonode, wms) from direct-add (xyz, google, esri)
+    var browsable = connections.filter(function (c) { return !c.type || c.type === 'geonode' || c.type === 'wms' || c.type === 'wfs'; });
+    var directAdd = connections.filter(function (c) { return c.type === 'xyz' || c.type === 'google' || c.type === 'esri'; });
+
+    var activeConn = browsable.length ? browsable[0] : null;
 
     var overlay = document.createElement('div');
     overlay.className = 'ra-gn__overlay';
 
+    // Source selector for browsable sources
     var sourceSelector = '';
-    if (connections.length > 1) {
-        var options = connections.map(function(c) {
+    if (browsable.length > 1) {
+        var options = browsable.map(function(c) {
             return '<option value="' + c.id + '">' + escapeHtml(c.name || c.url) + '</option>';
         }).join('');
         sourceSelector = '<div class="ra-gn__source">' +
             '<select id="ra-gn-source-select">' + options + '</select>' +
             '</div>';
+    }
+
+    // Direct-add tile sources section
+    var tilesHtml = '';
+    if (directAdd.length) {
+        tilesHtml = '<div style="border-bottom:1px solid #eee;padding:8px 0;">' +
+            '<div style="padding:4px 20px;font-size:11px;color:#999;font-weight:600;">TILE LAYERS</div>';
+        directAdd.forEach(function (c) {
+            var isAdded = getSavedGeoNodeLayers().some(function (l) { return l.id === c.id; });
+            tilesHtml += '<div class="ra-gn__item" data-tile-id="' + escapeHtml(c.id) + '">' +
+                '<span class="ra-gn__item-icon">' + gnGeomIcon('raster') + '</span>' +
+                '<div class="ra-gn__item-info">' +
+                    '<div class="ra-gn__item-name">' + escapeHtml(c.name) + '</div>' +
+                    '<div class="ra-gn__item-desc">' + escapeHtml((c.url || '').substring(0, 60)) + '</div>' +
+                '</div>' +
+                '<span class="ra-gn__item-type">' + escapeHtml((c.type || '').toUpperCase()) + '</span>' +
+                '<button class="ra-gn__add-btn"' + (isAdded ? ' disabled' : '') + '>' + (isAdded ? 'Added' : 'Add') + '</button>' +
+            '</div>';
+        });
+        tilesHtml += '</div>';
     }
 
     overlay.innerHTML =
@@ -618,23 +643,37 @@
                 '<input type="text" placeholder="Search datasets..." id="ra-gn-search-input">' +
             '</div>' +
             '<div class="ra-gn__list" id="ra-gn-list">' +
-                '<div class="ra-gn__loading">Loading datasets...</div>' +
+                tilesHtml +
+                (activeConn ? '<div class="ra-gn__loading">Loading datasets...</div>' : '<div class="ra-gn__empty">No browsable data sources configured.</div>') +
             '</div>' +
         '</div>';
 
     overlay.querySelector('.ra-gn__close').addEventListener('click', function() { overlay.remove(); });
     overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
 
+    // Tile layer "Add" buttons
+    overlay.querySelectorAll('[data-tile-id]').forEach(function (el) {
+        el.querySelector('.ra-gn__add-btn').addEventListener('click', function () {
+            var tileId = el.getAttribute('data-tile-id');
+            var conn = directAdd.find(function (c) { return c.id === tileId; });
+            if (conn) {
+                addTileLayer(conn);
+                this.disabled = true;
+                this.textContent = 'Added';
+            }
+        });
+    });
+
     document.body.appendChild(overlay);
 
-    fetchGeoNodeDatasets(activeConn, '', 1);
+    if (activeConn) fetchGeoNodeDatasets(activeConn, '', 1);
 
     // Source selector
     var select = overlay.querySelector('#ra-gn-source-select');
     if (select) {
         select.addEventListener('change', function() {
             var connId = this.value;
-            activeConn = connections.find(function(c) { return c.id === connId; }) || connections[0];
+            activeConn = browsable.find(function(c) { return c.id === connId; }) || browsable[0];
             fetchGeoNodeDatasets(activeConn, overlay.querySelector('#ra-gn-search-input').value, 1);
         });
     }
@@ -644,7 +683,7 @@
     overlay.querySelector('#ra-gn-search-input').addEventListener('input', function(e) {
         clearTimeout(searchTimer);
         var term = e.target.value;
-        searchTimer = setTimeout(function() { fetchGeoNodeDatasets(activeConn, term, 1); }, 400);
+        searchTimer = setTimeout(function() { if (activeConn) fetchGeoNodeDatasets(activeConn, term, 1); }, 400);
     });
   }
 
@@ -733,6 +772,50 @@
     }
   }
 
+  function addTileLayer(conn) {
+    var L = window.L;
+    if (!L || !map) return;
+
+    var tileLayer = L.tileLayer(conn.url, {
+      maxZoom: 20,
+      attribution: conn.name || conn.type || 'Tiles',
+      zIndex: 400
+    });
+    tileLayer.addTo(map);
+
+    var gnId = 'gn_' + conn.id;
+    geonodeLayers[gnId] = {
+      layer: tileLayer,
+      name: conn.name,
+      color: '#9b59b6',
+      count: 0,
+      isGeoNode: true,
+      isTile: true,
+      wmsUrl: conn.url,
+      layerName: conn.name,
+      bounds: null,
+      geomType: 'raster',
+      sourceId: conn.id,
+      sourceName: conn.name
+    };
+    layerGroups[gnId] = geonodeLayers[gnId];
+
+    var saved = getSavedGeoNodeLayers();
+    saved.push({
+      id: conn.id,
+      name: conn.name,
+      layerName: conn.name,
+      wmsUrl: conn.url,
+      isTile: true,
+      bounds: null,
+      geomType: 'raster',
+      sourceId: conn.id,
+      sourceName: conn.name
+    });
+    saveGeoNodeLayers(saved);
+    createLegend(layerGroups);
+  }
+
   function addGeoNodeWMSLayer(dataset, gs) {
     var L = window.L;
     if (!L || !map) return;
@@ -813,31 +896,43 @@
     var saved = getSavedGeoNodeLayers();
     saved.forEach(function (sl) {
       var gnId = 'gn_' + sl.id;
-      var wmsLayer = L.tileLayer.wms(sl.wmsUrl, {
-        layers: sl.layerName,
-        format: 'image/png',
-        transparent: true,
-        version: '1.1.1',
-        attribution: 'GeoNode',
-        uppercase: true,
-        maxZoom: 20,
-        zIndex: 500
-      });
+      var layer;
 
-      wmsLayer.on('tileerror', function() {
-          if (sl.wmsUrl.indexOf('/geoserver/ows') !== -1) {
-              var altUrl = sl.wmsUrl.replace('/geoserver/ows', '/geoserver/wms');
-              wmsLayer.setUrl(altUrl);
-          }
-      });
+      if (sl.isTile) {
+        // XYZ / Google / Esri tile layer
+        layer = L.tileLayer(sl.wmsUrl, {
+          maxZoom: 20,
+          attribution: sl.name || 'Tiles',
+          zIndex: 400
+        });
+      } else {
+        // WMS layer from GeoNode
+        layer = L.tileLayer.wms(sl.wmsUrl, {
+          layers: sl.layerName,
+          format: 'image/png',
+          transparent: true,
+          version: '1.1.1',
+          attribution: 'GeoNode',
+          uppercase: true,
+          maxZoom: 20,
+          zIndex: 500
+        });
+
+        layer.on('tileerror', function() {
+            if (sl.wmsUrl.indexOf('/geoserver/ows') !== -1) {
+                var altUrl = sl.wmsUrl.replace('/geoserver/ows', '/geoserver/wms');
+                layer.setUrl(altUrl);
+            }
+        });
+      }
 
       var hidden = getHiddenLayers();
       if (hidden.indexOf(gnId) === -1) {
-        wmsLayer.addTo(map);
+        layer.addTo(map);
       }
 
       geonodeLayers[gnId] = {
-        layer: wmsLayer,
+        layer: layer,
         name: sl.name,
         color: '#54a8dc',
         count: 0,

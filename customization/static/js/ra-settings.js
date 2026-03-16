@@ -179,33 +179,35 @@
     '  font-style: italic;',
     '}',
 
-    /* Tab bar (like KoboToolbox project page) */
+    /* Tab bar — matches KoboToolbox form-view tabs */
     '.ra-st__tabs {',
     '  display: flex;',
-    '  border-bottom: 2px solid #e2e8f0;',
-    '  margin: 0 0 20px;',
+    '  background: #f5f5f5;',
+    '  border-bottom: 1px solid #e8e8e8;',
+    '  margin: 0;',
     '  padding: 0 30px;',
     '}',
     '.ra-st__tab {',
-    '  padding: 12px 20px;',
-    '  font-size: 14px;',
+    '  padding: 14px 24px;',
+    '  font-size: 13px;',
     '  font-weight: 500;',
-    '  color: #64748b;',
+    '  color: #888;',
     '  cursor: pointer;',
-    '  border-bottom: 2px solid transparent;',
-    '  margin-bottom: -2px;',
-    '  transition: color 0.15s, border-color 0.15s;',
+    '  border: none;',
+    '  border-bottom: 3px solid transparent;',
+    '  margin-bottom: -1px;',
+    '  transition: color 0.15s, border-color 0.15s, background 0.15s;',
     '  background: none;',
-    '  border-top: none;',
-    '  border-left: none;',
-    '  border-right: none;',
+    '  text-transform: uppercase;',
+    '  letter-spacing: 0.5px;',
     '  font-family: Roboto, sans-serif;',
     '}',
-    '.ra-st__tab:hover { color: #334155; }',
+    '.ra-st__tab:hover { color: #555; background: rgba(0,0,0,0.02); }',
     '.ra-st__tab.active {',
     '  color: #54a8dc;',
     '  border-bottom-color: #54a8dc;',
-    '  font-weight: 600;',
+    '  font-weight: 700;',
+    '  background: #fff;',
     '}',
     ''
   ].join('\n');
@@ -245,14 +247,16 @@
   // ── Settings sections (each is a submenu item) ──
   var SECTIONS = [
     { id: 'dashboard', label: 'Dashboard', icon: '<svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>' },
-    { id: 'geonode', label: 'GeoNode', icon: '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>' },
+    { id: 'geonode', label: 'Data Sources', icon: '<svg viewBox="0 0 24 24"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zM7 19c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM7 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>' },
     { id: 'export', label: 'Batch Export', icon: '<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>' },
     { id: 'map', label: 'Map Defaults', icon: '<svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>' },
     { id: 'notifications', label: 'Notifications', icon: '<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>' }
   ];
 
   var activeSection = 'dashboard';
+  // Restore active tab from sessionStorage (survives refresh, doesn't touch URL hash)
   var activeDashTab = 'users';
+  try { activeDashTab = sessionStorage.getItem('ra_dash_tab') || 'users'; } catch (e) {}
 
   // ── Page ──
   function createPage() {
@@ -306,9 +310,74 @@
       '<p style="color:#bbb;font-style:italic;margin-top:24px;">Coming soon</p></div>';
   }
 
-  // ── Dashboard Users Management ──
-  // Cache for KoboToolbox users list
+  // ── Multi-Dashboard Management ──
   var _allKoboUsers = null;
+  var _dashConfig = null;  // { dashboards: {}, users: {} }
+
+  var WIDGET_TYPES = [
+    { id: 'stat-cards', label: 'Summary Cards', desc: 'Overview numbers: forms, submissions, today, contributors', group: 'General' },
+    { id: 'chart', label: 'Submissions Chart', desc: 'Bar chart of submissions over time', group: 'General' },
+    { id: 'form-table', label: 'Forms Table', desc: 'List of forms with submission counts', group: 'General' },
+    { id: 'recent-feed', label: 'Recent Submissions', desc: 'Latest submissions with user and time', group: 'General' },
+    { id: 'pie-chart', label: 'Pie Chart', desc: 'Breakdown by a field value', group: 'General' },
+    { id: 'single-stat', label: 'Single Metric', desc: 'One number: count, today, or contributors', group: 'General' },
+    { id: 'field-number', label: 'Number Field', desc: 'Sum, average, min, or max of a numeric field', group: 'Field Data' },
+    { id: 'field-text-list', label: 'Text Values', desc: 'Unique values from a text field with counts', group: 'Field Data' },
+    { id: 'field-select-bar', label: 'Choices Bar Chart', desc: 'Horizontal bar chart of select field choices', group: 'Field Data' },
+    { id: 'field-counter', label: 'Conditional Counter', desc: 'Count submissions where a field matches a condition', group: 'Field Data' },
+    { id: 'field-latest', label: 'Latest Value', desc: 'Most recent value of a specific field', group: 'Field Data' },
+    { id: 'field-timeline', label: 'Field Timeline', desc: 'Line chart of a numeric field over time', group: 'Field Data' }
+  ];
+
+  var _layoutForms = null;
+  var _selectedDashboardId = 'default';
+
+  // Try nginx proxy first, fall back to localhost:5050 for local dev
+  var _apiBase = '/webhook-api';
+
+  function apiUrl(path) { return _apiBase + path; }
+
+  function loadDashConfig(cb) {
+    fetch(apiUrl('/dashboard-config'), { credentials: 'same-origin' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('not ok');
+        return r.json();
+      })
+      .then(function (data) {
+        _dashConfig = data;
+        if (!_dashConfig.dashboards) _dashConfig.dashboards = {};
+        if (!_dashConfig.users) _dashConfig.users = {};
+        if (cb) cb();
+      })
+      .catch(function () {
+        // Try local dev fallback
+        if (_apiBase === '/webhook-api') {
+          _apiBase = 'http://localhost:5050/api';
+          return loadDashConfig(cb);
+        }
+        _dashConfig = { dashboards: {}, users: {} };
+        if (cb) cb();
+      });
+  }
+
+  function saveDashConfig(cb) {
+    fetch(apiUrl('/dashboard-config'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(_dashConfig)
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) { if (cb) cb(data.error || null); })
+      .catch(function () { if (cb) cb('Failed to save. Is the webhook-relay running?'); });
+  }
+
+  function getDashboardNames() {
+    if (!_dashConfig || !_dashConfig.dashboards) return [];
+    return Object.keys(_dashConfig.dashboards).map(function (id) {
+      return { id: id, name: (_dashConfig.dashboards[id] && _dashConfig.dashboards[id].name) || id };
+    });
+  }
 
   // ── Dashboard Section (unified with tabs) ──
   function renderDashboardSection(main) {
@@ -317,15 +386,14 @@
       '<div class="ra-st__tabs" id="ra-st-dash-tabs">' +
         '<button class="ra-st__tab' + (activeDashTab === 'users' ? ' active' : '') + '" data-tab="users">Users</button>' +
         '<button class="ra-st__tab' + (activeDashTab === 'layout' ? ' active' : '') + '" data-tab="layout">Layout</button>' +
-        '<button class="ra-st__tab' + (activeDashTab === 'preview' ? ' active' : '') + '" data-tab="preview">Preview</button>' +
       '</div>' +
       '<div id="ra-st-dash-content"></div>';
 
-    // Tab click handler
     document.getElementById('ra-st-dash-tabs').addEventListener('click', function (e) {
       var tab = e.target.closest('.ra-st__tab');
       if (!tab) return;
-      activeDashTab = tab.dataset.tab;
+      activeDashTab = tab.getAttribute('data-tab');
+      try { sessionStorage.setItem('ra_dash_tab', activeDashTab); } catch (e) {}
       document.querySelectorAll('#ra-st-dash-tabs .ra-st__tab').forEach(function (t) { t.classList.remove('active'); });
       tab.classList.add('active');
       renderDashTabContent();
@@ -340,55 +408,35 @@
 
     if (activeDashTab === 'users') renderDashUsersTab(container);
     else if (activeDashTab === 'layout') renderDashLayoutTab(container);
-    else if (activeDashTab === 'preview') renderDashPreviewTab(container);
   }
 
-  function renderDashPreviewTab(container) {
+  // ── Users Tab ──
+  function renderDashUsersTab(container) {
     container.innerHTML =
       '<div class="ra-st__content">' +
-        '<p style="color:#666;margin:0 0 16px;font-size:14px;">Preview exactly what dashboard-only users see when they log in.</p>' +
-        '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-dash-preview-btn" style="font-size:15px;padding:14px 28px;">Open Dashboard Preview</button>' +
-      '</div>';
-    document.getElementById('ra-st-dash-preview-btn').addEventListener('click', function () {
-      if (window.__raDashboardPreview) window.__raDashboardPreview.show();
-    });
-  }
-
-  function renderDashUsersTab(container) {
-    var main = container;
-    renderDashboardUsersContent(main);
-  }
-
-  function renderDashLayoutTab(container) {
-    var main = container;
-    renderDashboardLayoutContent(main);
-  }
-
-  function renderDashboardUsersContent(main) {
-    main.innerHTML =
-      '<div class="ra-st__content">' +
         '<p style="color:#666;margin:0 0 16px;font-size:14px;">' +
-          'Users listed here will <strong>only see a read-only summary dashboard</strong> when they log in. ' +
+          'Users listed here will <strong>only see their assigned dashboard</strong> when they log in. ' +
           'They cannot access forms, data, or settings — only submission summaries and charts.' +
         '</p>' +
 
-        // Add user: select from existing KoboToolbox users
         '<div class="ra-st__field">' +
-          '<label>Add Existing User to Dashboard View</label>' +
+          '<label>Add User to Dashboard</label>' +
           '<div style="display:flex;gap:10px;">' +
             '<select id="ra-st-du-select" style="flex:1;padding:10px 12px;font-size:14px;border:1px solid #d0d5dd;border-radius:6px;background:#fff;">' +
               '<option value="">Loading users...</option>' +
             '</select>' +
+            '<select id="ra-st-du-dash-select" style="width:200px;padding:10px 12px;font-size:14px;border:1px solid #d0d5dd;border-radius:6px;background:#fff;">' +
+              '<option value="">Loading...</option>' +
+            '</select>' +
             '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-du-add">Add</button>' +
           '</div>' +
-          '<small>Select a registered KoboToolbox user to restrict them to dashboard-only view</small>' +
+          '<small>Select a user and the dashboard to assign them to</small>' +
         '</div>' +
 
         '<div class="ra-st__status" id="ra-st-du-status"></div>' +
 
-        // Current dashboard users list
         '<div style="margin-top:8px;">' +
-          '<label style="display:block;font-size:12px;font-weight:600;color:#666;margin-bottom:8px;">Current Dashboard-Only Users</label>' +
+          '<label style="display:block;font-size:12px;font-weight:600;color:#666;margin-bottom:8px;">Current Dashboard Users</label>' +
           '<div id="ra-st-du-list" style="border:1px solid #eee;border-radius:6px;">' +
             '<div style="padding:16px;text-align:center;color:#999;">Loading...</div>' +
           '</div>' +
@@ -397,26 +445,53 @@
         '<div style="margin-top:16px;padding:14px;background:#f0f8ff;border-radius:6px;border:1px solid #d0e8f5;">' +
           '<p style="margin:0;font-size:13px;color:#2980b9;">' +
             '<strong>How it works:</strong> Create users via normal KoboToolbox registration, ' +
-            'then add them here. They will only see the dashboard. ' +
-            'Use the <strong>Layout</strong> tab to customize widgets, and <strong>Preview</strong> to test.' +
+            'then add them here and assign a dashboard. They will only see their assigned dashboard. ' +
+            'Use the <strong>Layout</strong> tab to create and customize dashboards.' +
           '</p>' +
         '</div>' +
       '</div>';
 
-    loadKoboUsers();
-    loadDashboardUsers();
+    loadDashConfig(function () {
+      loadKoboUsers();
+      loadDashboardUsers();
+      populateDashboardDropdown();
+    });
 
-    // Add button handler
     document.getElementById('ra-st-du-add').addEventListener('click', function () {
       var select = document.getElementById('ra-st-du-select');
-      var username = select.value;
+      var dashSelect = document.getElementById('ra-st-du-dash-select');
+      var username = select ? select.value : '';
+      var dashId = dashSelect ? dashSelect.value : '';
+
+      // Check for text input fallback
+      if (!username) {
+        var input = document.getElementById('ra-st-du-input');
+        if (input) username = (input.value || '').trim();
+      }
       if (!username) {
         showStatus(document.getElementById('ra-st-du-status'), 'err', 'Select a user first');
         return;
       }
-      addDashboardUser(username);
+      if (!dashId) {
+        showStatus(document.getElementById('ra-st-du-status'), 'err', 'Select a dashboard to assign');
+        return;
+      }
+      addDashboardUser(username, dashId);
     });
+  }
 
+  function populateDashboardDropdown() {
+    var sel = document.getElementById('ra-st-du-dash-select');
+    if (!sel) return;
+    var names = getDashboardNames();
+    if (!names.length) {
+      sel.innerHTML = '<option value="">-- No dashboards created yet --</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">-- Select a dashboard --</option>' +
+      names.map(function (d) {
+        return '<option value="' + escapeHtml(d.id) + '">' + escapeHtml(d.name) + '</option>';
+      }).join('');
   }
 
   function loadKoboUsers() {
@@ -435,20 +510,29 @@
         updateUserDropdown();
       })
       .catch(function () {
-        // Fallback: if not superuser, show manual input instead
         select.parentNode.innerHTML =
           '<input type="text" id="ra-st-du-input" placeholder="Type username to add" ' +
             'style="flex:1;padding:10px 12px;font-size:14px;border:1px solid #d0d5dd;border-radius:6px;">' +
+          '<select id="ra-st-du-dash-select" style="width:200px;padding:10px 12px;font-size:14px;border:1px solid #d0d5dd;border-radius:6px;background:#fff;">' +
+            '<option value="">Loading...</option>' +
+          '</select>' +
           '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-du-add">Add</button>';
+        populateDashboardDropdown();
 
         document.getElementById('ra-st-du-add').addEventListener('click', function () {
           var input = document.getElementById('ra-st-du-input');
+          var dashSelect = document.getElementById('ra-st-du-dash-select');
           var username = (input.value || '').trim();
+          var dashId = dashSelect ? dashSelect.value : '';
           if (!username) {
             showStatus(document.getElementById('ra-st-du-status'), 'err', 'Enter a username');
             return;
           }
-          addDashboardUser(username);
+          if (!dashId) {
+            showStatus(document.getElementById('ra-st-du-status'), 'err', 'Select a dashboard');
+            return;
+          }
+          addDashboardUser(username, dashId);
           input.value = '';
         });
       });
@@ -458,41 +542,28 @@
     var select = document.getElementById('ra-st-du-select');
     if (!select || !_allKoboUsers) return;
 
-    // Get current dashboard users to mark them
-    fetch('/webhook-api/dashboard-users', { credentials: 'same-origin' })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        var dashUsers = data.users || [];
-        var available = _allKoboUsers.filter(function (u) {
-          return dashUsers.indexOf(u.username) === -1;
-        });
+    var dashUsers = (_dashConfig && _dashConfig.users) ? _dashConfig.users : {};
+    var available = _allKoboUsers.filter(function (u) {
+      return !dashUsers[u.username];
+    });
 
-        if (!available.length) {
-          select.innerHTML = '<option value="">All users are already dashboard users</option>';
-          return;
-        }
+    if (!available.length) {
+      select.innerHTML = '<option value="">All users are already assigned</option>';
+      return;
+    }
 
-        select.innerHTML = '<option value="">-- Select a user --</option>' +
-          available.map(function (u) {
-            var name = (u.metadata && u.metadata.name) || '';
-            var org = (u.metadata && u.metadata.organization) || '';
-            var label = u.username;
-            if (name) label += ' (' + name + ')';
-            if (org) label += ' - ' + org;
-            return '<option value="' + escapeHtml(u.username) + '">' + escapeHtml(label) + '</option>';
-          }).join('');
-      })
-      .catch(function () {
-        // If webhook-relay not available, just show all users
-        select.innerHTML = '<option value="">-- Select a user --</option>' +
-          _allKoboUsers.map(function (u) {
-            return '<option value="' + escapeHtml(u.username) + '">' + escapeHtml(u.username) + '</option>';
-          }).join('');
-      });
+    select.innerHTML = '<option value="">-- Select a user --</option>' +
+      available.map(function (u) {
+        var name = (u.metadata && u.metadata.name) || '';
+        var org = (u.metadata && u.metadata.organization) || '';
+        var label = u.username;
+        if (name) label += ' (' + name + ')';
+        if (org) label += ' - ' + org;
+        return '<option value="' + escapeHtml(u.username) + '">' + escapeHtml(label) + '</option>';
+      }).join('');
   }
 
   function getUserDisplayInfo(username) {
-    // Look up full name and org from cached KoboToolbox users
     if (!_allKoboUsers) return { name: '', org: '' };
     for (var i = 0; i < _allKoboUsers.length; i++) {
       if (_allKoboUsers[i].username === username) {
@@ -505,246 +576,440 @@
 
   function loadDashboardUsers() {
     var listEl = document.getElementById('ra-st-du-list');
-    if (!listEl) return;
+    if (!listEl || !_dashConfig) return;
 
-    fetch('/webhook-api/dashboard-users', { credentials: 'same-origin' })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        var users = data.users || [];
-        if (!users.length) {
-          listEl.innerHTML = '<div style="padding:16px;text-align:center;color:#999;font-size:13px;">No dashboard users configured yet. Select a user above to add them.</div>';
-          return;
-        }
-        listEl.innerHTML = users.map(function (u) {
-          var info = getUserDisplayInfo(u);
-          var subtitle = [info.name, info.org].filter(function (s) { return s; }).join(' - ');
-          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #f5f5f5;">' +
-            '<div style="display:flex;align-items:center;gap:10px;">' +
-              '<div style="width:36px;height:36px;border-radius:50%;background:#e0f2fe;color:#0284c7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;">' +
-                escapeHtml(u.charAt(0).toUpperCase()) +
-              '</div>' +
-              '<div>' +
-                '<div style="font-size:14px;font-weight:600;color:#1e293b;">' + escapeHtml(u) + '</div>' +
-                (subtitle ? '<div style="font-size:12px;color:#94a3b8;">' + escapeHtml(subtitle) + '</div>' : '') +
-              '</div>' +
-            '</div>' +
-            '<button class="ra-st__btn ra-st__btn--secondary ra-st-du-remove" data-user="' + escapeHtml(u) + '" ' +
-              'style="padding:6px 12px;font-size:12px;color:#e74c3c;">Remove</button>' +
-          '</div>';
-        }).join('');
+    var users = _dashConfig.users || {};
+    var usernames = Object.keys(users);
+    if (!usernames.length) {
+      listEl.innerHTML = '<div style="padding:16px;text-align:center;color:#999;font-size:13px;">No dashboard users configured yet. Select a user above to add them.</div>';
+      return;
+    }
+    listEl.innerHTML = usernames.map(function (u) {
+      var dashId = users[u];
+      var dashName = (_dashConfig.dashboards && _dashConfig.dashboards[dashId] && _dashConfig.dashboards[dashId].name) ? _dashConfig.dashboards[dashId].name : dashId;
+      var info = getUserDisplayInfo(u);
+      var subtitle = [info.name, info.org].filter(function (s) { return s; }).join(' - ');
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #f5f5f5;">' +
+        '<div style="display:flex;align-items:center;gap:10px;">' +
+          '<div style="width:36px;height:36px;border-radius:50%;background:#e0f2fe;color:#0284c7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;">' +
+            escapeHtml(u.charAt(0).toUpperCase()) +
+          '</div>' +
+          '<div>' +
+            '<div style="font-size:14px;font-weight:600;color:#1e293b;">' + escapeHtml(u) + '</div>' +
+            (subtitle ? '<div style="font-size:12px;color:#94a3b8;">' + escapeHtml(subtitle) + '</div>' : '') +
+            '<div style="font-size:11px;color:#54a8dc;margin-top:2px;">Dashboard: ' + escapeHtml(dashName) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<button class="ra-st__btn ra-st__btn--secondary ra-st-du-remove" data-user="' + escapeHtml(u) + '" ' +
+          'style="padding:6px 12px;font-size:12px;color:#e74c3c;">Remove</button>' +
+      '</div>';
+    }).join('');
 
-        // Attach remove handlers
-        listEl.querySelectorAll('.ra-st-du-remove').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            removeDashboardUser(this.getAttribute('data-user'));
-          });
-        });
-      })
-      .catch(function () {
-        // Fallback: read from the static config file
-        fetch('/custom-static/config/dashboard-users.json')
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            var users = data.users || [];
-            listEl.innerHTML = users.length
-              ? users.map(function (u) {
-                  return '<div style="padding:12px 14px;border-bottom:1px solid #f5f5f5;font-size:14px;">' + escapeHtml(u) + '</div>';
-                }).join('')
-              : '<div style="padding:16px;text-align:center;color:#999;">No dashboard users configured.</div>';
-          })
-          .catch(function () {
-            listEl.innerHTML = '<div style="padding:16px;text-align:center;color:#e74c3c;">Could not load dashboard users. Is the webhook-relay service running?</div>';
-          });
+    listEl.querySelectorAll('.ra-st-du-remove').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        removeDashboardUser(this.getAttribute('data-user'));
       });
+    });
   }
 
-  function addDashboardUser(username) {
+  function addDashboardUser(username, dashboardId) {
     var statusEl = document.getElementById('ra-st-du-status');
     showStatus(statusEl, 'info', 'Adding user...');
 
-    fetch('/webhook-api/dashboard-users/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ username: username })
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.error) {
-          showStatus(statusEl, 'err', data.error);
-        } else {
-          showStatus(statusEl, 'ok', '"' + username + '" added as dashboard-only user');
-          loadDashboardUsers();
-          updateUserDropdown(); // Refresh dropdown to remove added user
-        }
-      })
-      .catch(function () {
-        showStatus(statusEl, 'err', 'Failed to add user. Is the webhook-relay service running?');
-      });
+    if (!_dashConfig) _dashConfig = { dashboards: {}, users: {} };
+    _dashConfig.users[username] = dashboardId;
+
+    saveDashConfig(function (err) {
+      if (err) {
+        showStatus(statusEl, 'err', err);
+      } else {
+        showStatus(statusEl, 'ok', '"' + username + '" assigned to dashboard "' + dashboardId + '"');
+        loadDashboardUsers();
+        updateUserDropdown();
+      }
+    });
   }
 
   function removeDashboardUser(username) {
     var statusEl = document.getElementById('ra-st-du-status');
     showStatus(statusEl, 'info', 'Removing user...');
 
-    fetch('/webhook-api/dashboard-users/remove', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ username: username })
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.error) {
-          showStatus(statusEl, 'err', data.error);
-        } else {
-          showStatus(statusEl, 'ok', '"' + username + '" removed from dashboard users');
-          loadDashboardUsers();
-          updateUserDropdown(); // Refresh dropdown to show removed user again
-        }
-      })
-      .catch(function () {
-        showStatus(statusEl, 'err', 'Failed to remove user.');
-      });
-  }
+    if (_dashConfig && _dashConfig.users) {
+      delete _dashConfig.users[username];
+    }
 
-  // ── Dashboard Layout Builder ──
-  var WIDGET_TYPES = [
-    { id: 'stat-cards', label: 'Summary Cards', desc: 'Overview numbers: total forms, submissions, today, contributors' },
-    { id: 'chart', label: 'Bar Chart', desc: 'Submissions over time (configurable days)' },
-    { id: 'form-table', label: 'Forms Table', desc: 'List of forms with submission counts' },
-    { id: 'recent-feed', label: 'Recent Submissions', desc: 'Latest submissions with user and time' },
-    { id: 'pie-chart', label: 'Pie Chart', desc: 'Breakdown by a field (e.g., district, submitted by)' },
-    { id: 'single-stat', label: 'Single Number', desc: 'One big metric: count, today, or contributors' }
-  ];
-
-  var _layoutForms = null;
-  var _currentLayout = null;
-
-  function renderDashboardLayoutContent(main) {
-    main.innerHTML =
-      '<div class="ra-st__content" style="max-width:900px;">' +
-        '<p style="color:#666;margin:0 0 16px;font-size:14px;">' +
-          'Configure the widgets that dashboard users see. Add, remove, and reorder widgets. ' +
-          'Each widget can pull data from specific forms or all forms.' +
-        '</p>' +
-        '<div class="ra-st__status" id="ra-st-dl-status"></div>' +
-        '<div id="ra-st-dl-widgets" style="margin:16px 0;">' +
-          '<div style="padding:20px;text-align:center;color:#999;">Loading layout...</div>' +
-        '</div>' +
-        '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">' +
-          '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-dl-add">+ Add Widget</button>' +
-          '<button class="ra-st__btn ra-st__btn--success" id="ra-st-dl-save">Save Layout</button>' +
-          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-st-dl-reset">Reset to Default</button>' +
-        '</div>' +
-      '</div>';
-
-    // Load forms for the form selector
-    fetch('/api/v2/assets/?asset_type=survey&fields=["uid","name","deployment_status","deployment__submission_count","content"]&limit=200', { credentials: 'same-origin' })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        _layoutForms = (data.results || []).filter(function (f) { return f.deployment_status === 'deployed'; });
-        loadLayoutConfig();
-      });
-
-    document.getElementById('ra-st-dl-add').addEventListener('click', function () { addWidgetToLayout(); });
-    document.getElementById('ra-st-dl-save').addEventListener('click', function () { saveLayout(); });
-    document.getElementById('ra-st-dl-reset').addEventListener('click', function () {
-      _currentLayout = { widgets: [] };
-      renderWidgetList();
-      showStatus(document.getElementById('ra-st-dl-status'), 'info', 'Layout reset to default. Click Save to apply.');
+    saveDashConfig(function (err) {
+      if (err) {
+        showStatus(statusEl, 'err', err);
+      } else {
+        showStatus(statusEl, 'ok', '"' + username + '" removed from dashboard users');
+        loadDashboardUsers();
+        updateUserDropdown();
+      }
     });
   }
 
-  function loadLayoutConfig() {
-    fetch('/webhook-api/dashboard-layout', { credentials: 'same-origin' })
-      .then(function (r) { return r.ok ? r.json() : { widgets: [] }; })
-      .then(function (data) {
-        _currentLayout = data;
-        renderWidgetList();
-      })
-      .catch(function () {
-        _currentLayout = { widgets: [] };
-        renderWidgetList();
-      });
+  // ── Layout Tab ──
+  var _editingDashboardId = null; // null = showing list, string = editing a dashboard
+
+  function renderDashLayoutTab(container) {
+    if (_editingDashboardId) {
+      renderDashboardEditor(container, _editingDashboardId);
+      return;
+    }
+    renderDashboardList(container);
   }
 
-  function renderWidgetList() {
-    var container = document.getElementById('ra-st-dl-widgets');
-    if (!container || !_currentLayout) return;
-
-    var widgets = _currentLayout.widgets || [];
-    if (!widgets.length) {
-      container.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;border:2px dashed #e2e8f0;border-radius:8px;">' +
-        '<p style="font-size:14px;margin:0 0 8px;">No widgets configured</p>' +
-        '<p style="font-size:12px;margin:0;">Click "Add Widget" to start building the dashboard. Default widgets will be shown until you save a custom layout.</p>' +
+  // ── Dashboard List View ──
+  function renderDashboardList(container) {
+    container.innerHTML =
+      '<div class="ra-st__content" style="max-width:900px;">' +
+        '<p style="color:#666;margin:0 0 16px;font-size:14px;">' +
+          'Create and manage dashboards. Each dashboard has its own widget layout. ' +
+          'Assign users to dashboards in the <strong>Users</strong> tab.' +
+        '</p>' +
+        '<div style="margin-bottom:20px;">' +
+          '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-dl-new-dash">+ New Dashboard</button>' +
+        '</div>' +
+        '<div class="ra-st__status" id="ra-st-dl-status"></div>' +
+        '<div id="ra-st-dl-dash-list"></div>' +
       '</div>';
+
+    loadDashConfig(function () {
+      renderDashCards();
+      // Also load forms in background for widget editor later
+      fetch('/api/v2/assets/?asset_type=survey&fields=["uid","name","deployment_status","deployment__submission_count","content"]&limit=200', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) { _layoutForms = (data.results || []).filter(function (f) { return f.deployment_status === 'deployed'; }); })
+        .catch(function () { _layoutForms = []; });
+    });
+
+    document.getElementById('ra-st-dl-new-dash').addEventListener('click', function () { showNewDashboardModal(); });
+  }
+
+  function renderDashCards() {
+    var listEl = document.getElementById('ra-st-dl-dash-list');
+    if (!listEl) return;
+
+    var names = getDashboardNames();
+    if (!names.length) {
+      listEl.innerHTML = '<div style="padding:32px;text-align:center;color:#94a3b8;border:2px dashed #e2e8f0;border-radius:8px;">' +
+        '<p style="font-size:14px;margin:0 0 8px;">No dashboards created yet</p>' +
+        '<p style="font-size:12px;margin:0;">Click "+ New Dashboard" to get started.</p></div>';
       return;
     }
 
-    container.innerHTML = widgets.map(function (w, idx) {
-      var typeDef = WIDGET_TYPES.find(function (t) { return t.id === w.type; }) || { label: w.type, desc: '' };
-      var formNames = getWidgetFormNames(w);
-      var configSummary = getWidgetConfigSummary(w);
+    listEl.innerHTML = names.map(function (d) {
+      var userCount = 0;
+      if (_dashConfig && _dashConfig.users) {
+        Object.keys(_dashConfig.users).forEach(function (u) {
+          if (_dashConfig.users[u] === d.id) userCount++;
+        });
+      }
+      var widgetCount = (_dashConfig.dashboards[d.id] && _dashConfig.dashboards[d.id].widgets) ? _dashConfig.dashboards[d.id].widgets.length : 0;
 
-      return '<div style="border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;background:#fff;" data-idx="' + idx + '">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #f1f5f9;">' +
-          '<div style="display:flex;align-items:center;gap:10px;">' +
-            '<span style="color:#94a3b8;font-size:12px;font-weight:700;">#' + (idx + 1) + '</span>' +
-            '<span style="font-weight:600;color:#1e293b;font-size:14px;">' + escapeHtml(w.title || typeDef.label) + '</span>' +
-            '<span style="background:#e0f2fe;color:#0284c7;font-size:11px;padding:2px 8px;border-radius:10px;">' + escapeHtml(typeDef.label) + '</span>' +
-            '<span style="color:#94a3b8;font-size:11px;">' + escapeHtml(w.width === 'full' ? 'Full width' : 'Half width') + '</span>' +
+      return '<div style="border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;background:#fff;overflow:hidden;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;">' +
+          '<div>' +
+            '<div style="font-size:16px;font-weight:600;color:#1e293b;">' + escapeHtml(d.name) + '</div>' +
+            '<div style="font-size:12px;color:#94a3b8;margin-top:4px;">' + escapeHtml(d.id) + ' &middot; ' + widgetCount + ' widgets &middot; ' + userCount + ' users assigned</div>' +
           '</div>' +
-          '<div style="display:flex;gap:6px;">' +
-            (idx > 0 ? '<button class="ra-st__btn ra-st__btn--secondary ra-dl-move-up" data-idx="' + idx + '" style="padding:4px 8px;font-size:11px;">Up</button>' : '') +
-            (idx < widgets.length - 1 ? '<button class="ra-st__btn ra-st__btn--secondary ra-dl-move-down" data-idx="' + idx + '" style="padding:4px 8px;font-size:11px;">Down</button>' : '') +
-            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-edit" data-idx="' + idx + '" style="padding:4px 8px;font-size:11px;">Edit</button>' +
-            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-remove" data-idx="' + idx + '" style="padding:4px 8px;font-size:11px;color:#e74c3c;">Remove</button>' +
+          '<div style="display:flex;gap:8px;">' +
+            '<button class="ra-st__btn ra-st__btn--primary ra-dl-edit-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;">Edit</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-preview-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;">Preview</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-delete-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;color:#e74c3c;">Delete</button>' +
           '</div>' +
-        '</div>' +
-        '<div style="padding:10px 16px;font-size:12px;color:#64748b;">' +
-          'Forms: ' + escapeHtml(formNames) +
-          (configSummary ? ' &middot; ' + escapeHtml(configSummary) : '') +
         '</div>' +
       '</div>';
     }).join('');
 
-    // Attach handlers
+    listEl.querySelectorAll('.ra-dl-edit-dash').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        _editingDashboardId = this.getAttribute('data-id');
+        renderDashTabContent();
+      });
+    });
+    listEl.querySelectorAll('.ra-dl-preview-dash').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (window.__raDashboardPreview) window.__raDashboardPreview.show(this.getAttribute('data-id'));
+      });
+    });
+    listEl.querySelectorAll('.ra-dl-delete-dash').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var dashId = this.getAttribute('data-id');
+        if (!confirm('Delete dashboard "' + dashId + '"? Users assigned to it will need to be reassigned.')) return;
+        delete _dashConfig.dashboards[dashId];
+        var users = _dashConfig.users || {};
+        Object.keys(users).forEach(function (u) { if (users[u] === dashId) delete users[u]; });
+        saveDashConfig(function (err) {
+          if (err) {
+            showStatus(document.getElementById('ra-st-dl-status'), 'err', err);
+          } else {
+            showStatus(document.getElementById('ra-st-dl-status'), 'ok', 'Dashboard deleted.');
+            renderDashCards();
+          }
+        });
+      });
+    });
+  }
+
+  function generateSlug(name) {
+    return name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  function showNewDashboardModal() {
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:10px;width:400px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,0.2);">' +
+        '<div style="padding:18px 20px;border-bottom:1px solid #e2e8f0;font-size:16px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">' +
+          'New Dashboard<button id="ra-dl-nd-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:20px;">' +
+          '<div class="ra-st__field"><label>Dashboard Name</label><input type="text" id="ra-dl-nd-name" placeholder="e.g., Field Team Dashboard"></div>' +
+          '<div style="display:flex;gap:10px;margin-top:16px;">' +
+            '<button class="ra-st__btn ra-st__btn--primary" id="ra-dl-nd-create">Create</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary" id="ra-dl-nd-cancel">Cancel</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+    document.getElementById('ra-dl-nd-close').addEventListener('click', function () { modal.remove(); });
+    document.getElementById('ra-dl-nd-cancel').addEventListener('click', function () { modal.remove(); });
+    document.getElementById('ra-dl-nd-create').addEventListener('click', function () {
+      var nameVal = (document.getElementById('ra-dl-nd-name').value || '').trim();
+      if (!nameVal) { alert('Dashboard name is required'); return; }
+      var idVal = generateSlug(nameVal);
+      var base = idVal; var counter = 1;
+      while (_dashConfig && _dashConfig.dashboards && _dashConfig.dashboards[idVal]) { idVal = base + '-' + counter; counter++; }
+      if (!idVal) { alert('Could not generate a valid ID'); return; }
+      _dashConfig.dashboards[idVal] = { name: nameVal, widgets: [] };
+      saveDashConfig(function (err) {
+        if (err) {
+          alert('Error: ' + err);
+        } else {
+          renderDashCards();
+          populateDashboardDropdown(); // refresh Users tab dropdown too
+        }
+      });
+      modal.remove();
+    });
+  }
+
+  // ── Dashboard Editor View (opened when clicking Edit on a dashboard) ──
+  function renderDashboardEditor(container, dashId) {
+    var dash = (_dashConfig && _dashConfig.dashboards) ? _dashConfig.dashboards[dashId] : null;
+    if (!dash) { _editingDashboardId = null; renderDashboardList(container); return; }
+
+    container.innerHTML =
+      '<div class="ra-st__content" style="max-width:900px;">' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">' +
+          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-dl-back" style="padding:6px 12px;">&larr; Back</button>' +
+          '<h2 style="margin:0;font-size:18px;font-weight:600;color:#1e293b;">' + escapeHtml(dash.name) + '</h2>' +
+        '</div>' +
+        '<div class="ra-st__status" id="ra-st-dl-status"></div>' +
+        '<div id="ra-st-dl-widgets" style="margin:16px 0;min-height:80px;"></div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">' +
+          '<div style="display:flex;gap:10px;">' +
+            '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-dl-add">+ Add Widget</button>' +
+            '<button class="ra-st__btn ra-st__btn--success" id="ra-st-dl-save">Save Dashboard</button>' +
+          '</div>' +
+          '<div style="display:flex;gap:10px;">' +
+            '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-dl-preview">Preview</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary" id="ra-st-dl-reset">Clear All Widgets</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    _selectedDashboardId = dashId;
+    renderWidgetList();
+
+    document.getElementById('ra-dl-back').addEventListener('click', function () {
+      _editingDashboardId = null;
+      renderDashTabContent();
+    });
+    document.getElementById('ra-st-dl-add').addEventListener('click', function () { showWidgetEditor(-1); });
+    document.getElementById('ra-st-dl-save').addEventListener('click', function () { saveLayout(); });
+    document.getElementById('ra-st-dl-preview').addEventListener('click', function () {
+      if (window.__raDashboardPreview) window.__raDashboardPreview.show(dashId);
+    });
+    document.getElementById('ra-st-dl-reset').addEventListener('click', function () {
+      if (confirm('Remove all widgets from this dashboard?')) {
+        dash.widgets = [];
+        renderWidgetList();
+        autoSaveDashConfig();
+      }
+    });
+  }
+
+  function getCurrentDashboard() {
+    if (!_dashConfig || !_dashConfig.dashboards) return null;
+    return _dashConfig.dashboards[_selectedDashboardId] || null;
+  }
+
+  // Auto-save after any change (debounced)
+  var _autoSaveTimer = null;
+  function autoSaveDashConfig() {
+    if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
+    _autoSaveTimer = setTimeout(function () {
+      saveDashConfig(function (err) {
+        var statusEl = document.getElementById('ra-st-dl-status');
+        if (err) {
+          if (statusEl) showStatus(statusEl, 'err', 'Auto-save failed: ' + err);
+        } else {
+          if (statusEl) showStatus(statusEl, 'ok', 'Saved');
+          // Clear the "Saved" message after 2 seconds
+          setTimeout(function () {
+            if (statusEl && statusEl.textContent === 'Saved') statusEl.style.display = 'none';
+          }, 2000);
+        }
+      });
+    }, 500);
+  }
+
+  function renderWidgetList() {
+    var container = document.getElementById('ra-st-dl-widgets');
+    if (!container) return;
+    var dash = getCurrentDashboard();
+    if (!dash) return;
+
+    var widgets = dash.widgets || [];
+    if (!widgets.length) {
+      container.style.display = 'block';
+      container.innerHTML = '<div style="padding:32px;text-align:center;color:#94a3b8;border:2px dashed #e2e8f0;border-radius:8px;">' +
+        '<p style="font-size:14px;margin:0 0 8px;">No widgets yet</p>' +
+        '<p style="font-size:12px;margin:0;">Click "+ Add Widget" to build this dashboard.</p></div>';
+      return;
+    }
+
+    // Use CSS grid matching actual dashboard layout: 2 columns, half/full width
+    container.style.display = 'grid';
+    container.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    container.style.gap = '12px';
+
+    container.innerHTML = widgets.map(function (w, idx) {
+      var typeDef = null;
+      for (var t = 0; t < WIDGET_TYPES.length; t++) {
+        if (WIDGET_TYPES[t].id === w.type) { typeDef = WIDGET_TYPES[t]; break; }
+      }
+      if (!typeDef) typeDef = { label: w.type, desc: '' };
+      var formNames = getWidgetFormNames(w);
+      var configSummary = getWidgetConfigSummary(w);
+      var isFull = w.width === 'full';
+
+      return '<div class="ra-dl-widget-item" draggable="true" data-idx="' + idx + '" style="' +
+        (isFull ? 'grid-column:1/-1;' : '') +
+        'border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:grab;transition:opacity 0.2s,border-color 0.2s,box-shadow 0.2s;overflow:hidden;">' +
+        '<div style="background:#f8fafc;padding:10px 14px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">' +
+          '<div style="display:flex;align-items:center;gap:8px;min-width:0;">' +
+            '<span style="color:#cbd5e1;font-size:16px;cursor:grab;flex-shrink:0;" title="Drag to reorder">&#9776;</span>' +
+            '<span style="font-weight:600;color:#1e293b;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(w.title || typeDef.label) + '</span>' +
+          '</div>' +
+          '<div style="display:flex;gap:4px;flex-shrink:0;">' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-edit" data-idx="' + idx + '" style="padding:3px 8px;font-size:11px;">Edit</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-remove" data-idx="' + idx + '" style="padding:3px 8px;font-size:11px;color:#e74c3c;">&#10005;</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="padding:16px;min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;">' +
+          '<div style="font-size:24px;margin-bottom:6px;">' + getWidgetIcon(w.type) + '</div>' +
+          '<div style="font-size:12px;font-weight:600;color:#64748b;">' + escapeHtml(typeDef.label) + '</div>' +
+          '<div style="font-size:11px;color:#94a3b8;margin-top:2px;">' + escapeHtml(isFull ? 'Full width' : 'Half width') +
+            (formNames ? ' &middot; ' + escapeHtml(formNames) : '') +
+          '</div>' +
+          (configSummary ? '<div style="font-size:10px;color:#cbd5e1;margin-top:2px;">' + escapeHtml(configSummary) + '</div>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    // Drag and Drop — swap positions in grid (half↔half, half↔full, etc.)
+    var dragSrcIdx = null;
+    var allItems = container.querySelectorAll('.ra-dl-widget-item');
+
+    function clearDragHighlights() {
+      allItems.forEach(function (el) {
+        el.style.borderColor = '#e2e8f0';
+        el.style.boxShadow = 'none';
+      });
+    }
+
+    allItems.forEach(function (item) {
+      item.addEventListener('dragstart', function (e) {
+        dragSrcIdx = parseInt(this.getAttribute('data-idx'));
+        this.style.opacity = '0.3';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(dragSrcIdx));
+      });
+      item.addEventListener('dragend', function () {
+        this.style.opacity = '1';
+        clearDragHighlights();
+      });
+      item.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        clearDragHighlights();
+        var idx = parseInt(this.getAttribute('data-idx'));
+        if (idx !== dragSrcIdx) {
+          this.style.borderColor = '#54a8dc';
+          this.style.boxShadow = '0 0 0 2px rgba(84,168,220,0.3)';
+        }
+      });
+      item.addEventListener('dragleave', function () {
+        this.style.borderColor = '#e2e8f0';
+        this.style.boxShadow = 'none';
+      });
+      item.addEventListener('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var dropIdx = parseInt(this.getAttribute('data-idx'));
+        if (dragSrcIdx === null || dragSrcIdx === dropIdx) return;
+        var d = getCurrentDashboard();
+        if (d && d.widgets) {
+          // True swap — so half widgets exchange left/right positions
+          var temp = d.widgets[dragSrcIdx];
+          d.widgets[dragSrcIdx] = d.widgets[dropIdx];
+          d.widgets[dropIdx] = temp;
+          renderWidgetList();
+          autoSaveDashConfig();
+        }
+        dragSrcIdx = null;
+      });
+    });
     container.querySelectorAll('.ra-dl-remove').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        _currentLayout.widgets.splice(parseInt(this.dataset.idx), 1);
-        renderWidgetList();
-      });
-    });
-    container.querySelectorAll('.ra-dl-move-up').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var i = parseInt(this.dataset.idx);
-        var w = _currentLayout.widgets.splice(i, 1)[0];
-        _currentLayout.widgets.splice(i - 1, 0, w);
-        renderWidgetList();
-      });
-    });
-    container.querySelectorAll('.ra-dl-move-down').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var i = parseInt(this.dataset.idx);
-        var w = _currentLayout.widgets.splice(i, 1)[0];
-        _currentLayout.widgets.splice(i + 1, 0, w);
-        renderWidgetList();
+        var d = getCurrentDashboard();
+        if (d) { d.widgets.splice(parseInt(this.getAttribute('data-idx')), 1); renderWidgetList(); autoSaveDashConfig(); }
       });
     });
     container.querySelectorAll('.ra-dl-edit').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        showWidgetEditor(parseInt(this.dataset.idx));
-      });
+      btn.addEventListener('click', function () { showWidgetEditor(parseInt(this.getAttribute('data-idx'))); });
     });
+  }
+
+  function getWidgetIcon(type) {
+    var icons = {
+      'stat-cards': '&#128202;',
+      'chart': '&#128200;',
+      'form-table': '&#128203;',
+      'recent-feed': '&#128172;',
+      'pie-chart': '&#127856;',
+      'single-stat': '&#128290;',
+      'field-number': '&#128290;',
+      'field-text-list': '&#128196;',
+      'field-select-bar': '&#128202;',
+      'field-counter': '&#9989;',
+      'field-latest': '&#128337;',
+      'field-timeline': '&#128200;'
+    };
+    return icons[type] || '&#9632;';
   }
 
   function getWidgetFormNames(w) {
     if (!w.forms || !w.forms.length || w.forms[0] === '__all__') return 'All forms';
     if (!_layoutForms) return w.forms.join(', ');
     return w.forms.map(function (uid) {
-      var f = _layoutForms.find(function (ff) { return ff.uid === uid; });
-      return f ? f.name : uid;
+      for (var i = 0; i < _layoutForms.length; i++) { if (_layoutForms[i].uid === uid) return _layoutForms[i].name; }
+      return uid;
     }).join(', ');
   }
 
@@ -755,17 +1020,15 @@
     if (c.limit) parts.push('Limit: ' + c.limit);
     if (c.field) parts.push('Field: ' + c.field);
     if (c.metric) parts.push('Metric: ' + c.metric);
-    if (c.label) parts.push('Label: ' + c.label);
     return parts.join(', ');
   }
 
-  function addWidgetToLayout() {
-    showWidgetEditor(-1);
-  }
-
   function showWidgetEditor(editIdx) {
+    var dash = getCurrentDashboard();
+    if (!dash) { alert('Select a dashboard first'); return; }
+
     var isEdit = editIdx >= 0;
-    var w = isEdit ? _currentLayout.widgets[editIdx] : { id: 'w' + Date.now(), type: 'stat-cards', title: '', width: 'full', forms: ['__all__'], config: {} };
+    var w = isEdit ? dash.widgets[editIdx] : { id: 'w' + Date.now(), type: 'stat-cards', title: '', width: 'full', forms: ['__all__'], config: {} };
 
     var formOptions = '<option value="__all__"' + ((!w.forms || !w.forms.length || w.forms[0] === '__all__') ? ' selected' : '') + '>All forms</option>';
     if (_layoutForms) {
@@ -775,28 +1038,39 @@
       });
     }
 
-    var typeOptions = WIDGET_TYPES.map(function (t) {
-      return '<option value="' + t.id + '"' + (w.type === t.id ? ' selected' : '') + '>' + t.label + ' - ' + t.desc + '</option>';
-    }).join('');
+    // Build type options with optgroups
+    var lastGroup = '';
+    var typeOptions = '';
+    WIDGET_TYPES.forEach(function (t) {
+      if (t.group && t.group !== lastGroup) {
+        if (lastGroup) typeOptions += '</optgroup>';
+        typeOptions += '<optgroup label="' + escapeHtml(t.group) + '">';
+        lastGroup = t.group;
+      }
+      typeOptions += '<option value="' + t.id + '"' + (w.type === t.id ? ' selected' : '') + '>' + t.label + ' - ' + t.desc + '</option>';
+    });
+    if (lastGroup) typeOptions += '</optgroup>';
 
-    // Get fields for pie chart
-    var fieldOptions = '<option value="_submitted_by">Submitted By</option>';
+    // Build field options from all forms (all field types)
+    var fieldOptions = '<option value="_submitted_by">Submitted By</option>' +
+      '<option value="_submission_time">Submission Time</option>';
     if (_layoutForms) {
       var allFields = {};
       _layoutForms.forEach(function (f) {
         var survey = (f.content || {}).survey || [];
         survey.forEach(function (row) {
           var t = row.type || '';
-          if (t.indexOf('select') === 0 || t === 'text') {
-            var name = row.name || row.$autoname || '';
-            var label = (row.label && row.label[0]) || name;
-            if (name && !allFields[name]) allFields[name] = label;
-          }
+          if (t.indexOf('begin') === 0 || t.indexOf('end') === 0 || t === 'calculate' || t === 'hidden' || t === 'note') return;
+          var name = row.name || row.$autoname || '';
+          var label = (row.label && row.label[0]) || name;
+          if (name && !allFields[name]) allFields[name] = { label: label, type: t };
         });
       });
       Object.keys(allFields).forEach(function (name) {
+        var f = allFields[name];
         var sel = (w.config || {}).field === name ? ' selected' : '';
-        fieldOptions += '<option value="' + escapeHtml(name) + '"' + sel + '>' + escapeHtml(allFields[name]) + '</option>';
+        var typeHint = f.type ? ' (' + f.type + ')' : '';
+        fieldOptions += '<option value="' + escapeHtml(name) + '"' + sel + '>' + escapeHtml(f.label + typeHint) + '</option>';
       });
     }
 
@@ -811,16 +1085,21 @@
           '<button id="ra-dl-modal-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
         '</div>' +
         '<div style="padding:20px;">' +
+          '<div class="ra-st__field"><label>Title</label><input type="text" id="ra-dl-title" value="' + escapeHtml(w.title || '') + '" placeholder="e.g., Monthly Submissions"></div>' +
           '<div class="ra-st__field"><label>Widget Type</label><select id="ra-dl-type">' + typeOptions + '</select></div>' +
-          '<div class="ra-st__field"><label>Title (optional)</label><input type="text" id="ra-dl-title" value="' + escapeHtml(w.title || '') + '" placeholder="Auto-generated if empty"></div>' +
-          '<div class="ra-st__field"><label>Width</label><select id="ra-dl-width"><option value="full"' + (w.width === 'full' ? ' selected' : '') + '>Full width</option><option value="half"' + (w.width !== 'full' ? ' selected' : '') + '>Half width</option></select></div>' +
+          '<div style="display:flex;gap:12px;">' +
+            '<div class="ra-st__field" style="flex:1;"><label>Width</label><select id="ra-dl-width"><option value="full"' + (w.width === 'full' ? ' selected' : '') + '>Full width</option><option value="half"' + (w.width !== 'full' ? ' selected' : '') + '>Half width</option></select></div>' +
+          '</div>' +
           '<div class="ra-st__field"><label>Data Source (forms)</label><select id="ra-dl-forms" multiple style="height:120px;">' + formOptions + '</select><small>Hold Ctrl/Cmd to select multiple. "All forms" overrides individual selections.</small></div>' +
           '<div id="ra-dl-extra-config">' +
-            '<div class="ra-st__field" id="ra-dl-days-wrap"><label>Days (for chart)</label><input type="number" id="ra-dl-days" value="' + (cfg.days || 30) + '" min="7" max="90"></div>' +
-            '<div class="ra-st__field" id="ra-dl-limit-wrap"><label>Max items (for feed)</label><input type="number" id="ra-dl-limit" value="' + (cfg.limit || 15) + '" min="5" max="50"></div>' +
-            '<div class="ra-st__field" id="ra-dl-field-wrap"><label>Group by field (for pie chart)</label><select id="ra-dl-field">' + fieldOptions + '</select></div>' +
-            '<div class="ra-st__field" id="ra-dl-metric-wrap"><label>Metric (for single stat)</label><select id="ra-dl-metric"><option value="count"' + (cfg.metric === 'count' ? ' selected' : '') + '>Total submissions</option><option value="today"' + (cfg.metric === 'today' ? ' selected' : '') + '>Submissions today</option><option value="contributors"' + (cfg.metric === 'contributors' ? ' selected' : '') + '>Unique contributors</option></select></div>' +
-            '<div class="ra-st__field" id="ra-dl-label-wrap"><label>Display label (for single stat)</label><input type="text" id="ra-dl-label" value="' + escapeHtml(cfg.label || '') + '" placeholder="e.g., Total Records"></div>' +
+            '<div class="ra-st__field" id="ra-dl-days-wrap"><label>Time Period (days)</label><input type="number" id="ra-dl-days" value="' + (cfg.days || 30) + '" min="7" max="90"></div>' +
+            '<div class="ra-st__field" id="ra-dl-limit-wrap"><label>Max items</label><input type="number" id="ra-dl-limit" value="' + (cfg.limit || 15) + '" min="5" max="50"></div>' +
+            '<div class="ra-st__field" id="ra-dl-field-wrap"><label>Field</label><select id="ra-dl-field">' + fieldOptions + '</select></div>' +
+            '<div class="ra-st__field" id="ra-dl-metric-wrap"><label>Metric</label><select id="ra-dl-metric"><option value="count"' + (cfg.metric === 'count' ? ' selected' : '') + '>Total submissions</option><option value="today"' + (cfg.metric === 'today' ? ' selected' : '') + '>Submissions today</option><option value="contributors"' + (cfg.metric === 'contributors' ? ' selected' : '') + '>Unique contributors</option></select></div>' +
+            '<div class="ra-st__field" id="ra-dl-operation-wrap"><label>Operation</label><select id="ra-dl-operation"><option value="sum"' + (cfg.operation === 'sum' ? ' selected' : '') + '>Sum</option><option value="average"' + (cfg.operation === 'average' ? ' selected' : '') + '>Average</option><option value="min"' + (cfg.operation === 'min' ? ' selected' : '') + '>Min</option><option value="max"' + (cfg.operation === 'max' ? ' selected' : '') + '>Max</option><option value="count"' + (cfg.operation === 'count' ? ' selected' : '') + '>Count (non-empty)</option></select></div>' +
+            '<div class="ra-st__field" id="ra-dl-matchop-wrap"><label>Condition</label><select id="ra-dl-matchop"><option value="equals"' + (cfg.matchOp === 'equals' ? ' selected' : '') + '>Equals</option><option value="contains"' + (cfg.matchOp === 'contains' ? ' selected' : '') + '>Contains</option><option value="not_empty"' + (cfg.matchOp === 'not_empty' ? ' selected' : '') + '>Not empty</option><option value="greater_than"' + (cfg.matchOp === 'greater_than' ? ' selected' : '') + '>Greater than</option><option value="less_than"' + (cfg.matchOp === 'less_than' ? ' selected' : '') + '>Less than</option></select></div>' +
+            '<div class="ra-st__field" id="ra-dl-matchval-wrap"><label>Match Value</label><input type="text" id="ra-dl-matchval" value="' + escapeHtml(cfg.matchValue || '') + '" placeholder="e.g., yes, 100, Dar es Salaam"></div>' +
+            '<div class="ra-st__field" id="ra-dl-label-wrap"><label>Display Label</label><input type="text" id="ra-dl-label" value="' + escapeHtml(cfg.label || '') + '" placeholder="e.g., Total Records"></div>' +
           '</div>' +
           '<div style="display:flex;gap:10px;margin-top:20px;">' +
             '<button class="ra-st__btn ra-st__btn--primary" id="ra-dl-modal-save">' + (isEdit ? 'Update' : 'Add') + '</button>' +
@@ -845,31 +1124,53 @@
         config: {}
       };
       var type = newW.type;
-      if (type === 'chart') newW.config.days = parseInt(document.getElementById('ra-dl-days').value) || 30;
-      if (type === 'recent-feed') newW.config.limit = parseInt(document.getElementById('ra-dl-limit').value) || 15;
-      if (type === 'pie-chart') newW.config.field = document.getElementById('ra-dl-field').value;
-      if (type === 'single-stat') {
-        newW.config.metric = document.getElementById('ra-dl-metric').value;
-        newW.config.label = document.getElementById('ra-dl-label').value.trim();
+      // Days
+      if (type === 'chart' || type === 'field-timeline') newW.config.days = parseInt(document.getElementById('ra-dl-days').value) || 30;
+      // Limit
+      if (type === 'recent-feed' || type === 'field-text-list') newW.config.limit = parseInt(document.getElementById('ra-dl-limit').value) || 15;
+      // Field (for all field-based widgets + pie chart)
+      if (type === 'pie-chart' || type.indexOf('field-') === 0) newW.config.field = document.getElementById('ra-dl-field').value;
+      // Single stat metric
+      if (type === 'single-stat') newW.config.metric = document.getElementById('ra-dl-metric').value;
+      // Number operation
+      if (type === 'field-number') newW.config.operation = document.getElementById('ra-dl-operation').value;
+      // Counter condition
+      if (type === 'field-counter') {
+        newW.config.matchOp = document.getElementById('ra-dl-matchop').value;
+        newW.config.matchValue = document.getElementById('ra-dl-matchval').value.trim();
       }
+      // Label
+      var labelEl = document.getElementById('ra-dl-label');
+      if (labelEl && labelEl.value.trim()) newW.config.label = labelEl.value.trim();
       if (!newW.title) {
-        var td = WIDGET_TYPES.find(function (t) { return t.id === type; });
+        var td = null;
+        for (var tt = 0; tt < WIDGET_TYPES.length; tt++) {
+          if (WIDGET_TYPES[tt].id === type) { td = WIDGET_TYPES[tt]; break; }
+        }
         newW.title = td ? td.label : type;
       }
 
-      if (isEdit) {
-        _currentLayout.widgets[editIdx] = newW;
-      } else {
-        _currentLayout.widgets.push(newW);
+      var dash2 = getCurrentDashboard();
+      if (dash2) {
+        if (isEdit) {
+          dash2.widgets[editIdx] = newW;
+        } else {
+          dash2.widgets.push(newW);
+        }
       }
       modal.remove();
       renderWidgetList();
+      autoSaveDashConfig();
     });
   }
 
   function getSelectedForms() {
     var sel = document.getElementById('ra-dl-forms');
-    var vals = Array.from(sel.selectedOptions).map(function (o) { return o.value; });
+    var opts = sel.selectedOptions || sel.options;
+    var vals = [];
+    for (var i = 0; i < opts.length; i++) {
+      if (opts[i].selected) vals.push(opts[i].value);
+    }
     if (vals.indexOf('__all__') !== -1) return ['__all__'];
     return vals;
   }
@@ -880,37 +1181,65 @@
       var el = document.getElementById(id);
       if (el) el.style.display = visible ? 'block' : 'none';
     };
-    show('ra-dl-days-wrap', type === 'chart');
-    show('ra-dl-limit-wrap', type === 'recent-feed');
-    show('ra-dl-field-wrap', type === 'pie-chart');
+    var needsField = ['pie-chart', 'field-number', 'field-text-list', 'field-select-bar', 'field-counter', 'field-latest', 'field-timeline'];
+    var needsDays = ['chart', 'field-timeline'];
+    var needsLimit = ['recent-feed', 'field-text-list'];
+    var needsOperation = ['field-number'];
+    var needsMatch = ['field-counter'];
+    var needsLabel = ['single-stat', 'field-number', 'field-counter', 'field-latest'];
+
+    show('ra-dl-field-wrap', needsField.indexOf(type) !== -1);
+    show('ra-dl-days-wrap', needsDays.indexOf(type) !== -1);
+    show('ra-dl-limit-wrap', needsLimit.indexOf(type) !== -1);
     show('ra-dl-metric-wrap', type === 'single-stat');
-    show('ra-dl-label-wrap', type === 'single-stat');
+    show('ra-dl-operation-wrap', needsOperation.indexOf(type) !== -1);
+    show('ra-dl-matchop-wrap', needsMatch.indexOf(type) !== -1);
+    show('ra-dl-matchval-wrap', needsMatch.indexOf(type) !== -1);
+    show('ra-dl-label-wrap', needsLabel.indexOf(type) !== -1);
   }
 
   function saveLayout() {
     var statusEl = document.getElementById('ra-st-dl-status');
-    showStatus(statusEl, 'info', 'Saving layout...');
+    showStatus(statusEl, 'info', 'Saving...');
 
-    fetch('/webhook-api/dashboard-layout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify(_currentLayout)
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.error) {
-          showStatus(statusEl, 'err', data.error);
-        } else {
-          showStatus(statusEl, 'ok', 'Dashboard layout saved! Dashboard users will see the new layout.');
-        }
-      })
-      .catch(function () {
-        showStatus(statusEl, 'err', 'Failed to save. Is the webhook-relay running?');
-      });
+    saveDashConfig(function (err) {
+      if (err) {
+        showStatus(statusEl, 'err', err);
+      } else {
+        showStatus(statusEl, 'ok', 'Dashboard saved! Users assigned to this dashboard will see the new layout.');
+      }
+    });
   }
 
   var _gnEditingId = null; // null = adding new, string = editing existing
+
+  // Source type definitions
+  var SOURCE_TYPES = {
+    geonode: { label: 'GeoNode', fields: ['url', 'token', 'username', 'password'], testable: true },
+    wms: { label: 'WMS Service', fields: ['url'], testable: false },
+    wfs: { label: 'WFS Service', fields: ['url'], testable: false },
+    xyz: { label: 'XYZ Tiles', fields: ['url'], testable: false },
+    google: { label: 'Google Maps', fields: [], testable: false, presets: [
+      { name: 'Google Satellite', url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}' },
+      { name: 'Google Hybrid', url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}' },
+      { name: 'Google Terrain', url: 'https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}' },
+      { name: 'Google Streets', url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}' }
+    ]},
+    esri: { label: 'Esri / ArcGIS', fields: [], testable: false, presets: [
+      { name: 'Esri Satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}' },
+      { name: 'Esri Topo', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}' },
+      { name: 'Esri Streets', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}' }
+    ]}
+  };
+
+  function sourceTypeIcon(type) {
+    if (type === 'geonode') return '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#54a8dc;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>';
+    if (type === 'wms' || type === 'wfs') return '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#e67e22;"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zM7 19c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM7 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>';
+    if (type === 'xyz') return '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#9b59b6;"><path d="M4 4h7V2H2v9h2V4zm0 16h7v2H2v-9h2v7zm16 0h-7v2h9v-9h-2v7zM20 4h-7V2h9v9h-2V4z"/></svg>';
+    if (type === 'google') return '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#4285f4;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>';
+    if (type === 'esri') return '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#2ecc71;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>';
+    return '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#999;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>';
+  }
 
   function renderGeoNodeSection(main) {
     var connections = getGeoNodeSettings();
@@ -918,41 +1247,56 @@
     var listHtml = '';
     if (connections.length) {
       listHtml = connections.map(function (conn) {
-        var truncUrl = (conn.url || '').length > 40 ? conn.url.substring(0, 40) + '...' : (conn.url || '');
+        var typeLabel = SOURCE_TYPES[conn.type] ? SOURCE_TYPES[conn.type].label : 'GeoNode';
+        var truncUrl = (conn.url || '').length > 45 ? conn.url.substring(0, 45) + '...' : (conn.url || '');
         return '<div class="ra-st__gn-conn" data-conn-id="' + escapeHtml(conn.id) + '">' +
+          '<div style="margin-right:10px;">' + sourceTypeIcon(conn.type || 'geonode') + '</div>' +
           '<div class="ra-st__gn-conn-info">' +
-            '<div class="ra-st__gn-conn-name">' + escapeHtml(conn.name || 'Unnamed') + '</div>' +
+            '<div class="ra-st__gn-conn-name">' + escapeHtml(conn.name || 'Unnamed') +
+              ' <span style="font-size:10px;color:#999;font-weight:400;">(' + typeLabel + ')</span></div>' +
             '<div class="ra-st__gn-conn-url">' + escapeHtml(truncUrl) + '</div>' +
           '</div>' +
           '<div class="ra-st__gn-conn-actions">' +
-            '<button class="ra-st__btn ra-st__btn--small" data-action="test">Test</button>' +
+            (SOURCE_TYPES[conn.type || 'geonode'].testable ? '<button class="ra-st__btn ra-st__btn--small" data-action="test">Test</button>' : '') +
             '<button class="ra-st__btn ra-st__btn--small" data-action="edit">Edit</button>' +
             '<button class="ra-st__btn ra-st__btn--small ra-st__btn--danger" data-action="delete">Delete</button>' +
           '</div>' +
         '</div>';
       }).join('');
     } else {
-      listHtml = '<div style="padding:16px;text-align:center;color:#999;font-size:13px;">No GeoNode connections configured yet.</div>';
+      listHtml = '<div style="padding:16px;text-align:center;color:#999;font-size:13px;">No data sources configured yet.</div>';
     }
 
+    var typeOptions = Object.keys(SOURCE_TYPES).map(function (key) {
+      return '<option value="' + key + '">' + SOURCE_TYPES[key].label + '</option>';
+    }).join('');
+
     main.innerHTML =
-      '<h1 class="ra-st__page-title">GeoNode Connections</h1>' +
+      '<h1 class="ra-st__page-title">Data Sources</h1>' +
       '<div class="ra-st__content">' +
+        '<p style="color:#888;margin:0 0 12px;font-size:13px;">Connect to GeoNode, WMS/WFS services, XYZ tiles, Google Maps, or Esri basemaps.</p>' +
         '<div id="ra-st-gn-list">' + listHtml + '</div>' +
         '<div class="ra-st__status" id="ra-st-gn-status"></div>' +
-        '<div id="ra-st-gn-form" style="display:none;">' +
-          '<div class="ra-st__field"><label>Connection Name</label><input type="text" id="ra-st-gn-name" placeholder="My GeoNode"></div>' +
-          '<div class="ra-st__field"><label>GeoNode URL</label><input type="url" id="ra-st-gn-url" placeholder="https://geonode.example.com"></div>' +
-          '<div class="ra-st__field"><label>API Token</label><input type="text" id="ra-st-gn-token" placeholder="Optional"></div>' +
-          '<div class="ra-st__field"><label>Username</label><input type="text" id="ra-st-gn-user" placeholder="Optional"></div>' +
-          '<div class="ra-st__field"><label>Password</label><input type="password" id="ra-st-gn-pass"></div>' +
+        '<div id="ra-st-gn-form" style="display:none;border:1px solid #eee;border-radius:8px;padding:16px;margin-top:12px;background:#fafbfc;">' +
+          '<div class="ra-st__field"><label>Source Type</label>' +
+            '<select id="ra-st-gn-type" style="width:100%;padding:8px;font-size:13px;border:1px solid #d0d5dd;border-radius:6px;">' +
+              typeOptions +
+            '</select></div>' +
+          '<div id="ra-st-gn-presets" style="display:none;"></div>' +
+          '<div class="ra-st__field"><label>Connection Name</label><input type="text" id="ra-st-gn-name" placeholder="My Data Source"></div>' +
+          '<div id="ra-st-gn-url-field" class="ra-st__field"><label>URL</label><input type="url" id="ra-st-gn-url" placeholder="https://example.com"></div>' +
+          '<div id="ra-st-gn-auth-fields">' +
+            '<div class="ra-st__field"><label>API Token</label><input type="text" id="ra-st-gn-token" placeholder="Optional"></div>' +
+            '<div class="ra-st__field"><label>Username</label><input type="text" id="ra-st-gn-user" placeholder="Optional"></div>' +
+            '<div class="ra-st__field"><label>Password</label><input type="password" id="ra-st-gn-pass"></div>' +
+          '</div>' +
           '<div class="ra-st__actions">' +
             '<button class="ra-st__btn" id="ra-st-gn-cancel">Cancel</button>' +
-            '<button class="ra-st__btn ra-st__btn--success" id="ra-st-gn-save-conn">Save Connection</button>' +
+            '<button class="ra-st__btn ra-st__btn--success" id="ra-st-gn-save-conn">Save</button>' +
           '</div>' +
         '</div>' +
         '<div style="margin-top:12px;">' +
-          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-st-gn-add">+ Add Connection</button>' +
+          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-st-gn-add">+ Add Data Source</button>' +
         '</div>' +
       '</div>';
 
@@ -1447,11 +1791,13 @@
         });
       } else if (action === 'edit') {
         _gnEditingId = connId;
+        document.getElementById('ra-st-gn-type').value = conn.type || 'geonode';
         document.getElementById('ra-st-gn-name').value = conn.name || '';
         document.getElementById('ra-st-gn-url').value = conn.url || '';
         document.getElementById('ra-st-gn-token').value = conn.token || '';
         document.getElementById('ra-st-gn-user').value = conn.username || '';
         document.getElementById('ra-st-gn-pass').value = conn.password || '';
+        updateFormForType();
         formEl.style.display = 'block';
       } else if (action === 'delete') {
         if (!confirm('Delete connection "' + (conn.name || 'Unnamed') + '"?')) return;
@@ -1462,14 +1808,63 @@
       }
     });
 
+    // Source type change — show/hide fields and presets
+    var typeSelect = document.getElementById('ra-st-gn-type');
+    function updateFormForType() {
+      var type = typeSelect.value;
+      var def = SOURCE_TYPES[type] || {};
+      var urlField = document.getElementById('ra-st-gn-url-field');
+      var authFields = document.getElementById('ra-st-gn-auth-fields');
+      var presetsEl = document.getElementById('ra-st-gn-presets');
+
+      // Show/hide URL field
+      urlField.style.display = (def.fields && def.fields.indexOf('url') !== -1) || (!def.presets) ? 'block' : 'none';
+
+      // Show/hide auth fields (only for geonode)
+      authFields.style.display = def.fields && def.fields.indexOf('token') !== -1 ? 'block' : 'none';
+
+      // Show presets if available
+      if (def.presets) {
+        urlField.style.display = 'none';
+        var html = '<div class="ra-st__field"><label>Select Preset</label>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">';
+        def.presets.forEach(function (p) {
+          html += '<button type="button" class="ra-st__btn ra-st__btn--small ra-st-gn-preset" ' +
+            'data-preset-name="' + escapeHtml(p.name) + '" data-preset-url="' + escapeHtml(p.url) + '">' +
+            escapeHtml(p.name) + '</button>';
+        });
+        html += '</div></div>';
+        presetsEl.innerHTML = html;
+        presetsEl.style.display = 'block';
+      } else {
+        presetsEl.innerHTML = '';
+        presetsEl.style.display = 'none';
+      }
+    }
+    typeSelect.addEventListener('change', updateFormForType);
+
+    // Preset button clicks
+    document.getElementById('ra-st-gn-form').addEventListener('click', function (e) {
+      var preset = e.target.closest('.ra-st-gn-preset');
+      if (!preset) return;
+      document.getElementById('ra-st-gn-name').value = preset.getAttribute('data-preset-name');
+      document.getElementById('ra-st-gn-url').value = preset.getAttribute('data-preset-url');
+      // Highlight selected
+      document.querySelectorAll('.ra-st-gn-preset').forEach(function (b) { b.style.background = ''; });
+      preset.style.background = '#54a8dc';
+      preset.style.color = '#fff';
+    });
+
     // Add Connection button
     document.getElementById('ra-st-gn-add').addEventListener('click', function () {
       _gnEditingId = null;
+      typeSelect.value = 'geonode';
       document.getElementById('ra-st-gn-name').value = '';
       document.getElementById('ra-st-gn-url').value = '';
       document.getElementById('ra-st-gn-token').value = '';
       document.getElementById('ra-st-gn-user').value = '';
       document.getElementById('ra-st-gn-pass').value = '';
+      updateFormForType();
       formEl.style.display = 'block';
     });
 
@@ -1483,13 +1878,16 @@
     document.getElementById('ra-st-gn-save-conn').addEventListener('click', function () {
       var name = document.getElementById('ra-st-gn-name').value.trim();
       var url = document.getElementById('ra-st-gn-url').value.trim();
-      if (!url) {
-        showStatus(statusEl, 'err', 'GeoNode URL is required.');
+      var type = document.getElementById('ra-st-gn-type').value;
+      var defaultName = SOURCE_TYPES[type] ? SOURCE_TYPES[type].label : 'Data Source';
+      if (!url && !(SOURCE_TYPES[type] && SOURCE_TYPES[type].presets)) {
+        showStatus(statusEl, 'err', 'URL is required.');
         return;
       }
       var connData = {
         id: _gnEditingId || generateId(),
-        name: name || 'GeoNode',
+        type: type,
+        name: name || defaultName,
         url: url,
         token: document.getElementById('ra-st-gn-token').value.trim(),
         username: document.getElementById('ra-st-gn-user').value.trim(),
