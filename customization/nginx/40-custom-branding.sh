@@ -21,7 +21,7 @@ sub_filter 'href="/static/favicon.png"' 'href="/custom-static/images/favicon.png
 sub_filter 'href="/static/apple-touch-icon.png"' 'href="/custom-static/images/favicon.png"';
 sub_filter 'href="/static/safari-pinned-tab.svg" color="#2095f3"' 'href="/custom-static/images/favicon.png" color="#54a8dc"';
 sub_filter '<meta name="description" content="KoboToolbox is a free toolkit for collecting and managing data in challenging environments and is the most widely-used tool in humanitarian emergencies">' '<meta name="description" content="Ramani Yangu - Resilience Academy Data Collection Platform for urban resilience research across Tanzania">\n<meta property="og:title" content="Ramani Yangu - Data Collection">\n<meta property="og:description" content="Resilience Academy Data Collection Platform for urban resilience research across Tanzania">\n<meta property="og:image" content="https://kf.ramaniyangu.com/custom-static/images/ra-logo-dark.png">\n<meta property="og:type" content="website">\n<meta property="og:url" content="https://kf.ramaniyangu.com">\n<meta name="twitter:card" content="summary">\n<meta name="twitter:title" content="Ramani Yangu - Data Collection">\n<meta name="twitter:image" content="https://kf.ramaniyangu.com/custom-static/images/ra-logo-dark.png">';
-sub_filter '</head>' '<link rel="stylesheet" href="/custom-static/css/custom-theme.css?v=4" />\n<script src="/custom-static/js/ra-welcome.js?v=6" defer></script>\n<script src="/custom-static/js/ra-submission-badge.js?v=6" defer></script>\n<script src="/custom-static/js/ra-leaderboard.js?v=11" defer></script>\n<script src="/custom-static/js/ra-map.js?v=17" defer></script>\n<script src="/custom-static/js/ra-settings.js?v=6" defer></script>\n<script src="/custom-static/js/ra-dashboard-view.js?v=1" defer></script>\n</head>';
+sub_filter '</head>' '<link rel="stylesheet" href="/custom-static/css/custom-theme.css?v=4" />\n<script src="/custom-static/js/ra-welcome.js?v=6" defer></script>\n<script src="/custom-static/js/ra-submission-badge.js?v=6" defer></script>\n<script src="/custom-static/js/ra-leaderboard.js?v=12" defer></script>\n<script src="/custom-static/js/ra-map.js?v=17" defer></script>\n<script src="/custom-static/js/ra-settings.js?v=6" defer></script>\n<script src="/custom-static/js/ra-dashboard-view.js?v=2"></script>\n</head>';
 sub_filter_types text/html;
 
 location /custom-static {
@@ -124,5 +124,21 @@ sed -i '/server_name.*kf\./,/^}/{
     /location \/static {/i\    include /etc/nginx/includes/geonode_proxy.conf;
 }' "$NGINX_CONF"
 echo "GeoNode proxy endpoint configured."
+
+# Dashboard users API proxy — routes /webhook-api/ to the webhook-relay service
+WEBHOOK_API_CONF="/etc/nginx/includes/webhook_api.conf"
+cat > "$WEBHOOK_API_CONF" << 'NGINX_WH'
+location /webhook-api/ {
+    resolver 127.0.0.11 valid=1s;
+    set $webhook_relay "webhook-relay:5000";
+    proxy_pass http://$webhook_relay/api/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+NGINX_WH
+sed -i '/server_name.*kf\./,/^}/{
+    /location \/static {/i\    include /etc/nginx/includes/webhook_api.conf;
+}' "$NGINX_CONF"
+echo "Webhook API proxy configured."
 
 echo "Custom branding applied successfully."

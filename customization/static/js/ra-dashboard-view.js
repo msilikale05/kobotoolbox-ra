@@ -32,6 +32,21 @@
   // ── Skip login/signup pages ──
   if (/\/accounts\/(login|signup|password)/.test(window.location.pathname)) return;
 
+  // ── INSTANT SCREEN HIDE ──
+  // Immediately hide the entire page with a white cover while we check
+  // if this user is dashboard-only. This prevents any KoboToolbox UI flash.
+  // For normal users, this is removed within ~200ms (imperceptible).
+  var screenCover = document.createElement('div');
+  screenCover.id = 'ra-do-screencover';
+  screenCover.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#f1f5f9;z-index:9999;display:flex;align-items:center;justify-content:center;';
+  screenCover.innerHTML = '<div style="text-align:center;"><img src="/custom-static/images/ra-logo-dark.png" alt="" style="height:48px;margin-bottom:12px;display:block;margin:0 auto 12px;"><div style="color:#94a3b8;font-size:14px;">Loading...</div></div>';
+  document.documentElement.appendChild(screenCover);
+
+  function removeScreenCover() {
+    var cover = document.getElementById('ra-do-screencover');
+    if (cover) cover.remove();
+  }
+
   // ── Styles ──
   var style = document.createElement('style');
   style.textContent = [
@@ -39,12 +54,24 @@
     '  position: fixed;',
     '  top: 0; left: 0; right: 0; bottom: 0;',
     '  background: #f1f5f9;',
-    '  z-index: 1002;',
+    '  z-index: 99999;',
     '  overflow-y: auto;',
     '  display: none;',
     '  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
     '}',
     '#' + PAGE_ID + '.ra-do--visible { display: block; }',
+
+    'body.ra-do-active #kpi-app { display: none !important; }',
+    'body.ra-do-active .main-header { display: none !important; }',
+    'body.ra-do-active header { display: none !important; }',
+    'body.ra-do-active nav { display: none !important; }',
+    'body.ra-do-active .k-drawer { display: none !important; }',
+    'body.ra-do-active [class*="drawer"] { display: none !important; }',
+    'body.ra-do-active .form-view { display: none !important; }',
+    'body.ra-do-active #ra-welcome-panel { display: none !important; }',
+    'body.ra-do-active #ra-leaderboard-page { display: none !important; }',
+    'body.ra-do-active #ra-map-page { display: none !important; }',
+    'body.ra-do-active #ra-settings-page { display: none !important; }',
 
     /* Header bar */
     '.ra-do__header {',
@@ -236,6 +263,7 @@
     if (!isDashboardOnly) return;
     var page = document.getElementById(PAGE_ID);
     if (page) page.classList.add('ra-do--visible');
+    document.body.classList.add('ra-do-active');
   }
 
   // ── Dashboard Page ──
@@ -252,7 +280,7 @@
         '</div>' +
         '<div class="ra-do__header-right">' +
           '<span>Welcome, <strong>' + escapeHtml(currentUser ? currentUser.username : '') + '</strong></span>' +
-          '<button class="ra-do__logout" onclick="window.location.href=\'/accounts/logout/\'">Logout</button>' +
+          '<button class="ra-do__logout" id="ra-do-logout-btn">Logout</button>' +
         '</div>' +
       '</div>' +
       '<div class="ra-do__content">' +
@@ -261,6 +289,33 @@
 
     document.body.appendChild(page);
     page.classList.add('ra-do--visible');
+    document.body.classList.add('ra-do-active');
+
+    // Logout handler — KoboToolbox requires POST with CSRF token
+    document.getElementById('ra-do-logout-btn').addEventListener('click', function () {
+      // Get CSRF token from cookie
+      var csrfToken = '';
+      var cookies = document.cookie.split(';');
+      for (var i = 0; i < cookies.length; i++) {
+        var c = cookies[i].trim();
+        if (c.indexOf('csrftoken=') === 0) {
+          csrfToken = c.substring('csrftoken='.length);
+          break;
+        }
+      }
+
+      // Submit a POST form to logout
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/accounts/logout/';
+      var csrf = document.createElement('input');
+      csrf.type = 'hidden';
+      csrf.name = 'csrfmiddlewaretoken';
+      csrf.value = csrfToken;
+      form.appendChild(csrf);
+      document.body.appendChild(form);
+      form.submit();
+    });
   }
 
   // ── Load Data ──
@@ -515,15 +570,24 @@
   // ── Bootstrap ──
   function bootstrap() {
     detectUser().then(function (isDashOnly) {
-      if (!isDashOnly) return; // Normal user — do nothing at all
+      if (!isDashOnly) {
+        // Normal user — remove the screen cover immediately and do nothing
+        removeScreenCover();
+        return;
+      }
 
+      // Dashboard user — create the dashboard, then remove the cover
       createDashboardPage();
+      removeScreenCover(); // Now the dashboard is visible, cover can go
       loadDashboardData();
       startRefresh();
 
       // Block all navigation for dashboard-only users
       window.addEventListener('hashchange', enforceAccess);
       setInterval(enforceAccess, 500);
+    }).catch(function () {
+      // If detection fails, remove cover and let normal KoboToolbox load
+      removeScreenCover();
     });
   }
 
@@ -532,4 +596,9 @@
   } else {
     bootstrap();
   }
+
+  // Safety timeout: if detection takes too long (>5s), remove cover anyway
+  setTimeout(function () {
+    removeScreenCover();
+  }, 5000);
 })();
