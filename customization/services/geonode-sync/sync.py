@@ -384,6 +384,18 @@ def run_health_server():
                         total = data.get('total', len(items))
                         datasets = []
                         for item in items:
+                            # Extract bounding box (varies by GeoNode version)
+                            bbox = {}
+                            if 'bbox_x0' in item:
+                                bbox = {
+                                    'x0': item['bbox_x0'], 'y0': item['bbox_y0'],
+                                    'x1': item['bbox_x1'], 'y1': item['bbox_y1'],
+                                }
+                            elif 'extent' in item and isinstance(item['extent'], dict):
+                                coords = item['extent'].get('coords', [])
+                                if len(coords) >= 4:
+                                    bbox = {'x0': coords[0], 'y0': coords[1], 'x1': coords[2], 'y1': coords[3]}
+
                             datasets.append({
                                 'id': item.get('pk', item.get('id')),
                                 'name': item.get('name', ''),
@@ -391,6 +403,8 @@ def run_health_server():
                                 'abstract': item.get('raw_abstract', item.get('abstract', ''))[:200],
                                 'subtype': item.get('subtype', item.get('storeType', '')),
                                 'alternate': item.get('alternate', item.get('typename', item.get('name', ''))),
+                                'bbox': bbox,
+                                'srid': item.get('srid', 'EPSG:4326'),
                             })
                         return {'ok': True, 'datasets': datasets, 'total': total}
                 return {'ok': False, 'error': f'HTTP {resp.status_code}'}
