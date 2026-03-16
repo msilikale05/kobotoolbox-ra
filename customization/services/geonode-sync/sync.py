@@ -288,8 +288,15 @@ def run_health_server():
                 token = params.get('token', [''])[0]
                 username = params.get('username', [''])[0]
                 password = params.get('password', [''])[0]
+                action = params.get('action', ['test'])[0]
 
-                result = self._test_geonode(url, token, username, password)
+                if action == 'list':
+                    page = int(params.get('page', ['1'])[0])
+                    search = params.get('search', [''])[0]
+                    result = self._list_datasets(url, token, username, password, page, search)
+                else:
+                    result = self._test_geonode(url, token, username, password)
+
                 body = json.dumps(result).encode()
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
@@ -329,6 +336,63 @@ def run_health_server():
                         data = resp.json()
                         count = data.get('total', len(data.get('datasets', data.get('layers', data.get('results', [])))))
                         return {'ok': True, 'count': count}
+                return {'ok': False, 'error': f'HTTP {resp.status_code}'}
+            except requests.ConnectionError:
+                return {'ok': False, 'error': 'Could not connect to GeoNode server'}
+            except requests.Timeout:
+                return {'ok': False, 'error': 'Connection timed out'}
+            except Exception as e:
+                return {'ok': False, 'error': str(e)}
+
+        def _list_datasets(self, url, token, username, password, page=1, search=''):
+            """List GeoNode datasets with pagination and search."""
+            if not url:
+                return {'ok': False, 'error': 'No GeoNode URL provided'}
+
+            url = url.rstrip('/')
+            headers = {'Accept': 'application/json'}
+            auth = None
+
+            if token:
+                tok = token if ' ' in token else f'Bearer {token}'
+                headers['Authorization'] = tok
+            elif username and password:
+                auth = (username, password)
+
+            page_size = 20
+            params = {
+                'page_size': page_size,
+                'page': page,
+            }
+            if search:
+                params['search'] = search
+
+            try:
+                # Try /api/v2/datasets/ (GeoNode 4.x) then /api/v2/layers/ (3.x)
+                for endpoint in ['/api/v2/datasets/', '/api/v2/layers/']:
+                    resp = requests.get(
+                        f'{url}{endpoint}',
+                        headers=headers,
+                        auth=auth,
+                        params=params,
+                        timeout=20,
+                        allow_redirects=True,
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        items = data.get('datasets', data.get('layers', data.get('results', [])))
+                        total = data.get('total', len(items))
+                        datasets = []
+                        for item in items:
+                            datasets.append({
+                                'id': item.get('pk', item.get('id')),
+                                'name': item.get('name', ''),
+                                'title': item.get('title', item.get('name', 'Untitled')),
+                                'abstract': item.get('raw_abstract', item.get('abstract', ''))[:200],
+                                'subtype': item.get('subtype', item.get('storeType', '')),
+                                'alternate': item.get('alternate', item.get('typename', item.get('name', ''))),
+                            })
+                        return {'ok': True, 'datasets': datasets, 'total': total}
                 return {'ok': False, 'error': f'HTTP {resp.status_code}'}
             except requests.ConnectionError:
                 return {'ok': False, 'error': 'Could not connect to GeoNode server'}

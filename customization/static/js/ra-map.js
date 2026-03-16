@@ -357,6 +357,41 @@
     '  0%, 100% { opacity: 1; }',
     '  50% { opacity: 0.3; }',
     '}',
+
+    /* Map toolbar */
+    '.ra-map__toolbar { position: absolute; top: 12px; left: 60px; z-index: 1000; display: flex; gap: 8px; }',
+    '.ra-map__toolbar-btn { background: #fff; border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 8px 14px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: #333; transition: background 0.15s; }',
+    '.ra-map__toolbar-btn:hover { background: #f0f4f8; }',
+    '.ra-map__toolbar-btn svg { width: 18px; height: 18px; fill: #54a8dc; }',
+
+    /* GeoNode browser modal */
+    '.ra-gn__overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center; }',
+    '.ra-gn__modal { background: #fff; border-radius: 12px; width: 560px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,0.3); }',
+    '.ra-gn__header { padding: 16px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }',
+    '.ra-gn__header h3 { margin: 0; font-size: 16px; color: #1a2a3a; }',
+    '.ra-gn__close { background: none; border: none; font-size: 22px; cursor: pointer; color: #999; padding: 4px 8px; }',
+    '.ra-gn__close:hover { color: #333; }',
+    '.ra-gn__search { padding: 12px 20px; border-bottom: 1px solid #eee; }',
+    '.ra-gn__search input { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; }',
+    '.ra-gn__search input:focus { border-color: #54a8dc; }',
+    '.ra-gn__list { flex: 1; overflow-y: auto; padding: 8px 0; }',
+    '.ra-gn__item { display: flex; align-items: center; padding: 10px 20px; gap: 12px; border-bottom: 1px solid #f5f5f5; transition: background 0.1s; }',
+    '.ra-gn__item:hover { background: #f8fafc; }',
+    '.ra-gn__item-info { flex: 1; min-width: 0; }',
+    '.ra-gn__item-name { font-size: 13px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+    '.ra-gn__item-desc { font-size: 11px; color: #888; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+    '.ra-gn__item-type { font-size: 10px; color: #54a8dc; background: #eef6fc; padding: 2px 6px; border-radius: 3px; flex-shrink: 0; }',
+    '.ra-gn__add-btn { background: #54a8dc; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; flex-shrink: 0; }',
+    '.ra-gn__add-btn:hover { background: #3d8abf; }',
+    '.ra-gn__add-btn:disabled { background: #ccc; cursor: default; }',
+    '.ra-gn__loading { padding: 24px; text-align: center; color: #888; }',
+    '.ra-gn__empty { padding: 24px; text-align: center; color: #999; }',
+    '.ra-gn__load-more { padding: 12px 20px; text-align: center; }',
+    '.ra-gn__load-more button { background: none; border: 1px solid #ddd; border-radius: 6px; padding: 6px 16px; font-size: 12px; cursor: pointer; color: #666; }',
+    '.ra-gn__load-more button:hover { background: #f5f5f5; }',
+
+    /* GeoNode badge in legend */
+    '.ra-map__legend-badge { font-size: 9px; background: #54a8dc; color: #fff; padding: 1px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle; }',
     ''
   ].join('\n');
   document.head.appendChild(style);
@@ -493,6 +528,265 @@
       '<div class="ra-map__loading" id="ra-map-loading">Loading map data from all forms...</div>'
     ].join('');
     document.body.appendChild(page);
+  }
+
+  // ── GeoNode Layer Management ──
+  var GEONODE_LAYERS_KEY = 'ra_map_geonode_layers';
+  var geonodeLayers = {}; // id -> { layer, name, wmsUrl, ... }
+
+  function getGeoNodeSettings() {
+    try {
+      return JSON.parse(localStorage.getItem('ra_geonode_settings')) || {};
+    } catch (e) { return {}; }
+  }
+
+  function getSavedGeoNodeLayers() {
+    try {
+      return JSON.parse(localStorage.getItem(GEONODE_LAYERS_KEY)) || [];
+    } catch (e) { return []; }
+  }
+
+  function saveGeoNodeLayers(layers) {
+    try {
+      localStorage.setItem(GEONODE_LAYERS_KEY, JSON.stringify(layers));
+    } catch (e) {}
+  }
+
+  function createToolbar() {
+    var page = document.getElementById(PAGE_ID);
+    var old = page.querySelector('.ra-map__toolbar');
+    if (old) old.remove();
+
+    var toolbar = document.createElement('div');
+    toolbar.className = 'ra-map__toolbar';
+    toolbar.innerHTML =
+      '<button class="ra-map__toolbar-btn" id="ra-gn-browse-btn" title="Add GeoNode Layer">' +
+        '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>' +
+        'Add GeoNode Layer' +
+      '</button>';
+
+    toolbar.querySelector('#ra-gn-browse-btn').addEventListener('click', openGeoNodeBrowser);
+    page.appendChild(toolbar);
+  }
+
+  function openGeoNodeBrowser() {
+    var gs = getGeoNodeSettings();
+    if (!gs.url) {
+      alert('Please configure GeoNode connection in Settings first.');
+      return;
+    }
+
+    // Create overlay
+    var overlay = document.createElement('div');
+    overlay.className = 'ra-gn__overlay';
+    overlay.innerHTML =
+      '<div class="ra-gn__modal">' +
+        '<div class="ra-gn__header">' +
+          '<h3>Add GeoNode Layer</h3>' +
+          '<button class="ra-gn__close">&times;</button>' +
+        '</div>' +
+        '<div class="ra-gn__search">' +
+          '<input type="text" placeholder="Search datasets..." id="ra-gn-search-input">' +
+        '</div>' +
+        '<div class="ra-gn__list" id="ra-gn-list">' +
+          '<div class="ra-gn__loading">Loading datasets...</div>' +
+        '</div>' +
+      '</div>';
+
+    // Close handlers
+    overlay.querySelector('.ra-gn__close').addEventListener('click', function () { overlay.remove(); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+
+    document.body.appendChild(overlay);
+
+    // Load first page
+    fetchGeoNodeDatasets(gs, '', 1);
+
+    // Search with debounce
+    var searchTimer = null;
+    overlay.querySelector('#ra-gn-search-input').addEventListener('input', function (e) {
+      clearTimeout(searchTimer);
+      var term = e.target.value;
+      searchTimer = setTimeout(function () { fetchGeoNodeDatasets(gs, term, 1); }, 400);
+    });
+  }
+
+  function fetchGeoNodeDatasets(gs, search, page) {
+    var listEl = document.getElementById('ra-gn-list');
+    if (page === 1) {
+      listEl.innerHTML = '<div class="ra-gn__loading">Loading datasets...</div>';
+    }
+
+    var baseUrl = gs.url.replace(/\/+$/, '');
+    var params = 'url=' + encodeURIComponent(baseUrl) +
+      '&action=list&page=' + page;
+    if (search) params += '&search=' + encodeURIComponent(search);
+    if (gs.token) params += '&token=' + encodeURIComponent(gs.token);
+    if (gs.username) params += '&username=' + encodeURIComponent(gs.username);
+    if (gs.password) params += '&password=' + encodeURIComponent(gs.password);
+
+    fetch('/geonode-proxy/?' + params)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) {
+          listEl.innerHTML = '<div class="ra-gn__empty">Error: ' + escapeHtml(data.error || 'Unknown error') + '</div>';
+          return;
+        }
+        renderGeoNodeDatasets(listEl, data.datasets, data.total, page, gs, search);
+      })
+      .catch(function (err) {
+        listEl.innerHTML = '<div class="ra-gn__empty">Failed to load: ' + escapeHtml(err.message) + '</div>';
+      });
+  }
+
+  function renderGeoNodeDatasets(listEl, datasets, total, page, gs, search) {
+    if (page === 1) listEl.innerHTML = '';
+
+    if (!datasets || datasets.length === 0) {
+      if (page === 1) {
+        listEl.innerHTML = '<div class="ra-gn__empty">No datasets found</div>';
+      }
+      return;
+    }
+
+    var savedLayers = getSavedGeoNodeLayers();
+    var addedIds = savedLayers.map(function (l) { return l.id; });
+
+    datasets.forEach(function (ds) {
+      var dsId = ds.pk || ds.id;
+      var isAdded = addedIds.indexOf(dsId) !== -1;
+      var item = document.createElement('div');
+      item.className = 'ra-gn__item';
+      item.innerHTML =
+        '<div class="ra-gn__item-info">' +
+          '<div class="ra-gn__item-name">' + escapeHtml(ds.title || ds.name || 'Untitled') + '</div>' +
+          '<div class="ra-gn__item-desc">' + escapeHtml((ds.abstract || ds.raw_abstract || '').substring(0, 100)) + '</div>' +
+        '</div>' +
+        (ds.subtype ? '<span class="ra-gn__item-type">' + escapeHtml(ds.subtype) + '</span>' : '') +
+        '<button class="ra-gn__add-btn"' + (isAdded ? ' disabled' : '') + '>' +
+          (isAdded ? 'Added' : 'Add') +
+        '</button>';
+
+      if (!isAdded) {
+        item.querySelector('.ra-gn__add-btn').addEventListener('click', function () {
+          addGeoNodeWMSLayer(ds, gs);
+          this.disabled = true;
+          this.textContent = 'Added';
+        });
+      }
+      listEl.appendChild(item);
+    });
+
+    // Load more button
+    var pageSize = 20;
+    if (datasets.length >= pageSize) {
+      var more = document.createElement('div');
+      more.className = 'ra-gn__load-more';
+      more.innerHTML = '<button>Load more...</button>';
+      more.querySelector('button').addEventListener('click', function () {
+        more.remove();
+        fetchGeoNodeDatasets(gs, search, page + 1);
+      });
+      listEl.appendChild(more);
+    }
+  }
+
+  function addGeoNodeWMSLayer(dataset, gs) {
+    var L = window.L;
+    if (!L || !map) return;
+
+    var baseUrl = gs.url.replace(/\/+$/, '');
+    // GeoNode WMS endpoint
+    var wmsUrl = baseUrl + '/geoserver/ows';
+    var layerName = dataset.alternate || dataset.typename || dataset.name;
+    var displayName = dataset.title || dataset.name || layerName;
+    var dsId = dataset.pk || dataset.id || layerName;
+
+    var wmsLayer = L.tileLayer.wms(wmsUrl, {
+      layers: layerName,
+      format: 'image/png',
+      transparent: true,
+      version: '1.1.1',
+      attribution: 'GeoNode'
+    });
+
+    wmsLayer.addTo(map);
+
+    // Store in geonodeLayers
+    var gnId = 'gn_' + dsId;
+    geonodeLayers[gnId] = {
+      layer: wmsLayer,
+      name: displayName,
+      color: '#54a8dc',
+      count: 0,
+      isGeoNode: true,
+      wmsUrl: wmsUrl,
+      layerName: layerName
+    };
+
+    // Also add to layerGroups for legend compatibility
+    layerGroups[gnId] = geonodeLayers[gnId];
+
+    // Save to localStorage
+    var saved = getSavedGeoNodeLayers();
+    saved.push({
+      id: dsId,
+      name: displayName,
+      layerName: layerName,
+      wmsUrl: wmsUrl
+    });
+    saveGeoNodeLayers(saved);
+
+    // Refresh legend
+    createLegend(layerGroups);
+  }
+
+  function loadSavedGeoNodeLayers() {
+    var L = window.L;
+    if (!L || !map) return;
+
+    var saved = getSavedGeoNodeLayers();
+    saved.forEach(function (sl) {
+      var gnId = 'gn_' + sl.id;
+      var wmsLayer = L.tileLayer.wms(sl.wmsUrl, {
+        layers: sl.layerName,
+        format: 'image/png',
+        transparent: true,
+        version: '1.1.1',
+        attribution: 'GeoNode'
+      });
+
+      var hidden = getHiddenLayers();
+      if (hidden.indexOf(gnId) === -1) {
+        wmsLayer.addTo(map);
+      }
+
+      geonodeLayers[gnId] = {
+        layer: wmsLayer,
+        name: sl.name,
+        color: '#54a8dc',
+        count: 0,
+        isGeoNode: true,
+        wmsUrl: sl.wmsUrl,
+        layerName: sl.layerName
+      };
+      layerGroups[gnId] = geonodeLayers[gnId];
+    });
+  }
+
+  function removeGeoNodeLayer(gnId) {
+    if (geonodeLayers[gnId]) {
+      map.removeLayer(geonodeLayers[gnId].layer);
+      delete geonodeLayers[gnId];
+      delete layerGroups[gnId];
+    }
+    // Remove from saved
+    var dsId = gnId.replace('gn_', '');
+    var saved = getSavedGeoNodeLayers().filter(function (l) {
+      return String(l.id) !== String(dsId);
+    });
+    saveGeoNodeLayers(saved);
+    createLegend(layerGroups);
   }
 
   function initMap() {
@@ -721,8 +1015,12 @@
     var legend = document.createElement('div');
     legend.className = 'ra-map__legend';
 
-    var html = '<h3>Forms</h3>';
-    Object.keys(groups).forEach(function (uid) {
+    var html = '<h3>Layers</h3>';
+    var formKeys = Object.keys(groups).filter(function (k) { return k.indexOf('gn_') !== 0; });
+    var gnKeys = Object.keys(groups).filter(function (k) { return k.indexOf('gn_') === 0; });
+
+    // Form layers
+    formKeys.forEach(function (uid) {
       var g = groups[uid];
       var visible = map.hasLayer(g.layer);
       var hiddenClass = visible ? '' : ' ra-map__legend-item--hidden';
@@ -742,7 +1040,39 @@
         '<button class="ra-map__legend-menu-btn" data-menu-uid="' + uid + '" title="More options">&#8942;</button>' +
         '</div>';
     });
+
+    // GeoNode layers section
+    if (gnKeys.length > 0) {
+      html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #eee;">' +
+        '<div style="font-size:11px;color:#999;font-weight:600;margin-bottom:4px;">GEONODE LAYERS</div></div>';
+
+      gnKeys.forEach(function (gnId) {
+        var g = groups[gnId];
+        var visible = map.hasLayer(g.layer);
+        var hiddenClass = visible ? '' : ' ra-map__legend-item--hidden';
+        var gnIcon = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="#54a8dc"/></svg>';
+
+        html += '<div class="ra-map__legend-item' + hiddenClass + '" data-uid="' + gnId + '" style="position:relative;">' +
+          '<input type="checkbox"' + (visible ? ' checked' : '') + ' style="margin:0;cursor:pointer;flex-shrink:0;"> ' +
+          '<span class="ra-map__legend-icon">' + gnIcon + '</span>' +
+          '<span class="ra-map__legend-name">' + escapeHtml(g.name) + '<span class="ra-map__legend-badge">GeoNode</span></span>' +
+          '<button class="ra-map__legend-menu-btn" data-menu-uid="' + gnId + '" title="More options">&#8942;</button>' +
+          '</div>';
+      });
+    }
+
+    // Add Layer button at the bottom
+    html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #eee;">' +
+      '<button class="ra-map__toolbar-btn" id="ra-legend-add-gn" style="width:100%;justify-content:center;box-shadow:none;background:#f5f7fa;font-size:12px;">' +
+        '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#54a8dc;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>' +
+        'Add GeoNode Layer' +
+      '</button></div>';
+
     legend.innerHTML = html;
+
+    // Add Layer button handler
+    var addBtn = legend.querySelector('#ra-legend-add-gn');
+    if (addBtn) addBtn.addEventListener('click', openGeoNodeBrowser);
 
     // Checkbox toggles layer visibility and saves state
     legend.addEventListener('change', function (e) {
@@ -816,34 +1146,55 @@
       menu.style.top = rect.bottom + 4 + 'px';
       menu.style.right = (window.innerWidth - rect.right) + 'px';
 
-      var swatches = COLORS.map(function (c) {
-        var sel = c === g.color ? ' ra-map__color-swatch--selected' : '';
-        return '<span class="ra-map__color-swatch' + sel + '" data-color="' + c + '" style="background:' + c + '"></span>';
-      }).join('');
+      var isGeoNodeLayer = uid.indexOf('gn_') === 0;
 
-      menu.innerHTML =
-        '<button class="ra-map__ctx-menu-item" data-action="zoom">' +
-          '<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>' +
-          'Zoom to layer</button>' +
-        '<button class="ra-map__ctx-menu-item" data-action="opacity">' +
-          '<svg viewBox="0 0 24 24"><path d="M17.66 8L12 2.35 6.34 8A8.02 8.02 0 004 13.64c0 2 .78 4.11 2.34 5.67a7.99 7.99 0 0011.32 0c1.56-1.56 2.34-3.67 2.34-5.67S19.22 9.56 17.66 8zM6 14c.01-2 .62-3.27 1.76-4.4L12 5.27l4.24 4.38C17.38 10.77 17.99 12 18 14H6z"/></svg>' +
-          'Change opacity</button>' +
-        '<div class="ra-map__ctx-sep"></div>' +
-        '<div style="padding:4px 14px;font-size:11px;color:#999;font-weight:600;">CHANGE COLOR</div>' +
-        '<div class="ra-map__color-row">' + swatches + '</div>' +
-        '<div class="ra-map__ctx-sep"></div>' +
-        '<button class="ra-map__ctx-menu-item" data-action="only">' +
-          '<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>' +
-          'Show only this</button>' +
-        '<button class="ra-map__ctx-menu-item" data-action="showall">' +
-          '<svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>' +
-          'Show all forms</button>' +
-        '<button class="ra-map__ctx-menu-item" data-action="export">' +
-          '<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>' +
-          'Export data</button>' +
-        '<button class="ra-map__ctx-menu-item" data-action="data" style="color:#54a8dc;">' +
-          '<svg viewBox="0 0 24 24" fill="#54a8dc"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>' +
-          'View data table</button>';
+      if (isGeoNodeLayer) {
+        // Simplified menu for GeoNode WMS layers
+        menu.innerHTML =
+          '<button class="ra-map__ctx-menu-item" data-action="opacity">' +
+            '<svg viewBox="0 0 24 24"><path d="M17.66 8L12 2.35 6.34 8A8.02 8.02 0 004 13.64c0 2 .78 4.11 2.34 5.67a7.99 7.99 0 0011.32 0c1.56-1.56 2.34-3.67 2.34-5.67S19.22 9.56 17.66 8zM6 14c.01-2 .62-3.27 1.76-4.4L12 5.27l4.24 4.38C17.38 10.77 17.99 12 18 14H6z"/></svg>' +
+            'Change opacity</button>' +
+          '<div class="ra-map__ctx-sep"></div>' +
+          '<button class="ra-map__ctx-menu-item" data-action="only">' +
+            '<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>' +
+            'Show only this</button>' +
+          '<button class="ra-map__ctx-menu-item" data-action="showall">' +
+            '<svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>' +
+            'Show all layers</button>' +
+          '<div class="ra-map__ctx-sep"></div>' +
+          '<button class="ra-map__ctx-menu-item" data-action="remove" style="color:#e74c3c;">' +
+            '<svg viewBox="0 0 24 24" fill="#e74c3c"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>' +
+            'Remove layer</button>';
+      } else {
+        var swatches = COLORS.map(function (c) {
+          var sel = c === g.color ? ' ra-map__color-swatch--selected' : '';
+          return '<span class="ra-map__color-swatch' + sel + '" data-color="' + c + '" style="background:' + c + '"></span>';
+        }).join('');
+
+        menu.innerHTML =
+          '<button class="ra-map__ctx-menu-item" data-action="zoom">' +
+            '<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>' +
+            'Zoom to layer</button>' +
+          '<button class="ra-map__ctx-menu-item" data-action="opacity">' +
+            '<svg viewBox="0 0 24 24"><path d="M17.66 8L12 2.35 6.34 8A8.02 8.02 0 004 13.64c0 2 .78 4.11 2.34 5.67a7.99 7.99 0 0011.32 0c1.56-1.56 2.34-3.67 2.34-5.67S19.22 9.56 17.66 8zM6 14c.01-2 .62-3.27 1.76-4.4L12 5.27l4.24 4.38C17.38 10.77 17.99 12 18 14H6z"/></svg>' +
+            'Change opacity</button>' +
+          '<div class="ra-map__ctx-sep"></div>' +
+          '<div style="padding:4px 14px;font-size:11px;color:#999;font-weight:600;">CHANGE COLOR</div>' +
+          '<div class="ra-map__color-row">' + swatches + '</div>' +
+          '<div class="ra-map__ctx-sep"></div>' +
+          '<button class="ra-map__ctx-menu-item" data-action="only">' +
+            '<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>' +
+            'Show only this</button>' +
+          '<button class="ra-map__ctx-menu-item" data-action="showall">' +
+            '<svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>' +
+            'Show all forms</button>' +
+          '<button class="ra-map__ctx-menu-item" data-action="export">' +
+            '<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>' +
+            'Export data</button>' +
+          '<button class="ra-map__ctx-menu-item" data-action="data" style="color:#54a8dc;">' +
+            '<svg viewBox="0 0 24 24" fill="#54a8dc"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>' +
+            'View data table</button>';
+      }
 
       document.body.appendChild(menu);
 
@@ -902,6 +1253,8 @@
           openExportModal(uid, g.name, g.count);
         } else if (act === 'data') {
           window.location.hash = '#/forms/' + uid + '/data/table';
+        } else if (act === 'remove') {
+          removeGeoNodeLayer(uid);
         }
 
         closeContextMenu();
@@ -1438,6 +1791,8 @@
         setTimeout(function () {
           if (map) {
             map.invalidateSize();
+            createToolbar();
+            loadSavedGeoNodeLayers();
             loadAllGeoData();
             startLivePolling();
           }
