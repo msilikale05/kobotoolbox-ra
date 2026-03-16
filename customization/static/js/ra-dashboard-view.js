@@ -75,15 +75,23 @@
 
     '.ra-do__header {',
     '  background: linear-gradient(135deg, #1a2a3a 0%, #54a8dc 100%);',
-    '  color: #fff; padding: 16px 30px; display: flex;',
-    '  align-items: center; justify-content: space-between;',
+    '  color: #fff; padding: 0; display: flex; flex-direction: column;',
     '  position: sticky; top: 0; z-index: 10;',
     '  box-shadow: 0 2px 8px rgba(0,0,0,0.15);',
     '}',
+    '.ra-do__header-top {',
+    '  display: flex; align-items: center; justify-content: space-between;',
+    '  padding: 10px 24px; min-height: 48px;',
+    '}',
     '.ra-do__header-left { display: flex; align-items: center; gap: 14px; }',
-    '.ra-do__header img { height: 32px; width: auto; }',
-    '.ra-do__header h1 { font-size: 18px; font-weight: 600; margin: 0; }',
-    '.ra-do__header-right { display: flex; align-items: center; gap: 16px; font-size: 13px; }',
+    '.ra-do__header img { height: 28px; width: auto; }',
+    '.ra-do__header-right { display: flex; align-items: center; gap: 12px; font-size: 13px; }',
+    '.ra-do__header-title {',
+    '  padding: 0 24px 10px; font-size: 16px; font-weight: 600; margin: 0;',
+    '  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;',
+    '  opacity: 0.9; border-top: 1px solid rgba(255,255,255,0.1);',
+    '  padding-top: 8px;',
+    '}',
     '.ra-do__username { cursor: pointer; position: relative; color: #fff; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }',
     '.ra-do__username:hover { color: #7dc0e8; }',
     '.ra-do__user-dropdown { position: absolute; top: 100%; right: 0; margin-top: 8px; background: #fff; border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.25); min-width: 200px; z-index: 9999; padding: 6px 0; display: none; }',
@@ -163,10 +171,40 @@
 
     '.ra-do__refresh { font-size: 11px; color: #94a3b8; text-align: right; margin-top: 12px; }',
 
-    '@media (max-width: 768px) {',
-    '  .ra-do__grid { grid-template-columns: 1fr; }',
-    '  .ra-do__content { padding: 16px 12px 40px; }',
+    /* Tablet */
+    '@media (max-width: 900px) {',
+    '  .ra-do__grid { gap: 14px; }',
+    '  .ra-do__widget-header { padding: 12px 14px; font-size: 13px; }',
+    '  .ra-do__widget-body { padding: 14px; }',
+    '  .ra-do__content { padding: 20px 16px 40px; }',
+    '}',
+
+    /* Mobile */
+    '@media (max-width: 600px) {',
+    '  .ra-do__header-top { padding: 8px 14px; min-height: 40px; }',
+    '  .ra-do__header img { height: 24px; }',
+    '  .ra-do__header-title { padding: 0 14px 8px; font-size: 13px; padding-top: 6px; }',
+    '  .ra-do__header-right { gap: 8px; font-size: 12px; }',
+    '  .ra-do__header-right > span { display: none; }',
+    '  .ra-do__logout { padding: 5px 10px; font-size: 11px; }',
+    '  .ra-do__grid { grid-template-columns: 1fr; gap: 12px; }',
+    '  .ra-do__content { padding: 12px 10px 30px; }',
+    '  .ra-do__widget-header { padding: 10px 12px; font-size: 12px; }',
+    '  .ra-do__widget-body { padding: 12px; }',
     '  .ra-do__stat-value { font-size: 22px; }',
+    '  .ra-do__stat-label { font-size: 11px; }',
+    '  .ra-do__stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }',
+    '  .ra-do__stat { padding: 8px; }',
+    '  .ra-do__feed-item { gap: 8px; padding: 8px 0; }',
+    '  .ra-do__feed-avatar { width: 28px; height: 28px; font-size: 12px; }',
+    '  .ra-do__feed-user { font-size: 12px; }',
+    '  .ra-do__feed-form { font-size: 11px; }',
+    '  .ra-do__feed-time { font-size: 11px; }',
+    '  .ra-do__table th { font-size: 10px; padding: 8px; }',
+    '  .ra-do__table td { font-size: 12px; padding: 8px; }',
+    '  .ra-do__pie-legend { font-size: 11px; }',
+    '  .ra-do__popup { width: 95vw; max-height: 90vh; border-radius: 8px; }',
+    '  .ra-do__user-dropdown { right: -40px; min-width: 170px; }',
     '}',
     ''
   ].join('\n');
@@ -322,23 +360,22 @@
     page.id = PAGE_ID;
     page.innerHTML =
       '<div class="ra-do__header">' +
-        '<div class="ra-do__header-left">' +
-          '<img src="/custom-static/images/ra-logo.png" alt="' + BRAND_NAME + '">' +
-          '<h1>' + esc(dashName) + '</h1>' +
+        '<div class="ra-do__header-top">' +
+          '<div class="ra-do__header-left">' +
+            '<img src="/custom-static/images/ra-logo.png" alt="' + BRAND_NAME + '">' +
+          '</div>' +
+          '<div class="ra-do__header-right">' +
+            '<span>Welcome, <strong class="ra-do__username" id="ra-do-username" title="Click for account options">' + esc(currentUser ? currentUser.username : '') +
+              '<div class="ra-do__user-dropdown" id="ra-do-user-dropdown">' +
+                '<button class="ra-do__user-dropdown-item" data-action="edit-profile" title="Edit your profile details">' +
+                  '<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>' +
+                  'Edit Profile</button>' +
+              '</div>' +
+            '</strong></span>' +
+            '<button class="ra-do__logout" id="ra-do-logout-btn" title="Sign out of your account">Logout</button>' +
+          '</div>' +
         '</div>' +
-        '<div class="ra-do__header-right">' +
-          '<span>Welcome, <strong class="ra-do__username" id="ra-do-username" title="Click for account options">' + esc(currentUser ? currentUser.username : '') +
-            '<div class="ra-do__user-dropdown" id="ra-do-user-dropdown">' +
-              '<button class="ra-do__user-dropdown-item" data-action="edit-profile" title="Edit your profile details">' +
-                '<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>' +
-                'Edit Profile</button>' +
-              '<button class="ra-do__user-dropdown-item" data-action="change-password" title="Change your login password">' +
-                '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>' +
-                'Change Password</button>' +
-            '</div>' +
-          '</strong></span>' +
-          '<button class="ra-do__logout" id="ra-do-logout-btn" title="Sign out of your account">Logout</button>' +
-        '</div>' +
+        '<div class="ra-do__header-title">' + esc(dashName) + '</div>' +
       '</div>' +
       '<div class="ra-do__content">' +
         '<div class="ra-do__grid" id="ra-do-grid"></div>' +

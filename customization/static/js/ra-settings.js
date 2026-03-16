@@ -787,7 +787,7 @@
         if (!confirm('Delete dashboard "' + dashId + '"? Users assigned to it will need to be reassigned.')) return;
         delete _dashConfig.dashboards[dashId];
         var users = _dashConfig.users || {};
-        Object.keys(users).forEach(function (u) { if (users[u] === dashId) users[u] = ''; });  // Mark for removal
+        Object.keys(users).forEach(function (u) { if (users[u] === dashId) delete users[u]; });
         saveDashConfig(function (err) {
           if (err) {
             showStatus(document.getElementById('ra-st-dl-status'), 'err', err);
