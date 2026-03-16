@@ -79,18 +79,6 @@ services:
       kobo-fe-network:
     restart: unless-stopped
 
-  # ===== WhatsApp Gateway (scan QR to connect) =====
-  whatsapp-gateway:
-    build:
-      context: ../basic-kobotoolbox/customization/services/whatsapp-gateway
-    environment:
-      - WHATSAPP_NOTIFY_NUMBERS=${WHATSAPP_NOTIFY_NUMBERS:-}
-    volumes:
-      - whatsapp-session:/app/wa-session
-    networks:
-      kobo-fe-network:
-    restart: unless-stopped
-
   # ===== Nginx (branding + JS) =====
   nginx:
     networks:
@@ -104,6 +92,3 @@ services:
       - ../basic-kobotoolbox/customization/static:/srv/custom-static:ro
       # Custom nginx init script to inject CSS/JS via sub_filter
       - ../basic-kobotoolbox/customization/nginx/40-custom-branding.sh:/docker-entrypoint.d/40-custom-branding.sh:ro
-
-volumes:
-  whatsapp-session:

@@ -1865,54 +1865,432 @@
     });
   }
 
+  var _exportTab = 'images';
+  try { _exportTab = sessionStorage.getItem('ra_export_tab') || 'images'; } catch (e) {}
+
   function renderExportSection(main) {
+    var tabs = [
+      { id: 'images', label: 'Images', icon: '&#128247;' },
+      { id: 'data', label: 'Data', icon: '&#128196;' },
+      { id: 'geo', label: 'Geospatial', icon: '&#127758;' }
+    ];
+
     main.innerHTML =
       '<h1 class="ra-st__page-title">Batch Export</h1>' +
-      '<div class="ra-st__content">' +
-        '<p style="color:#888;margin:0 0 16px;">Export data, media, and geospatial files from your forms.</p>' +
+      '<div class="ra-st__tabs" id="ra-exp-tabs">' +
+        tabs.map(function (t) {
+          return '<button class="ra-st__tab' + (t.id === _exportTab ? ' active' : '') + '" data-tab="' + t.id + '">' + t.icon + ' ' + t.label + '</button>';
+        }).join('') +
+      '</div>' +
+      '<div id="ra-exp-tab-content"></div>';
 
-        // Export Type
-        '<div class="ra-st__field">' +
-          '<label>Export Type</label>' +
-          '<select id="ra-st-exp-type" style="width:100%;padding:10px;font-size:14px;border:1px solid #d0d5dd;border-radius:6px;">' +
-            '<option value="data">Data Export (all submission data)</option>' +
-            '<option value="partial">Partial Data (select specific fields)</option>' +
-            '<option value="media">Media / Images</option>' +
-            '<option value="geo">Geospatial Export</option>' +
+    document.getElementById('ra-exp-tabs').addEventListener('click', function (e) {
+      var tab = e.target.closest('.ra-st__tab');
+      if (!tab) return;
+      _exportTab = tab.getAttribute('data-tab');
+      try { sessionStorage.setItem('ra_export_tab', _exportTab); } catch (e) {}
+      document.querySelectorAll('#ra-exp-tabs .ra-st__tab').forEach(function (t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      renderExportTabContent();
+    });
+
+    renderExportTabContent();
+  }
+
+  function renderExportTabContent() {
+    var container = document.getElementById('ra-exp-tab-content');
+    if (!container) return;
+    if (_exportTab === 'images') renderImagesTab(container);
+    else if (_exportTab === 'data') renderDataTab(container);
+    else if (_exportTab === 'geo') renderGeoTab(container);
+  }
+
+  // ── Images Tab ──
+  var _imgForms = [];
+  var _imgData = [];
+  var _imgSelected = new Set();
+  var _imgFormFields = {};
+
+  function renderImagesTab(container) {
+    container.innerHTML =
+      '<div class="ra-st__content" style="max-width:900px;">' +
+        // Form selector
+        '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">' +
+          '<select id="ra-img-form" style="flex:1;min-width:200px;padding:10px 12px;font-size:14px;border:1px solid #d0d5dd;border-radius:6px;background:#fff;">' +
+            '<option value="">Loading forms...</option>' +
           '</select>' +
+          '<div id="ra-img-stats" style="display:flex;gap:16px;font-size:13px;color:#666;"></div>' +
         '</div>' +
 
-        // Export Format (changes based on type)
-        '<div class="ra-st__field">' +
-          '<label>Export Format</label>' +
-          '<select id="ra-st-exp-format" style="width:100%;padding:10px;font-size:14px;border:1px solid #d0d5dd;border-radius:6px;">' +
-            '<option value="xlsx">Excel (.xlsx)</option>' +
-            '<option value="csv">CSV (.csv)</option>' +
-          '</select>' +
+        // Filters
+        '<div id="ra-img-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">' +
+          '<input type="text" id="ra-img-search" placeholder="Search by name, submitter..." style="flex:1;min-width:150px;padding:8px 12px;font-size:13px;border:1px solid #d0d5dd;border-radius:4px;">' +
+          '<input type="date" id="ra-img-date-from" title="From date" style="padding:8px;font-size:12px;border:1px solid #d0d5dd;border-radius:4px;">' +
+          '<input type="date" id="ra-img-date-to" title="To date" style="padding:8px;font-size:12px;border:1px solid #d0d5dd;border-radius:4px;">' +
+          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-img-filter-clear" style="font-size:12px;padding:8px 12px;">Clear</button>' +
         '</div>' +
 
-        // Select Forms
-        '<div class="ra-st__field">' +
-          '<label>Select Forms to Export</label>' +
-          '<div id="ra-st-exp-forms" style="border:1px solid #eee;border-radius:6px;max-height:250px;overflow-y:auto;"></div>' +
+        // Selection controls
+        '<div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">' +
+          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-img-sel-all" style="font-size:12px;padding:6px 10px;">Select All</button>' +
+          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-img-sel-none" style="font-size:12px;padding:6px 10px;">Deselect All</button>' +
+          '<span style="flex:1;"></span>' +
+          '<span id="ra-img-sel-count" style="font-size:12px;color:#54a8dc;font-weight:600;"></span>' +
         '</div>' +
 
-        // Field selector (shown only for partial exports)
-        '<div class="ra-st__field" id="ra-st-exp-fields-wrap" style="display:none;">' +
-          '<label>Select Fields to Include</label>' +
-          '<div id="ra-st-exp-fields" style="border:1px solid #eee;border-radius:6px;max-height:250px;overflow-y:auto;padding:8px;"></div>' +
+        // Image grid
+        '<div id="ra-img-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;max-height:500px;overflow-y:auto;border:1px solid #eee;border-radius:6px;padding:8px;min-height:150px;"></div>' +
+
+        // Naming config
+        '<div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-top:16px;">' +
+          '<div style="font-size:13px;font-weight:600;color:#29292a;margin-bottom:10px;">Rename Images Before Export</div>' +
+          '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+            '<div style="flex:1;min-width:120px;">' +
+              '<label style="font-size:11px;font-weight:600;color:#666;display:block;margin-bottom:4px;">Prefix</label>' +
+              '<input type="text" id="ra-img-prefix" placeholder="e.g., RA_" style="width:100%;padding:8px;border:1px solid #d0d5dd;border-radius:4px;font-size:13px;box-sizing:border-box;">' +
+            '</div>' +
+            '<div style="flex:1;min-width:150px;">' +
+              '<label style="font-size:11px;font-weight:600;color:#666;display:block;margin-bottom:4px;">Name by field</label>' +
+              '<select id="ra-img-namefield" style="width:100%;padding:8px;border:1px solid #d0d5dd;border-radius:4px;font-size:13px;">' +
+                '<option value="_id">Submission ID</option><option value="_submitted_by">Submitted By</option><option value="_submission_time">Date</option>' +
+              '</select>' +
+            '</div>' +
+            '<div style="flex:1;min-width:120px;">' +
+              '<label style="font-size:11px;font-weight:600;color:#666;display:block;margin-bottom:4px;">Add sequence #</label>' +
+              '<select id="ra-img-seq" style="width:100%;padding:8px;border:1px solid #d0d5dd;border-radius:4px;font-size:13px;">' +
+                '<option value="yes">Yes (_001, _002)</option><option value="no">No</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+          '<div style="margin-top:6px;font-size:12px;color:#94a3b8;">Preview: <strong id="ra-img-preview">image_001.jpg</strong></div>' +
         '</div>' +
 
-        // Actions
-        '<div class="ra-st__actions">' +
-          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-st-exp-selectall">Select All Forms</button>' +
-          '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-exp-go">Export</button>' +
+        // Export buttons
+        '<div style="display:flex;gap:8px;margin-top:14px;">' +
+          '<button class="ra-st__btn ra-st__btn--primary" id="ra-img-export-csv" style="flex:1;">Export List (CSV)</button>' +
+          '<button class="ra-st__btn ra-st__btn--primary" id="ra-img-export-links" style="flex:1;background:#10b981;">Download Links (HTML)</button>' +
         '</div>' +
-        '<div class="ra-st__status" id="ra-st-exp-status"></div>' +
+        '<div class="ra-st__status" id="ra-img-status" style="margin-top:8px;"></div>' +
       '</div>';
 
+    loadImageForms();
+    setupImageFilters();
+    setupImageExport();
+  }
+
+  function loadImageForms() {
+    var sel = document.getElementById('ra-img-form');
+    fetch('/api/v2/assets/?asset_type=survey&fields=["uid","name","deployment_status","deployment__submission_count","content"]&limit=200', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        _imgForms = (data.results || []).filter(function (f) { return f.deployment_status === 'deployed' && (f.deployment__submission_count || 0) > 0; });
+        sel.innerHTML = '<option value="">-- Select a form --</option>' +
+          _imgForms.map(function (f) {
+            return '<option value="' + f.uid + '">' + escapeHtml(f.name) + ' (' + (f.deployment__submission_count || 0) + ')</option>';
+          }).join('');
+
+        sel.addEventListener('change', function () {
+          if (this.value) loadImagesForForm(this.value);
+          else { _imgData = []; _imgSelected = new Set(); renderImageGrid(); updateImageStats(); }
+        });
+      });
+  }
+
+  function loadImagesForForm(uid) {
+    var grid = document.getElementById('ra-img-grid');
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:#94a3b8;">Loading images...</div>';
+
+    // Get form fields for naming
+    var form = _imgForms.find(function (f) { return f.uid === uid; });
+    _imgFormFields = {};
+    if (form && form.content && form.content.survey) {
+      form.content.survey.forEach(function (row) {
+        var t = row.type || '';
+        if (t.indexOf('begin') === 0 || t.indexOf('end') === 0 || t === 'calculate' || t === 'note' || t === 'hidden') return;
+        var name = row.name || row.$autoname || '';
+        var label = (row.label && row.label[0]) || name;
+        if (name) _imgFormFields[name] = label;
+      });
+    }
+    // Update naming field dropdown
+    var nameSelect = document.getElementById('ra-img-namefield');
+    if (nameSelect) {
+      nameSelect.innerHTML = '<option value="_id">Submission ID</option>' +
+        '<option value="_submitted_by">Submitted By</option>' +
+        '<option value="_submission_time">Date</option>';
+      Object.keys(_imgFormFields).forEach(function (name) {
+        nameSelect.innerHTML += '<option value="' + escapeHtml(name) + '">' + escapeHtml(_imgFormFields[name]) + '</option>';
+      });
+    }
+
+    fetch('/api/v2/assets/' + uid + '/data/?limit=30000', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        _imgData = [];
+        (data.results || []).forEach(function (sub) {
+          (sub._attachments || []).forEach(function (att) {
+            var url = att.download_url || att.download_medium_url || att.download_small_url;
+            var mime = att.mimetype || '';
+            if (mime.indexOf('image') === -1) return;
+            if (url) {
+              _imgData.push({
+                url: url,
+                thumb: att.download_small_url || att.download_medium_url || url,
+                filename: att.filename || 'image',
+                mime: mime,
+                sub: sub,
+                subId: sub._id,
+                submittedBy: sub._submitted_by || 'anonymous',
+                time: sub._submission_time || ''
+              });
+            }
+          });
+        });
+        _imgSelected = new Set(_imgData.map(function (m, i) { return i; }));
+        renderImageGrid();
+        updateImageStats();
+        updateImagePreview();
+      });
+  }
+
+  function renderImageGrid(filter) {
+    var grid = document.getElementById('ra-img-grid');
+    if (!grid) return;
+
+    var filtered = _imgData;
+    if (filter) {
+      var search = (filter.search || '').toLowerCase();
+      var dateFrom = filter.dateFrom ? new Date(filter.dateFrom + 'T00:00:00') : null;
+      var dateTo = filter.dateTo ? new Date(filter.dateTo + 'T23:59:59') : null;
+
+      filtered = _imgData.filter(function (m, i) {
+        if (search && m.filename.toLowerCase().indexOf(search) === -1 && m.submittedBy.toLowerCase().indexOf(search) === -1) return false;
+        if (dateFrom && m.time && new Date(m.time) < dateFrom) return false;
+        if (dateTo && m.time && new Date(m.time) > dateTo) return false;
+        return true;
+      });
+    }
+
+    if (!filtered.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;">' +
+        (_imgData.length ? 'No images match the filter' : 'Select a form to view images') + '</div>';
+      return;
+    }
+
+    grid.innerHTML = filtered.map(function (m) {
+      var origIdx = _imgData.indexOf(m);
+      var isSel = _imgSelected.has(origIdx);
+      return '<div data-idx="' + origIdx + '" class="ra-img-card" style="position:relative;border:2px solid ' + (isSel ? '#54a8dc' : '#e2e8f0') + ';border-radius:6px;overflow:hidden;cursor:pointer;background:#f8fafc;">' +
+        '<img src="' + m.thumb + '" style="width:100%;aspect-ratio:1;object-fit:cover;display:block;" loading="lazy" onerror="this.style.display=\'none\'">' +
+        '<div style="position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:4px;background:' + (isSel ? '#54a8dc' : 'rgba(255,255,255,0.85)') + ';border:1.5px solid ' + (isSel ? '#54a8dc' : '#bbb') + ';display:flex;align-items:center;justify-content:center;">' +
+          (isSel ? '<span style="color:#fff;font-size:13px;">&#10003;</span>' : '') +
+        '</div>' +
+        '<div style="padding:4px 6px;font-size:10px;color:#666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(m.submittedBy) + ' &middot; ' + (m.time ? m.time.split('T')[0] : '') + '">' +
+          escapeHtml(m.submittedBy) +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    // Click to toggle selection
+    grid.querySelectorAll('.ra-img-card').forEach(function (card) {
+      card.addEventListener('click', function () {
+        var idx = parseInt(this.getAttribute('data-idx'));
+        if (_imgSelected.has(idx)) _imgSelected.delete(idx);
+        else _imgSelected.add(idx);
+        renderImageGrid(getCurrentImageFilter());
+        updateImageStats();
+      });
+    });
+  }
+
+  function getCurrentImageFilter() {
+    var search = (document.getElementById('ra-img-search') || {}).value || '';
+    var dateFrom = (document.getElementById('ra-img-date-from') || {}).value || '';
+    var dateTo = (document.getElementById('ra-img-date-to') || {}).value || '';
+    if (!search && !dateFrom && !dateTo) return null;
+    return { search: search, dateFrom: dateFrom, dateTo: dateTo };
+  }
+
+  function updateImageStats() {
+    var stats = document.getElementById('ra-img-stats');
+    if (!stats) return;
+    stats.innerHTML =
+      '<div><strong style="color:#54a8dc;font-size:16px;">' + _imgData.length + '</strong> images</div>' +
+      '<div><strong style="color:#10b981;font-size:16px;">' + _imgSelected.size + '</strong> selected</div>';
+    var countEl = document.getElementById('ra-img-sel-count');
+    if (countEl) countEl.textContent = _imgSelected.size + ' of ' + _imgData.length + ' selected';
+  }
+
+  function setupImageFilters() {
+    var debounce = null;
+    ['ra-img-search', 'ra-img-date-from', 'ra-img-date-to'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', function () {
+        clearTimeout(debounce);
+        debounce = setTimeout(function () { renderImageGrid(getCurrentImageFilter()); }, 300);
+      });
+    });
+
+    document.getElementById('ra-img-filter-clear')?.addEventListener('click', function () {
+      document.getElementById('ra-img-search').value = '';
+      document.getElementById('ra-img-date-from').value = '';
+      document.getElementById('ra-img-date-to').value = '';
+      renderImageGrid();
+    });
+
+    document.getElementById('ra-img-sel-all')?.addEventListener('click', function () {
+      _imgSelected = new Set(_imgData.map(function (m, i) { return i; }));
+      renderImageGrid(getCurrentImageFilter());
+      updateImageStats();
+    });
+
+    document.getElementById('ra-img-sel-none')?.addEventListener('click', function () {
+      _imgSelected = new Set();
+      renderImageGrid(getCurrentImageFilter());
+      updateImageStats();
+    });
+
+    document.getElementById('ra-img-prefix')?.addEventListener('input', updateImagePreview);
+    document.getElementById('ra-img-namefield')?.addEventListener('change', updateImagePreview);
+    document.getElementById('ra-img-seq')?.addEventListener('change', updateImagePreview);
+  }
+
+  function generateImageName(m, idx) {
+    var prefix = (document.getElementById('ra-img-prefix') || {}).value || '';
+    var field = (document.getElementById('ra-img-namefield') || {}).value || '_id';
+    var useSeq = ((document.getElementById('ra-img-seq') || {}).value || 'yes') === 'yes';
+
+    var val = '';
+    if (field === '_id') val = m.subId || idx;
+    else if (field === '_submitted_by') val = m.submittedBy;
+    else if (field === '_submission_time') val = (m.time || '').split('T')[0];
+    else {
+      val = m.sub[field];
+      if (val === undefined) {
+        for (var k in m.sub) { if (k.endsWith('/' + field)) { val = m.sub[k]; break; } }
+      }
+    }
+    val = String(val || '').replace(/[^a-zA-Z0-9_.-]/g, '_').substring(0, 50);
+    var ext = m.filename.split('.').pop() || 'jpg';
+    var parts = [];
+    if (prefix) parts.push(prefix.replace(/[^a-zA-Z0-9_.-]/g, '_'));
+    if (val) parts.push(val);
+    if (useSeq) parts.push(String(idx + 1).padStart(3, '0'));
+    return (parts.join('_') || 'image_' + (idx + 1)) + '.' + ext;
+  }
+
+  function updateImagePreview() {
+    var el = document.getElementById('ra-img-preview');
+    if (el && _imgData.length) el.textContent = generateImageName(_imgData[0], 0);
+  }
+
+  function setupImageExport() {
+    document.getElementById('ra-img-export-csv')?.addEventListener('click', function () {
+      var selected = Array.from(_imgSelected).sort();
+      if (!selected.length) { alert('Select at least one image'); return; }
+      var lines = ['custom_name,original_filename,download_url,submitted_by,date,submission_id'];
+      selected.forEach(function (idx) {
+        var m = _imgData[idx];
+        lines.push([
+          '"' + generateImageName(m, idx) + '"',
+          '"' + m.filename.replace(/"/g, '""') + '"',
+          '"' + m.url + '"',
+          '"' + m.submittedBy + '"',
+          '"' + (m.time || '').split('T')[0] + '"',
+          '"' + m.subId + '"'
+        ].join(','));
+      });
+      var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'images_export_' + selected.length + '.csv';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      showStatus(document.getElementById('ra-img-status'), 'ok', 'Exported ' + selected.length + ' image records to CSV');
+    });
+
+    document.getElementById('ra-img-export-links')?.addEventListener('click', function () {
+      var selected = Array.from(_imgSelected).sort();
+      if (!selected.length) { alert('Select at least one image'); return; }
+      var html = '<!DOCTYPE html><html><head><title>Image Downloads</title><style>body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:20px}' +
+        '.card{display:inline-block;width:180px;margin:8px;border:1px solid #eee;border-radius:8px;overflow:hidden;vertical-align:top}' +
+        '.card img{width:100%;height:140px;object-fit:cover}.card .info{padding:8px;font-size:12px}' +
+        '.card a{color:#54a8dc;word-break:break-all}</style></head><body>' +
+        '<h1>Image Downloads (' + selected.length + ')</h1><p>Right-click images and "Save image as..." with the suggested name.</p>';
+      selected.forEach(function (idx) {
+        var m = _imgData[idx];
+        var name = generateImageName(m, idx);
+        html += '<div class="card"><a href="' + m.url + '" download="' + escapeHtml(name) + '"><img src="' + m.url + '" loading="lazy"></a>' +
+          '<div class="info"><strong>' + escapeHtml(name) + '</strong><br>' + escapeHtml(m.submittedBy) + '</div></div>';
+      });
+      html += '</body></html>';
+      var blob = new Blob([html], { type: 'text/html' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'image_downloads.html';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      showStatus(document.getElementById('ra-img-status'), 'ok', 'Generated download page with ' + selected.length + ' images');
+    });
+  }
+
+  // ── Data Tab (simplified from old export) ──
+  function renderDataTab(container) {
+    container.innerHTML =
+      '<div class="ra-st__content">' +
+        '<p style="color:#888;margin:0 0 16px;">Export submission data from your forms.</p>' +
+        '<div class="ra-st__field"><label>Format</label>' +
+          '<select id="ra-st-exp-format" style="width:100%;padding:10px;font-size:14px;border:1px solid #d0d5dd;border-radius:6px;">' +
+            '<option value="csv">CSV (.csv)</option><option value="xlsx">Excel (.xlsx)</option></select></div>' +
+        '<div class="ra-st__field"><label>Select Forms</label>' +
+          '<div id="ra-st-exp-forms" style="border:1px solid #eee;border-radius:6px;max-height:250px;overflow-y:auto;"></div></div>' +
+        '<div class="ra-st__actions">' +
+          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-st-exp-selectall">Select All</button>' +
+          '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-exp-go">Export Data</button></div>' +
+        '<div class="ra-st__status" id="ra-st-exp-status"></div>' +
+      '</div>';
     loadExportForms();
-    setupExportTypeHandler();
+    document.getElementById('ra-st-exp-selectall')?.addEventListener('click', function () {
+      var cbs = document.querySelectorAll('#ra-st-exp-forms input[type="checkbox"]');
+      var all = Array.from(cbs).every(function (c) { return c.checked; });
+      cbs.forEach(function (c) { c.checked = !all; });
+    });
+    document.getElementById('ra-st-exp-go')?.addEventListener('click', function () {
+      var fmt = document.getElementById('ra-st-exp-format').value;
+      var sel = Array.from(document.querySelectorAll('#ra-st-exp-forms input:checked')).map(function (c) { return c.value; });
+      if (!sel.length) { showStatus(document.getElementById('ra-st-exp-status'), 'err', 'Select at least one form'); return; }
+      showStatus(document.getElementById('ra-st-exp-status'), 'info', 'Exporting...');
+      batchExportData(sel, fmt);
+    });
+  }
+
+  // ── Geo Tab ──
+  function renderGeoTab(container) {
+    container.innerHTML =
+      '<div class="ra-st__content">' +
+        '<p style="color:#888;margin:0 0 16px;">Export geospatial data from your forms.</p>' +
+        '<div class="ra-st__field"><label>Format</label>' +
+          '<select id="ra-st-exp-format" style="width:100%;padding:10px;font-size:14px;border:1px solid #d0d5dd;border-radius:6px;">' +
+            '<option value="geojson">GeoJSON (.geojson)</option><option value="kml">KML (.kml)</option>' +
+            '<option value="csv">CSV with coordinates (.csv)</option><option value="gpx">GPX (.gpx)</option></select></div>' +
+        '<div class="ra-st__field"><label>Select Forms</label>' +
+          '<div id="ra-st-exp-forms" style="border:1px solid #eee;border-radius:6px;max-height:250px;overflow-y:auto;"></div></div>' +
+        '<div class="ra-st__actions">' +
+          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-st-exp-selectall">Select All</button>' +
+          '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-exp-go">Export Geospatial</button></div>' +
+        '<div class="ra-st__status" id="ra-st-exp-status"></div>' +
+      '</div>';
+    loadExportForms();
+    document.getElementById('ra-st-exp-selectall')?.addEventListener('click', function () {
+      var cbs = document.querySelectorAll('#ra-st-exp-forms input[type="checkbox"]');
+      var all = Array.from(cbs).every(function (c) { return c.checked; });
+      cbs.forEach(function (c) { c.checked = !all; });
+    });
+    document.getElementById('ra-st-exp-go')?.addEventListener('click', function () {
+      var fmt = document.getElementById('ra-st-exp-format').value;
+      var sel = Array.from(document.querySelectorAll('#ra-st-exp-forms input:checked')).map(function (c) { return c.value; });
+      if (!sel.length) { showStatus(document.getElementById('ra-st-exp-status'), 'err', 'Select at least one form'); return; }
+      showStatus(document.getElementById('ra-st-exp-status'), 'info', 'Exporting...');
+      batchExport(sel, fmt);
+    });
   }
 
   function setupExportTypeHandler() {
@@ -1962,10 +2340,10 @@
         window._raExportForms = forms;
 
         container.innerHTML = forms.map(function (f) {
-          return '<label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #f5f5f5;cursor:pointer;">' +
-            '<input type="checkbox" value="' + f.uid + '" class="ra-exp-form-cb" style="margin:0;">' +
-            '<span style="flex:1;font-size:13px;">' + escapeHtml(f.name) + '</span>' +
-            '<span style="color:#999;font-size:12px;">' + (f.deployment__submission_count || 0) + '</span>' +
+          return '<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f5f5f5;cursor:pointer;min-height:40px;">' +
+            '<input type="checkbox" value="' + f.uid + '" class="ra-exp-form-cb" style="margin:0;flex-shrink:0;width:16px;height:16px;">' +
+            '<span style="flex:1;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">' + escapeHtml(f.name) + '</span>' +
+            '<span style="color:#999;font-size:12px;flex-shrink:0;margin-left:8px;">' + (f.deployment__submission_count || 0) + ' submissions</span>' +
           '</label>';
         }).join('');
 
@@ -2008,7 +2386,7 @@
         }
         batchExportPartial(selected, format, selectedFields);
       } else if (exportType === 'media') {
-        batchExportMedia(selected, format);
+        if (window.raMediaExport) { window.raMediaExport.run(selected, format, document.getElementById("ra-st-exp-status")); } else { batchExportMedia(selected, format); }
       } else if (exportType === 'geo') {
         batchExport(selected, format);
       }

@@ -51,7 +51,6 @@ WEBHOOK_SECRET = os.getenv('WEBHOOK_SECRET', '')
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
 
 # WhatsApp Gateway (whatsapp-web.js based)
-WHATSAPP_GATEWAY_URL = os.getenv('WHATSAPP_GATEWAY_URL', 'http://whatsapp-gateway:3000')
 
 # Email configuration
 SMTP_HOST = os.getenv('SMTP_HOST', '')
@@ -444,53 +443,6 @@ def send_whatsapp(message, recipients):
             log.error(f"WhatsApp to {recipient} failed: {e}")
 
 
-def send_whatsapp_gateway(data, form_uid):
-    """Send WhatsApp notification via the whatsapp-web.js gateway."""
-    import requests as http_req
-
-    form_title = data.get('_xform_id_string', form_uid)
-    submitted_by = data.get('_submitted_by', 'Anonymous')
-    submission_time = data.get('_submission_time', '')
-
-    # Build fields for the notification
-    fields = {}
-    for key, value in data.items():
-        if key.startswith('_') or key in ('meta', 'formhub', '__version__'):
-            continue
-        if isinstance(value, (dict, list)):
-            continue
-        if value:
-            fields[key] = str(value)
-
-    # Location
-    geo = data.get('_geolocation', [])
-    location = ''
-    if geo and len(geo) >= 2 and geo[0] and geo[1]:
-        location = f'{geo[0]:.4f}, {geo[1]:.4f}'
-
-    payload = {
-        'form_title': form_title,
-        'form_uid': form_uid,
-        'submitted_by': submitted_by,
-        'submission_time': submission_time,
-        'fields': fields,
-        'location': location
-    }
-
-    try:
-        resp = http_req.post(
-            f'{WHATSAPP_GATEWAY_URL}/notify',
-            json=payload,
-            timeout=10
-        )
-        if resp.ok:
-            log.info("WhatsApp gateway notification sent")
-        else:
-            log.warning(f"WhatsApp gateway error: {resp.status_code} {resp.text[:100]}")
-    except Exception as e:
-        log.error(f"WhatsApp gateway failed: {e}")
-
-
 def check_rate_limit(form_uid):
     """Simple per-form rate limiter."""
     import time
@@ -554,11 +506,6 @@ def webhook(form_uid):
     # Send WhatsApp notifications (Twilio)
     if NOTIFY_VIA in ('whatsapp', 'all', 'both', 'email_whatsapp') and WHATSAPP_RECIPIENTS:
         send_whatsapp(message, WHATSAPP_RECIPIENTS)
-        _stats['sent_whatsapp'] += 1
-
-    # Send WhatsApp via gateway (whatsapp-web.js)
-    if NOTIFY_VIA in ('whatsapp_gateway', 'all', 'email_wa_gateway'):
-        send_whatsapp_gateway(data, form_uid)
         _stats['sent_whatsapp'] += 1
 
     return jsonify({'status': 'ok', 'form_uid': form_uid}), 200
