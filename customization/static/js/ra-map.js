@@ -612,57 +612,32 @@
             '</div>';
     }
 
-    // Direct-add tile sources section
-    var tilesHtml = '';
+    // Note about basemaps if tile sources are configured
+    var basemapNote = '';
     if (directAdd.length) {
-        tilesHtml = '<div style="border-bottom:1px solid #eee;padding:8px 0;">' +
-            '<div style="padding:4px 20px;font-size:11px;color:#999;font-weight:600;">TILE LAYERS</div>';
-        directAdd.forEach(function (c) {
-            var isAdded = getSavedGeoNodeLayers().some(function (l) { return l.id === c.id; });
-            tilesHtml += '<div class="ra-gn__item" data-tile-id="' + escapeHtml(c.id) + '">' +
-                '<span class="ra-gn__item-icon">' + gnGeomIcon('raster') + '</span>' +
-                '<div class="ra-gn__item-info">' +
-                    '<div class="ra-gn__item-name">' + escapeHtml(c.name) + '</div>' +
-                    '<div class="ra-gn__item-desc">' + escapeHtml((c.url || '').substring(0, 60)) + '</div>' +
-                '</div>' +
-                '<span class="ra-gn__item-type">' + escapeHtml((c.type || '').toUpperCase()) + '</span>' +
-                '<button class="ra-gn__add-btn"' + (isAdded ? ' disabled' : '') + '>' + (isAdded ? 'Added' : 'Add') + '</button>' +
-            '</div>';
-        });
-        tilesHtml += '</div>';
+        basemapNote = '<div style="padding:8px 20px;font-size:11px;color:#888;background:#f8fafc;border-bottom:1px solid #eee;">' +
+            'Tip: Your tile sources (' + directAdd.map(function(c) { return c.name; }).join(', ') +
+            ') are available as background maps in the layer switcher (top-left of map).</div>';
     }
 
     overlay.innerHTML =
         '<div class="ra-gn__modal">' +
             '<div class="ra-gn__header">' +
-                '<h3>Add Layer</h3>' +
+                '<h3>Add Data Layer</h3>' +
                 '<button class="ra-gn__close">&times;</button>' +
             '</div>' +
+            basemapNote +
             sourceSelector +
             '<div class="ra-gn__search">' +
                 '<input type="text" placeholder="Search datasets..." id="ra-gn-search-input">' +
             '</div>' +
             '<div class="ra-gn__list" id="ra-gn-list">' +
-                tilesHtml +
-                (activeConn ? '<div class="ra-gn__loading">Loading datasets...</div>' : '<div class="ra-gn__empty">No browsable data sources configured.</div>') +
+                (activeConn ? '<div class="ra-gn__loading">Loading datasets...</div>' : '<div class="ra-gn__empty">No GeoNode or WMS sources configured. Go to Settings > Data Sources to add one.</div>') +
             '</div>' +
         '</div>';
 
     overlay.querySelector('.ra-gn__close').addEventListener('click', function() { overlay.remove(); });
     overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
-
-    // Tile layer "Add" buttons
-    overlay.querySelectorAll('[data-tile-id]').forEach(function (el) {
-        el.querySelector('.ra-gn__add-btn').addEventListener('click', function () {
-            var tileId = el.getAttribute('data-tile-id');
-            var conn = directAdd.find(function (c) { return c.id === tileId; });
-            if (conn) {
-                addTileLayer(conn);
-                this.disabled = true;
-                this.textContent = 'Added';
-            }
-        });
-    });
 
     document.body.appendChild(overlay);
 
@@ -998,10 +973,27 @@
 
       osm.addTo(map);
 
-      L.control.layers({
+      // Build basemap options from default + user-configured tile sources
+      var baseMaps = {
         'Streets': osm,
         'Satellite': satellite
-      }, null, { position: 'topleft' }).addTo(map);
+      };
+
+      // Add user-configured XYZ/Google/Esri tile sources as basemap options
+      var connections = getGeoNodeSettings();
+      connections.forEach(function (conn) {
+        if (conn.type === 'xyz' || conn.type === 'google' || conn.type === 'esri') {
+          baseMaps[conn.name] = L.tileLayer(conn.url, {
+            attribution: conn.name,
+            maxZoom: 20
+          });
+        }
+      });
+
+      var layerControl = L.control.layers(baseMaps, null, { position: 'topleft' });
+      layerControl.addTo(map);
+      // Store reference for adding overlay layers later
+      map._raLayerControl = layerControl;
 
       // Fix map size after display
       setTimeout(function () { map.invalidateSize(); }, 300);
