@@ -31,6 +31,84 @@
 
   if (/\/accounts\/(login|signup|password)/.test(window.location.pathname)) return;
 
+  // ── TITLE INTERCEPTOR ──
+  // This runs BEFORE React and ra-welcome.js (no defer on this script).
+  // Intercepts every document.title change and replaces it instantly.
+  window.__raDashPending = true;
+  window.__raGetPageName = function () {
+    var hash = window.location.hash;
+    if (hash === '#/leaderboard') return 'Leaderboard';
+    if (hash === '#/map') return 'Map';
+    if (hash.indexOf('#/library') === 0) return 'Library';
+    if (hash.indexOf('#/forms/') === 0) return null; // resolved later by ra-welcome.js
+    if (hash === '' || hash === '#/' || hash.indexOf('#/projects') === 0 || hash.indexOf('#/forms') === 0) return 'Projects';
+    return null;
+  };
+
+  var _raSettingTitle = false;
+  function _raSetTitle(val) {
+    _raSettingTitle = true;
+    var titleEl = document.querySelector('title');
+    if (titleEl) titleEl.textContent = val;
+    _raSettingTitle = false;
+  }
+  _raSetTitle(BRAND_NAME);
+
+  // Override document.title setter — catches React's title changes INSTANTLY
+  try {
+    var _raTitleDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'title') ||
+                       Object.getOwnPropertyDescriptor(HTMLDocument.prototype, 'title');
+    if (_raTitleDesc && _raTitleDesc.set) {
+      var _raOriginalTitleSet = _raTitleDesc.set;
+      var _raOriginalTitleGet = _raTitleDesc.get;
+      Object.defineProperty(document, 'title', {
+        get: function () { return _raOriginalTitleGet.call(this); },
+        set: function (val) {
+          if (_raSettingTitle) { _raOriginalTitleSet.call(this, val); return; }
+          // Dashboard user — always enforce username title
+          if (window.__raDashboardUser) {
+            _raSettingTitle = true;
+            _raOriginalTitleSet.call(this, window.__raDashboardUser + ' | ' + BRAND_NAME);
+            _raSettingTitle = false;
+            return;
+          }
+          // Dashboard detection pending — show brand name only
+          if (window.__raDashPending) {
+            _raSettingTitle = true;
+            _raOriginalTitleSet.call(this, BRAND_NAME);
+            _raSettingTitle = false;
+            return;
+          }
+          // Normal user — replace with our page title
+          var pageName = window.__raGetPageName();
+          var desired = pageName ? pageName + ' | ' + BRAND_NAME : BRAND_NAME;
+          // Allow ra-welcome.js to set form-specific titles
+          if (val.indexOf(BRAND_NAME) !== -1 && val.indexOf('KoboToolbox') === -1) {
+            _raOriginalTitleSet.call(this, val);
+          } else {
+            _raSettingTitle = true;
+            _raOriginalTitleSet.call(this, desired);
+            _raSettingTitle = false;
+          }
+        },
+        configurable: true
+      });
+    }
+  } catch (e) {}
+
+  // Also observe <title> element for DOM-based changes
+  var _raTitleEl = document.querySelector('title');
+  if (_raTitleEl) {
+    new MutationObserver(function () {
+      if (_raSettingTitle) return;
+      if (window.__raDashboardUser) {
+        _raSetTitle(window.__raDashboardUser + ' | ' + BRAND_NAME);
+      } else if (window.__raDashPending) {
+        if (document.title !== BRAND_NAME) _raSetTitle(BRAND_NAME);
+      }
+    }).observe(_raTitleEl, { childList: true, characterData: true, subtree: true });
+  }
+
   // ── INSTANT SCREEN COVER (replaces default KoboToolbox loading) ──
   var screenCover = document.createElement('div');
   screenCover.id = 'ra-do-screencover';
@@ -59,9 +137,10 @@
     '  position: fixed; top: 0; left: 0; right: 0; bottom: 0;',
     '  background: #f1f5f9; z-index: 99999; overflow-y: auto;',
     '  display: none;',
+    '  flex-direction: column;',
     '  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
     '}',
-    '#' + PAGE_ID + '.ra-do--visible { display: block; }',
+    '#' + PAGE_ID + '.ra-do--visible { display: flex; }',
     'body.ra-do-active #kpi-app { display: none !important; }',
     'body.ra-do-active header { display: none !important; }',
     'body.ra-do-active nav { display: none !important; }',
@@ -117,7 +196,7 @@
     '  padding: 7px 16px; border-radius: 5px; font-size: 13px; cursor: pointer;',
     '}',
     '.ra-do__logout:hover { background: rgba(255,255,255,0.3); }',
-    '.ra-do__content { max-width: 1200px; margin: 0 auto; padding: 24px 24px 60px; }',
+    '.ra-do__content { max-width: 1200px; margin: 0 auto; padding: 24px 24px 60px; flex: 1; width: 100%; box-sizing: border-box; }',
 
     '.ra-do__grid {',
     '  display: grid; grid-template-columns: repeat(2, 1fr);',
@@ -245,13 +324,17 @@
         if (users[data.username]) {
           isDashboardOnly = true;
           activeDashboardId = users[data.username];
+          // Set title immediately and flag globally so ra-welcome.js stops overriding
+          document.title = data.username + ' | ' + BRAND_NAME;
+          window.__raDashboardUser = data.username;
         } else {
           isDashboardOnly = false;
           activeDashboardId = null;
+          window.__raDashPending = false;  // Not a dashboard user — let ra-welcome.js resume
         }
         return isDashboardOnly;
       });
-    }).catch(function () { return false; });
+    }).catch(function () { window.__raDashPending = false; return false; });
   }
 
   function loadDashboardConfig() {
@@ -326,11 +409,15 @@
       '<div class="ra-do__content">' +
         '<div class="ra-do__grid" id="ra-do-grid"></div>' +
         '<div class="ra-do__refresh" id="ra-do-refresh"></div>' +
-      '</div>';
+      '</div>' +
+      '<div id="ra-do-footer"></div>';
 
     document.body.appendChild(page);
     page.classList.add('ra-do--visible');
     if (!isPreviewMode) document.body.classList.add('ra-do-active');
+
+    // Load footer from customization/footer/
+    loadDashboardFooter();
 
     // Set browser tab title to "username | Ramani Yangu"
     if (currentUser && currentUser.username) {
@@ -381,6 +468,46 @@
   function getCsrf() {
     var c = document.cookie.split(';').find(function (s) { return s.trim().indexOf('csrftoken=') === 0; });
     return c ? c.trim().substring(10) : '';
+  }
+
+  function loadDashboardFooter() {
+    var footerEl = document.getElementById('ra-do-footer');
+    if (!footerEl) return;
+
+    // Load footer CSS
+    var cssLink = document.createElement('link');
+    cssLink.rel = 'stylesheet';
+    cssLink.href = '/custom-static/../customization/footer/dashboard-footer.css';
+
+    // Try loading from the custom-static mount (footer files are served via nginx)
+    fetch('/custom-static/footer/dashboard-footer.html')
+      .then(function (r) {
+        if (!r.ok) throw new Error('not found');
+        return r.text();
+      })
+      .then(function (html) {
+        // Replace template variables
+        html = html.replace(/\{\{YEAR\}\}/g, new Date().getFullYear());
+        html = html.replace(/\{\{BRAND\}\}/g, BRAND_NAME);
+        footerEl.innerHTML = html;
+
+        // Load CSS
+        var css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = '/custom-static/footer/dashboard-footer.css';
+        document.head.appendChild(css);
+      })
+      .catch(function () {
+        // Fallback: inline footer if file not found
+        footerEl.innerHTML =
+          '<div style="background:#1a2a3a;border-top:2px solid #54a8dc;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+              '<img src="/custom-static/images/ra-logo.png" alt="" style="height:24px;opacity:0.9;">' +
+              '<span style="font-size:11px;color:rgba(255,255,255,0.5);">Powered by Resilience Academy</span>' +
+            '</div>' +
+            '<div style="font-size:11px;color:rgba(255,255,255,0.4);">&copy; ' + new Date().getFullYear() + ' ' + BRAND_NAME + '</div>' +
+          '</div>';
+      });
   }
 
   function openDashEditProfile() {

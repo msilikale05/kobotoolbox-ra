@@ -1,0 +1,77 @@
+/*
+ * Resilience Academy - Dashboard Footer Styles
+ * ==============================================
+ * Edit this file to change footer appearance.
+ */
+
+.ra-footer {
+  background: #1a2a3a;
+  border-top: 2px solid #54a8dc;
+  padding: 0;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.ra-footer__inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ra-footer__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ra-footer__logo {
+  height: 24px;
+  opacity: 0.9;
+}
+
+.ra-footer__powered {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 400;
+}
+
+.ra-footer__center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.ra-footer__center a {
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.ra-footer__center a:hover {
+  color: #54a8dc;
+}
+
+.ra-footer__sep {
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 10px;
+}
+
+.ra-footer__right {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Responsive: stack on small screens */
+@media (max-width: 768px) {
+  .ra-footer__inner {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+    padding: 10px 16px;
+  }
+}
