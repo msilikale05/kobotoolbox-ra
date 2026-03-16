@@ -263,3 +263,18 @@
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--ra-primary) !important;
 }
+
+/* ==========================================================================
+   Hide service usage / plan errors (not applicable to self-hosted)
+   ========================================================================== */
+.usage-modal,
+[data-tip="Usage"],
+.account-settings__usage,
+.form-view__cell--service-usage,
+.service-usage-banner,
+.usage-error,
+[class*="service-usage"],
+[class*="ServiceUsage"],
+.banner--error[data-cy="usage"] {
+  display: none !important;
+}
