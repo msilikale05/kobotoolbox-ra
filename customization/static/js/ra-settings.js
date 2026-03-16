@@ -799,8 +799,8 @@
         return r.json();
       })
       .then(function (data) {
-        var count = data.total || (data.layers || data.results || []).length;
-        return { ok: true, count: count };
+        // Response comes from geonode-sync service: {ok: bool, count: N, error: str}
+        return data;
       })
       .catch(function (err) {
         return { ok: false, error: err.message };

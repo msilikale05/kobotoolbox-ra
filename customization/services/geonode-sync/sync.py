@@ -316,17 +316,20 @@ def run_health_server():
                 auth = (username, password)
 
             try:
-                resp = requests.get(
-                    f'{url}/api/v2/layers/?page_size=1',
-                    headers=headers,
-                    auth=auth,
-                    timeout=15,
-                )
-                if resp.status_code != 200:
-                    return {'ok': False, 'error': f'HTTP {resp.status_code}'}
-                data = resp.json()
-                count = data.get('total', len(data.get('layers', data.get('results', []))))
-                return {'ok': True, 'count': count}
+                # Try /api/v2/datasets/ first (GeoNode 4.x), fall back to /api/v2/layers/ (3.x)
+                for endpoint in ['/api/v2/datasets/', '/api/v2/layers/']:
+                    resp = requests.get(
+                        f'{url}{endpoint}?page_size=1',
+                        headers=headers,
+                        auth=auth,
+                        timeout=15,
+                        allow_redirects=True,
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        count = data.get('total', len(data.get('datasets', data.get('layers', data.get('results', [])))))
+                        return {'ok': True, 'count': count}
+                return {'ok': False, 'error': f'HTTP {resp.status_code}'}
             except requests.ConnectionError:
                 return {'ok': False, 'error': 'Could not connect to GeoNode server'}
             except requests.Timeout:
