@@ -741,6 +741,7 @@
           '<div style="display:flex;gap:8px;">' +
             '<button class="ra-st__btn ra-st__btn--primary ra-dl-edit-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;">Edit</button>' +
             '<button class="ra-st__btn ra-st__btn--secondary ra-dl-rename-dash" data-id="' + escapeHtml(d.id) + '" data-name="' + escapeHtml(d.name) + '" style="padding:8px 16px;font-size:13px;">Rename</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-share-dash" data-id="' + escapeHtml(d.id) + '" data-name="' + escapeHtml(d.name) + '" style="padding:8px 16px;font-size:13px;">Share</button>' +
             '<button class="ra-st__btn ra-st__btn--secondary ra-dl-preview-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;">Preview</button>' +
             '<button class="ra-st__btn ra-st__btn--secondary ra-dl-delete-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;color:#e74c3c;">Delete</button>' +
           '</div>' +
@@ -752,6 +753,11 @@
       btn.addEventListener('click', function () {
         _editingDashboardId = this.getAttribute("data-id"); try { sessionStorage.setItem("ra_editing_dashboard", _editingDashboardId); } catch (e) {}
         renderDashTabContent();
+      });
+    });
+    listEl.querySelectorAll('.ra-dl-share-dash').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        showShareModal(this.getAttribute('data-id'), this.getAttribute('data-name'));
       });
     });
     listEl.querySelectorAll('.ra-dl-preview-dash').forEach(function (btn) {
@@ -988,6 +994,10 @@
       var configSummary = getWidgetConfigSummary(w);
       var isFull = w.width === 'full';
 
+      var wCfg = w.config || {};
+      var hasColor = wCfg.bgColor || wCfg.textColor || wCfg.headerColor;
+      var stripColor = wCfg.bgColor || wCfg.headerColor || wCfg.textColor || '';
+
       return '<div class="ra-dl-widget-item" draggable="true" data-idx="' + idx + '" style="' +
         (isFull ? 'grid-column:1/-1;' : '') +
         'border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:grab;transition:opacity 0.2s,border-color 0.2s,box-shadow 0.2s;overflow:hidden;">' +
@@ -1009,6 +1019,7 @@
           '</div>' +
           (configSummary ? '<div style="font-size:10px;color:#cbd5e1;margin-top:2px;">' + escapeHtml(configSummary) + '</div>' : '') +
         '</div>' +
+        '<div style="height:4px;background:' + (hasColor ? stripColor : '#e2e8f0') + ';"></div>' +
       '</div>';
     }).join('');
 
@@ -1126,7 +1137,7 @@
     if (!dash) { alert('Select a dashboard first'); return; }
 
     var isEdit = editIdx >= 0;
-    var w = isEdit ? dash.widgets[editIdx] : { id: 'w' + Date.now(), type: 'stat-cards', title: '', width: 'full', forms: ['__all__'], config: {} };
+    var w = isEdit ? dash.widgets[editIdx] : { id: 'w' + Date.now() + '_' + Math.random().toString(36).substr(2, 4), type: 'stat-cards', title: '', width: 'full', forms: ['__all__'], config: {} };
 
     var formOptions = '<option value="__all__"' + ((!w.forms || !w.forms.length || w.forms[0] === '__all__') ? ' selected' : '') + '>All forms</option>';
     if (_layoutForms) {
@@ -1183,7 +1194,7 @@
           '<button id="ra-dl-modal-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
         '</div>' +
         '<div style="padding:20px;">' +
-          '<div class="ra-st__field"><label>Title</label><input type="text" id="ra-dl-title" value="' + escapeHtml(w.title || '') + '" placeholder="e.g., Monthly Submissions"></div>' +
+          '<div class="ra-st__field"><label>Widget Title <span style="font-weight:400;color:#94a3b8;">(shown on dashboard)</span></label><input type="text" id="ra-dl-title" value="' + escapeHtml(w.title || '') + '" placeholder="Leave empty for default title"><small>This is the heading users see on the dashboard. Leave blank to use the widget type name.</small></div>' +
           '<div class="ra-st__field"><label>Widget Type</label><select id="ra-dl-type">' + typeOptions + '</select></div>' +
           '<div style="display:flex;gap:12px;">' +
             '<div class="ra-st__field" style="flex:1;"><label>Width</label><select id="ra-dl-width"><option value="full"' + (w.width === 'full' ? ' selected' : '') + '>Full width</option><option value="half"' + (w.width !== 'full' ? ' selected' : '') + '>Half width</option></select></div>' +
@@ -1198,25 +1209,62 @@
             '<div class="ra-st__field" id="ra-dl-matchop-wrap"><label>Condition</label><select id="ra-dl-matchop"><option value="equals"' + (cfg.matchOp === 'equals' ? ' selected' : '') + '>Equals</option><option value="contains"' + (cfg.matchOp === 'contains' ? ' selected' : '') + '>Contains</option><option value="not_empty"' + (cfg.matchOp === 'not_empty' ? ' selected' : '') + '>Not empty</option><option value="greater_than"' + (cfg.matchOp === 'greater_than' ? ' selected' : '') + '>Greater than</option><option value="less_than"' + (cfg.matchOp === 'less_than' ? ' selected' : '') + '>Less than</option></select></div>' +
             '<div class="ra-st__field" id="ra-dl-matchval-wrap"><label>Match Value</label><input type="text" id="ra-dl-matchval" value="' + escapeHtml(cfg.matchValue || '') + '" placeholder="e.g., yes, 100, Dar es Salaam"></div>' +
             '<div class="ra-st__field" id="ra-dl-label-wrap"><label>Display Label</label><input type="text" id="ra-dl-label" value="' + escapeHtml(cfg.label || '') + '" placeholder="e.g., Total Records"></div>' +
+            '<div class="ra-st__field" id="ra-dl-namefield-wrap"><label>Name Field (who submitted)</label><select id="ra-dl-namefield"><option value="">(Auto-detect)</option>' + fieldOptions + '</select><small>Pick the form field that contains the person\'s name. "Auto-detect" checks common fields like collector_name, enumerator_name, etc.</small></div>' +
+            '<div class="ra-st__field" id="ra-dl-sortby-wrap"><label>Sort By</label><select id="ra-dl-sortby"><option value="count"' + (cfg.sortBy === 'count' ? ' selected' : '') + '>Submission count (high to low)</option><option value="count-asc"' + (cfg.sortBy === 'count-asc' ? ' selected' : '') + '>Submission count (low to high)</option><option value="name"' + (cfg.sortBy === 'name' ? ' selected' : '') + '>Name (A-Z)</option><option value="name-desc"' + (cfg.sortBy === 'name-desc' ? ' selected' : '') + '>Name (Z-A)</option></select></div>' +
+            '<div class="ra-st__field" id="ra-dl-groupby-wrap"><label>Group By</label><select id="ra-dl-groupby"><option value="day"' + (cfg.groupBy === 'day' || !cfg.groupBy ? ' selected' : '') + '>Day</option><option value="week"' + (cfg.groupBy === 'week' ? ' selected' : '') + '>Week</option><option value="month"' + (cfg.groupBy === 'month' ? ' selected' : '') + '>Month</option></select></div>' +
+            '<div class="ra-st__field" id="ra-dl-aggregation-wrap"><label>Daily Aggregation</label><select id="ra-dl-aggregation"><option value="average"' + (cfg.aggregation === 'average' || !cfg.aggregation ? ' selected' : '') + '>Average per day</option><option value="sum"' + (cfg.aggregation === 'sum' ? ' selected' : '') + '>Sum per day</option><option value="min"' + (cfg.aggregation === 'min' ? ' selected' : '') + '>Min per day</option><option value="max"' + (cfg.aggregation === 'max' ? ' selected' : '') + '>Max per day</option></select></div>' +
+            '<div class="ra-st__field" id="ra-dl-prefix-wrap"><label>Prefix / Suffix</label><div style="display:flex;gap:8px;"><input type="text" id="ra-dl-prefix" value="' + escapeHtml(cfg.prefix || '') + '" placeholder="e.g., $, TZS" style="flex:1;"><input type="text" id="ra-dl-suffix" value="' + escapeHtml(cfg.suffix || '') + '" placeholder="e.g., km, %" style="flex:1;"></div></div>' +
+            '<div class="ra-st__field" id="ra-dl-colors-wrap">' +
+              '<label>Widget Colors <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>' +
+              '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">' +
+                '<div style="display:flex;align-items:center;gap:4px;">' +
+                  '<span style="font-size:11px;color:#475569;min-width:65px;">Background</span>' +
+                  '<input type="color" id="ra-dl-bgcolor" value="' + escapeHtml(cfg.bgColor || '#ffffff') + '" style="width:28px;height:24px;border:1px solid #d0d5dd;border-radius:3px;padding:0;cursor:pointer;">' +
+                  '<input type="text" id="ra-dl-bgcolor-hex" value="' + escapeHtml(cfg.bgColor || '#ffffff') + '" style="width:75px;padding:3px 6px;font-size:11px;font-family:monospace;border:1px solid #d0d5dd;border-radius:3px;" placeholder="#ffffff">' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:4px;">' +
+                  '<span style="font-size:11px;color:#475569;min-width:30px;">Text</span>' +
+                  '<input type="color" id="ra-dl-textcolor" value="' + escapeHtml(cfg.textColor || '#1e293b') + '" style="width:28px;height:24px;border:1px solid #d0d5dd;border-radius:3px;padding:0;cursor:pointer;">' +
+                  '<input type="text" id="ra-dl-textcolor-hex" value="' + escapeHtml(cfg.textColor || '#1e293b') + '" style="width:75px;padding:3px 6px;font-size:11px;font-family:monospace;border:1px solid #d0d5dd;border-radius:3px;" placeholder="#1e293b">' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:4px;">' +
+                  '<span style="font-size:11px;color:#475569;min-width:42px;">Header</span>' +
+                  '<input type="color" id="ra-dl-headercolor" value="' + escapeHtml(cfg.headerColor || '#1e293b') + '" style="width:28px;height:24px;border:1px solid #d0d5dd;border-radius:3px;padding:0;cursor:pointer;">' +
+                  '<input type="text" id="ra-dl-headercolor-hex" value="' + escapeHtml(cfg.headerColor || '#1e293b') + '" style="width:75px;padding:3px 6px;font-size:11px;font-family:monospace;border:1px solid #d0d5dd;border-radius:3px;" placeholder="#1e293b">' +
+                '</div>' +
+              '</div>' +
+              '<button type="button" id="ra-dl-colors-reset" class="ra-st__btn ra-st__btn--secondary" style="padding:4px 10px;font-size:11px;">Reset</button>' +
+              '<small style="display:block;margin-top:6px;">Pick a color or paste a hex code (e.g. #54a8dc). Click Reset for defaults.</small>' +
+            '</div>' +
             '<div class="ra-st__field" id="ra-dl-richtext-wrap">' +
               '<label>Content</label>' +
               '<div style="border:1px solid #d0d5dd;border-radius:6px;overflow:hidden;">' +
-                '<div id="ra-dl-toolbar" style="display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid #e2e8f0;background:#f8fafc;">' +
+                '<div id="ra-dl-toolbar" style="display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid #e2e8f0;background:#f8fafc;flex-wrap:wrap;">' +
                   '<button type="button" data-cmd="bold" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-weight:700;">B</button>' +
                   '<button type="button" data-cmd="italic" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-style:italic;">I</button>' +
                   '<button type="button" data-cmd="underline" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;text-decoration:underline;">U</button>' +
                   '<span style="width:1px;background:#d0d5dd;margin:0 4px;"></span>' +
-                  '<button type="button" data-cmd="fontSize" data-val="4" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-size:16px;">A</button>' +
-                  '<button type="button" data-cmd="fontSize" data-val="2" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-size:11px;">a</button>' +
+                  '<button type="button" data-cmd="fontSize" data-val="5" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-size:16px;">A</button>' +
+                  '<button type="button" data-cmd="fontSize" data-val="3" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-size:13px;">A</button>' +
+                  '<button type="button" data-cmd="fontSize" data-val="1" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-size:10px;">a</button>' +
+                  '<span style="width:1px;background:#d0d5dd;margin:0 4px;"></span>' +
+                  '<button type="button" data-cmd="justifyLeft" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;" title="Align Left">&#8676;</button>' +
+                  '<button type="button" data-cmd="justifyCenter" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;" title="Align Center">&#8596;</button>' +
+                  '<button type="button" data-cmd="justifyRight" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;" title="Align Right">&#8677;</button>' +
+                  '<span style="width:1px;background:#d0d5dd;margin:0 4px;"></span>' +
+                  '<label style="padding:4px 6px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;display:flex;align-items:center;gap:4px;font-size:11px;" title="Text Color">A<input type="color" data-cmd="foreColor" value="#000000" style="width:16px;height:16px;border:none;padding:0;cursor:pointer;"></label>' +
+                  '<label style="padding:4px 6px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;display:flex;align-items:center;gap:4px;font-size:11px;" title="Highlight Color">&#9608;<input type="color" data-cmd="hiliteColor" value="#ffff00" style="width:16px;height:16px;border:none;padding:0;cursor:pointer;"></label>' +
                   '<span style="width:1px;background:#d0d5dd;margin:0 4px;"></span>' +
                   '<button type="button" data-cmd="insertUnorderedList" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;">&#8226; List</button>' +
+                  '<button type="button" data-cmd="insertOrderedList" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;">1. List</button>' +
                   '<button type="button" data-cmd="createLink" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;">&#128279; Link</button>' +
+                  '<button type="button" data-cmd="removeFormat" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;" title="Clear Formatting">&#10060;</button>' +
                 '</div>' +
                 '<div id="ra-dl-richtext" contenteditable="true" style="min-height:120px;padding:12px;font-size:14px;line-height:1.6;outline:none;">' +
-                  (cfg.html || '<p>Contact the administrator at <b>support@resilienceacademy.ac.tz</b> for any questions.</p>') +
+                  (cfg.html || '<p>Contact the administrator at <b>info@ramaniyangu.com</b> for any questions.</p>') +
                 '</div>' +
               '</div>' +
-              '<small>Format text using the toolbar above. Supports bold, italic, links, and lists.</small>' +
+              '<small>Format text using the toolbar. Supports bold, italic, alignment, text colors, highlight, links, and lists. You can also paste HTML directly.</small>' +
             '</div>' +
           '</div>' +
           '<div style="display:flex;gap:10px;margin-top:20px;">' +
@@ -1229,15 +1277,32 @@
     document.body.appendChild(modal);
     toggleExtraConfig();
 
-    document.getElementById('ra-dl-type').addEventListener('change', toggleExtraConfig);
+    // Set nameField selection if editing
+    var nameFieldEl = document.getElementById('ra-dl-namefield');
+    if (nameFieldEl && cfg.nameField) nameFieldEl.value = cfg.nameField;
+
+    // Update title placeholder to show default based on widget type
+    function updateTitlePlaceholder() {
+      var typeVal = document.getElementById('ra-dl-type').value;
+      var td = null;
+      for (var t = 0; t < WIDGET_TYPES.length; t++) {
+        if (WIDGET_TYPES[t].id === typeVal) { td = WIDGET_TYPES[t]; break; }
+      }
+      var titleInput = document.getElementById('ra-dl-title');
+      if (titleInput) titleInput.placeholder = 'Default: ' + (td ? td.label : typeVal);
+    }
+    updateTitlePlaceholder();
+
+    document.getElementById('ra-dl-type').addEventListener('change', function () { toggleExtraConfig(); updateTitlePlaceholder(); });
     document.getElementById('ra-dl-modal-close').addEventListener('click', function () { modal.remove(); });
     document.getElementById('ra-dl-modal-cancel').addEventListener('click', function () { modal.remove(); });
 
     // Rich text toolbar handlers
     var toolbar = document.getElementById('ra-dl-toolbar');
     if (toolbar) {
+      // Button clicks (bold, italic, align, list, etc.)
       toolbar.addEventListener('click', function (e) {
-        var btn = e.target.closest('[data-cmd]');
+        var btn = e.target.closest('button[data-cmd]');
         if (!btn) return;
         e.preventDefault();
         var cmd = btn.getAttribute('data-cmd');
@@ -1248,6 +1313,46 @@
         }
         document.execCommand(cmd, false, val);
         document.getElementById('ra-dl-richtext').focus();
+      });
+      // Color picker inputs (foreColor, hiliteColor)
+      toolbar.querySelectorAll('input[type="color"]').forEach(function (inp) {
+        inp.addEventListener('input', function () {
+          var cmd = this.getAttribute('data-cmd');
+          document.execCommand(cmd, false, this.value);
+          document.getElementById('ra-dl-richtext').focus();
+        });
+      });
+    }
+    // Sync color pickers ↔ hex text inputs
+    function syncColorPair(colorId, hexId) {
+      var colorEl = document.getElementById(colorId);
+      var hexEl = document.getElementById(hexId);
+      if (!colorEl || !hexEl) return;
+      colorEl.addEventListener('input', function () { hexEl.value = this.value; });
+      hexEl.addEventListener('input', function () {
+        var v = this.value.trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(v)) colorEl.value = v;
+      });
+      hexEl.addEventListener('change', function () {
+        var v = this.value.trim();
+        if (!v.startsWith('#')) v = '#' + v;
+        if (/^#[0-9a-fA-F]{6}$/.test(v)) { this.value = v; colorEl.value = v; }
+      });
+    }
+    syncColorPair('ra-dl-bgcolor', 'ra-dl-bgcolor-hex');
+    syncColorPair('ra-dl-textcolor', 'ra-dl-textcolor-hex');
+    syncColorPair('ra-dl-headercolor', 'ra-dl-headercolor-hex');
+
+    // Widget color reset button
+    var colResetBtn = document.getElementById('ra-dl-colors-reset');
+    if (colResetBtn) {
+      colResetBtn.addEventListener('click', function () {
+        document.getElementById('ra-dl-bgcolor').value = '#ffffff';
+        document.getElementById('ra-dl-bgcolor-hex').value = '#ffffff';
+        document.getElementById('ra-dl-textcolor').value = '#1e293b';
+        document.getElementById('ra-dl-textcolor-hex').value = '#1e293b';
+        document.getElementById('ra-dl-headercolor').value = '#1e293b';
+        document.getElementById('ra-dl-headercolor-hex').value = '#1e293b';
       });
     }
     document.getElementById('ra-dl-modal-save').addEventListener('click', function () {
@@ -1260,10 +1365,34 @@
         config: {}
       };
       var type = newW.type;
+      var needsDays = ['chart', 'field-timeline', 'stat-cards', 'submissions-by-day', 'avg-per-day'];
+      var needsLimit = ['recent-feed', 'field-text-list', 'top-contributors', 'form-table', 'submissions-by-form', 'field-select-bar'];
+      var needsSortBy = ['form-table', 'submissions-by-form', 'field-text-list'];
+      var needsGroupBy = ['chart', 'submissions-period'];
+      var needsAggregation = ['field-timeline'];
+      var needsPrefix = ['single-stat', 'field-number', 'avg-per-day'];
       // Days
-      if (type === 'chart' || type === 'field-timeline') newW.config.days = parseInt(document.getElementById('ra-dl-days').value) || 30;
+      if (needsDays.indexOf(type) !== -1) newW.config.days = parseInt(document.getElementById('ra-dl-days').value) || 30;
       // Limit
-      if (type === 'recent-feed' || type === 'field-text-list') newW.config.limit = parseInt(document.getElementById('ra-dl-limit').value) || 15;
+      if (needsLimit.indexOf(type) !== -1) newW.config.limit = parseInt(document.getElementById('ra-dl-limit').value) || 15;
+      // Sort by
+      if (needsSortBy.indexOf(type) !== -1) newW.config.sortBy = document.getElementById('ra-dl-sortby').value;
+      // Group by
+      if (needsGroupBy.indexOf(type) !== -1) newW.config.groupBy = document.getElementById('ra-dl-groupby').value;
+      // Aggregation
+      if (needsAggregation.indexOf(type) !== -1) newW.config.aggregation = document.getElementById('ra-dl-aggregation').value;
+      // Prefix/Suffix
+      if (needsPrefix.indexOf(type) !== -1) {
+        var px = document.getElementById('ra-dl-prefix').value.trim();
+        var sx = document.getElementById('ra-dl-suffix').value.trim();
+        if (px) newW.config.prefix = px;
+        if (sx) newW.config.suffix = sx;
+      }
+      // Name field (who submitted)
+      if (type === 'top-contributors' || type === 'recent-feed') {
+        var nf = document.getElementById('ra-dl-namefield').value;
+        if (nf) newW.config.nameField = nf;
+      }
       // Field (for all field-based widgets + pie chart)
       if (type === 'pie-chart' || type.indexOf('field-') === 0) newW.config.field = document.getElementById('ra-dl-field').value;
       // Single stat metric
@@ -1283,13 +1412,14 @@
         var rtEl = document.getElementById('ra-dl-richtext');
         if (rtEl) newW.config.html = rtEl.innerHTML;
       }
-      if (!newW.title) {
-        var td = null;
-        for (var tt = 0; tt < WIDGET_TYPES.length; tt++) {
-          if (WIDGET_TYPES[tt].id === type) { td = WIDGET_TYPES[tt]; break; }
-        }
-        newW.title = td ? td.label : type;
-      }
+      // Widget colors (apply to all widget types) — read from hex inputs
+      var bgc = document.getElementById('ra-dl-bgcolor-hex').value.trim() || document.getElementById('ra-dl-bgcolor').value;
+      var txc = document.getElementById('ra-dl-textcolor-hex').value.trim() || document.getElementById('ra-dl-textcolor').value;
+      var hdc = document.getElementById('ra-dl-headercolor-hex').value.trim() || document.getElementById('ra-dl-headercolor').value;
+      if (bgc && bgc !== '#ffffff') newW.config.bgColor = bgc;
+      if (txc && txc !== '#1e293b') newW.config.textColor = txc;
+      if (hdc && hdc !== '#1e293b') newW.config.headerColor = hdc;
+      // Title is optional — leave empty to use default widget type name on dashboard
 
       var dash2 = getCurrentDashboard();
       if (dash2) {
@@ -1323,11 +1453,16 @@
       if (el) el.style.display = visible ? 'block' : 'none';
     };
     var needsField = ['pie-chart', 'field-number', 'field-text-list', 'field-select-bar', 'field-counter', 'field-latest', 'field-timeline'];
-    var needsDays = ['chart', 'field-timeline'];
-    var needsLimit = ['recent-feed', 'field-text-list'];
+    var needsDays = ['chart', 'field-timeline', 'stat-cards', 'submissions-by-day', 'avg-per-day'];
+    var needsLimit = ['recent-feed', 'field-text-list', 'top-contributors', 'form-table', 'submissions-by-form', 'field-select-bar'];
+    var needsNameField = ['top-contributors', 'recent-feed'];
     var needsOperation = ['field-number'];
     var needsMatch = ['field-counter'];
     var needsLabel = ['single-stat', 'field-number', 'field-counter', 'field-latest'];
+    var needsSortBy = ['form-table', 'submissions-by-form', 'field-text-list'];
+    var needsGroupBy = ['chart', 'submissions-period'];
+    var needsAggregation = ['field-timeline'];
+    var needsPrefix = ['single-stat', 'field-number', 'avg-per-day'];
 
     show('ra-dl-field-wrap', needsField.indexOf(type) !== -1);
     show('ra-dl-days-wrap', needsDays.indexOf(type) !== -1);
@@ -1337,7 +1472,134 @@
     show('ra-dl-matchop-wrap', needsMatch.indexOf(type) !== -1);
     show('ra-dl-matchval-wrap', needsMatch.indexOf(type) !== -1);
     show('ra-dl-label-wrap', needsLabel.indexOf(type) !== -1);
+    show('ra-dl-namefield-wrap', needsNameField.indexOf(type) !== -1);
+    show('ra-dl-sortby-wrap', needsSortBy.indexOf(type) !== -1);
+    show('ra-dl-groupby-wrap', needsGroupBy.indexOf(type) !== -1);
+    show('ra-dl-aggregation-wrap', needsAggregation.indexOf(type) !== -1);
+    show('ra-dl-prefix-wrap', needsPrefix.indexOf(type) !== -1);
     show('ra-dl-richtext-wrap', type === 'info-text');
+  }
+
+  // ── Share Modal ──
+  function showShareModal(dashId, dashName) {
+    var old = document.getElementById('ra-share-modal');
+    if (old) old.remove();
+
+    var baseUrl = window.location.origin;
+    var modal = document.createElement('div');
+    modal.id = 'ra-share-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:10px;width:520px;max-width:90vw;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);">' +
+        '<div style="padding:18px 20px;border-bottom:1px solid #e2e8f0;font-size:16px;font-weight:600;color:#1e293b;display:flex;justify-content:space-between;align-items:center;">' +
+          'Share Dashboard: ' + escapeHtml(dashName) +
+          '<button id="ra-share-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:20px;" id="ra-share-body">' +
+          '<div style="text-align:center;padding:20px;color:#94a3b8;">Loading share links...</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+    modal.querySelector('#ra-share-close').addEventListener('click', function () { modal.remove(); });
+    modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+
+    // Load existing shares
+    fetch('/webhook-api/dashboard-shares/' + encodeURIComponent(dashId))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var shares = data.shares || [];
+        renderShareBody(dashId, dashName, shares, baseUrl);
+      })
+      .catch(function () {
+        renderShareBody(dashId, dashName, [], baseUrl);
+      });
+  }
+
+  function renderShareBody(dashId, dashName, shares, baseUrl) {
+    var body = document.getElementById('ra-share-body');
+    if (!body) return;
+
+    var html = '';
+
+    if (shares.length) {
+      shares.forEach(function (s) {
+        var publicUrl = baseUrl + '/dashboard/public/' + s.token;
+        var embedUrl = baseUrl + '/dashboard/embed/' + s.token;
+        var embedCode = '<iframe src="' + embedUrl + '" width="100%" height="600" frameborder="0"></iframe>';
+
+        html += '<div style="margin-bottom:16px;padding:16px;border:1px solid #e2e8f0;border-radius:8px;">' +
+          '<div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">Created: ' + escapeHtml(s.created_at) + '</div>' +
+
+          '<div class="ra-st__field"><label>Public Link</label>' +
+          '<div style="display:flex;gap:6px;">' +
+          '<input type="text" value="' + escapeHtml(publicUrl) + '" readonly style="flex:1;font-size:12px;padding:8px;" onclick="this.select()">' +
+          '<button class="ra-st__btn ra-st__btn--secondary ra-share-copy" data-text="' + escapeHtml(publicUrl) + '" style="padding:8px 12px;font-size:12px;white-space:nowrap;">Copy</button>' +
+          '</div></div>' +
+
+          '<div class="ra-st__field"><label>Embed Code</label>' +
+          '<div style="display:flex;gap:6px;">' +
+          '<input type="text" value="' + escapeHtml(embedCode) + '" readonly style="flex:1;font-size:11px;padding:8px;" onclick="this.select()">' +
+          '<button class="ra-st__btn ra-st__btn--secondary ra-share-copy" data-text="' + escapeHtml(embedCode) + '" style="padding:8px 12px;font-size:12px;white-space:nowrap;">Copy</button>' +
+          '</div></div>' +
+
+          '<button class="ra-st__btn ra-st__btn--secondary ra-share-revoke" data-token="' + escapeHtml(s.token) + '" style="color:#e74c3c;font-size:12px;margin-top:8px;">Revoke Access</button>' +
+        '</div>';
+      });
+    } else {
+      html += '<div style="text-align:center;padding:20px;color:#94a3b8;border:2px dashed #e2e8f0;border-radius:8px;margin-bottom:16px;">' +
+        '<p style="margin:0 0 4px;font-size:14px;">No share links yet</p>' +
+        '<p style="margin:0;font-size:12px;">Generate a link to share this dashboard publicly.</p></div>';
+    }
+
+    html += '<button class="ra-st__btn ra-st__btn--primary" id="ra-share-create" style="width:100%;">Generate Public Link</button>';
+    body.innerHTML = html;
+
+    // Copy handlers
+    body.querySelectorAll('.ra-share-copy').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var text = this.getAttribute('data-text');
+        navigator.clipboard.writeText(text).then(function () {
+          btn.textContent = 'Copied!';
+          setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
+        });
+      });
+    });
+
+    // Revoke handler
+    body.querySelectorAll('.ra-share-revoke').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!confirm('Revoke this share link? Anyone using it will lose access.')) return;
+        var token = this.getAttribute('data-token');
+        fetch('/webhook-api/dashboard-share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dashboard_id: dashId, action: 'revoke', token: token })
+        }).then(function () {
+          // Reload shares
+          fetch('/webhook-api/dashboard-shares/' + encodeURIComponent(dashId))
+            .then(function (r) { return r.json(); })
+            .then(function (data) { renderShareBody(dashId, '', data.shares || [], baseUrl); });
+        });
+      });
+    });
+
+    // Create handler
+    document.getElementById('ra-share-create').addEventListener('click', function () {
+      this.disabled = true;
+      this.textContent = 'Generating...';
+      fetch('/webhook-api/dashboard-share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dashboard_id: dashId, action: 'create' })
+      }).then(function (r) { return r.json(); })
+        .then(function () {
+          // Reload shares
+          fetch('/webhook-api/dashboard-shares/' + encodeURIComponent(dashId))
+            .then(function (r) { return r.json(); })
+            .then(function (data) { renderShareBody(dashId, '', data.shares || [], baseUrl); });
+        });
+    });
   }
 
   function saveLayout() {

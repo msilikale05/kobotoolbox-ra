@@ -18,9 +18,11 @@
           "width": "full"
         },
         {
-          "config": {},
+          "config": {
+            "days": 30
+          },
           "forms": [
-            "__all__"
+            "aYrkiDQ2jdt6ZpftAp8ADd"
           ],
           "id": "w1773663564094",
           "title": "Submissions",
@@ -38,38 +40,47 @@
           "width": "half"
         },
         {
-          "config": {},
+          "config": {
+            "limit": 15,
+            "nameField": "_submission_time"
+          },
           "forms": [
-            "__all__"
+            "aYrkiDQ2jdt6ZpftAp8ADd"
           ],
           "id": "w1773663597665",
-          "title": "Top Contributors",
+          "title": "Top Data Collectors",
           "type": "top-contributors",
           "width": "half"
         },
         {
-          "config": {},
+          "config": {
+            "limit": 15,
+            "sortBy": "count"
+          },
           "forms": [
             "__all__"
           ],
           "id": "w1773663621131",
-          "title": "Submissions by Form",
+          "title": "Form Submissions",
           "type": "submissions-by-form",
           "width": "half"
         },
         {
-          "config": {},
+          "config": {
+            "days": 30
+          },
           "forms": [
             "__all__"
           ],
           "id": "w1773663656440",
-          "title": "Submissions by Day",
+          "title": "Daily Submissions",
           "type": "submissions-by-day",
           "width": "half"
         },
         {
           "config": {
-            "limit": 5
+            "limit": 6,
+            "nameField": "_submitted_by"
           },
           "forms": [
             "__all__"
@@ -85,20 +96,34 @@
             "__all__"
           ],
           "id": "w1773663704021",
-          "title": "Geographic Coverage",
+          "title": "Map Coverage",
           "type": "geo-coverage",
           "width": "half"
         },
         {
+          "config": {
+            "html": "<p>Contact the administrator at <b>info@ramaniyangu.com</b>&nbsp;for any questions.</p>"
+          },
+          "forms": [
+            "__all__"
+          ],
           "id": "w1773665305396",
+          "title": "Contact Information",
           "type": "info-text",
-          "title": "Info / Contact Card",
+          "width": "full"
+        },
+        {
+          "id": "w1773674047588",
+          "type": "info-text",
+          "title": "",
           "width": "full",
           "forms": [
             "__all__"
           ],
           "config": {
-            "html": "<p>Contact the administrator at <b>info@ramaniyangu.com</b>&nbsp;for any questions.</p>"
+            "html": "<p style=\"text-align: center;\"><font size=\"5\"><b>I love you</b></font></p>",
+            "bgColor": "#55a5da",
+            "textColor": "#ffffff"
           }
         }
       ]

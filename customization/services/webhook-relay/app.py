@@ -120,6 +120,19 @@ def format_message(data, form_uid):
     )
 
 
+TEMPLATE_DIR = os.getenv('EMAIL_TEMPLATE_DIR', '/app/templates/submission')
+
+
+def load_template(name):
+    """Load an email template file, return None if not found."""
+    path = os.path.join(TEMPLATE_DIR, name)
+    try:
+        with open(path, 'r') as f:
+            return f.read()
+    except FileNotFoundError:
+        return None
+
+
 def format_email_html(data, form_uid):
     """Format submission data into a styled HTML email with full details."""
     from html import escape
@@ -206,6 +219,8 @@ def format_email_html(data, form_uid):
     form_link = f'{KOBO_URL}/#/forms/{form_uid}/data'
     sub_link = f'{KOBO_URL}/#/forms/{form_uid}/data/table?q=_id:{submission_id}' if submission_id else form_link
 
+    logo_url = f'{KOBO_URL}/custom-static/images/ra-logo.png'
+
     html = f"""<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -214,12 +229,26 @@ def format_email_html(data, form_uid):
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
 
-<!-- Header -->
+<!-- Header with logo -->
 <tr>
-<td style="background:linear-gradient(135deg,#1a2a3a 0%,#54a8dc 100%);padding:24px 30px;">
-  <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:600;">New Submission Received</h1>
-  <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">{escape(form_title)}</p>
+<td style="background:linear-gradient(135deg,#1a2a3a 0%,#2c5f8a 50%,#54a8dc 100%);padding:24px 30px;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="vertical-align:middle;">
+        <h1 style="margin:0;color:#ffffff;font-size:18px;font-weight:600;">New Submission Received</h1>
+        <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">{escape(form_title)}</p>
+      </td>
+      <td width="100" style="vertical-align:middle;text-align:right;">
+        <img src="{logo_url}" alt="Ramani Yangu" width="90" style="display:block;margin-left:auto;" />
+      </td>
+    </tr>
+  </table>
 </td>
+</tr>
+
+<!-- Accent bar -->
+<tr>
+<td style="height:4px;background:linear-gradient(90deg,#54a8dc 0%,#1a2a3a 100%);"></td>
 </tr>
 
 <!-- Summary info cards -->
@@ -280,19 +309,46 @@ def format_email_html(data, form_uid):
 <!-- Action buttons -->
 <tr>
 <td style="padding:0 30px 24px;" align="center">
-  <a href="{sub_link}" style="display:inline-block;padding:12px 24px;background:#54a8dc;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;margin-right:8px;">View Submission</a>
-  <a href="{form_link}" style="display:inline-block;padding:12px 24px;background:#e2e8f0;color:#475569;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">All Data</a>
+  <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+    <tr>
+      <td style="padding-right:8px;">
+        <a href="{sub_link}" style="display:inline-block;padding:12px 28px;background:#54a8dc;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">View Submission</a>
+      </td>
+      <td>
+        <a href="{form_link}" style="display:inline-block;padding:12px 28px;background:#1a2a3a;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">All Data</a>
+      </td>
+    </tr>
+  </table>
 </td>
 </tr>
 
 <!-- Footer -->
 <tr>
-<td style="background:#f8fafc;padding:16px 30px;border-top:1px solid #e2e8f0;">
-  <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
-    Resilience Academy | Ramani Yangu Data Collection Platform<br>
-    <a href="{KOBO_URL}" style="color:#54a8dc;text-decoration:none;">{KOBO_URL}</a>
-  </p>
+<td style="background:#1a2a3a;padding:24px 30px;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="vertical-align:middle;">
+        <img src="{logo_url}" alt="Ramani Yangu" width="70" style="display:block;opacity:0.9;" />
+      </td>
+      <td style="vertical-align:middle;text-align:right;">
+        <p style="margin:0;color:rgba(255,255,255,0.7);font-size:12px;line-height:1.6;">
+          Resilience Academy | Ramani Yangu<br>
+          Data Collection Platform
+        </p>
+        <p style="margin:6px 0 0;">
+          <a href="{KOBO_URL}" style="color:#54a8dc;text-decoration:none;font-size:12px;">{KOBO_URL}</a>
+          &nbsp;&middot;&nbsp;
+          <a href="mailto:info@ramaniyangu.com" style="color:#54a8dc;text-decoration:none;font-size:12px;">info@ramaniyangu.com</a>
+        </p>
+      </td>
+    </tr>
+  </table>
 </td>
+</tr>
+
+<!-- Bottom accent -->
+<tr>
+<td style="height:4px;background:linear-gradient(90deg,#54a8dc 0%,#1a2a3a 100%);"></td>
 </tr>
 
 </table>
@@ -540,6 +596,176 @@ def get_user_dashboard(username):
         return jsonify({'username': username, 'dashboard': dashboard_id})
     else:
         return jsonify({'username': username, 'dashboard': None})
+
+
+# ── Public Dashboard Sharing ──
+import secrets
+import time
+import requests as http_requests
+
+KPI_URL = os.getenv('KPI_INTERNAL_URL', 'http://kpi:8000')
+SERVICE_TOKEN = None
+_public_cache = {}  # token -> {data, timestamp}
+CACHE_TTL = 30  # seconds
+
+
+def get_service_token():
+    """Read the service token for KPI API access."""
+    global SERVICE_TOKEN
+    if SERVICE_TOKEN:
+        return SERVICE_TOKEN
+    # Try environment variable first
+    SERVICE_TOKEN = os.getenv('KOBO_SERVICE_TOKEN', '')
+    if SERVICE_TOKEN:
+        return SERVICE_TOKEN
+    # Try file
+    for path in ['/app/.formlist-token', '/srv/custom-static/.formlist-token']:
+        try:
+            with open(path, 'r') as f:
+                SERVICE_TOKEN = f.read().strip()
+                if SERVICE_TOKEN:
+                    return SERVICE_TOKEN
+        except FileNotFoundError:
+            pass
+    return ''
+
+
+@app.route('/api/dashboard-share', methods=['POST'])
+def manage_share():
+    """Create or revoke a share token for a dashboard."""
+    try:
+        data = request.get_json(force=True)
+        dashboard_id = data.get('dashboard_id', '').strip()
+        action = data.get('action', 'create')
+
+        if not dashboard_id:
+            return jsonify({'error': 'dashboard_id required'}), 400
+
+        config = read_dashboard_config()
+        if 'shares' not in config:
+            config['shares'] = {}
+
+        if action == 'create':
+            token = secrets.token_hex(16)
+            config['shares'][token] = {
+                'dashboard_id': dashboard_id,
+                'created_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                'active': True
+            }
+            write_dashboard_config(config)
+            return jsonify({'token': token, 'status': 'created'})
+
+        elif action == 'revoke':
+            token = data.get('token', '').strip()
+            if token in config.get('shares', {}):
+                del config['shares'][token]
+                write_dashboard_config(config)
+                return jsonify({'status': 'revoked'})
+            return jsonify({'error': 'Token not found'}), 404
+
+        return jsonify({'error': 'Invalid action'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/dashboard-shares/<dashboard_id>', methods=['GET'])
+def list_shares(dashboard_id):
+    """List active share tokens for a dashboard."""
+    config = read_dashboard_config()
+    shares = []
+    for token, info in config.get('shares', {}).items():
+        if info.get('dashboard_id') == dashboard_id and info.get('active', True):
+            shares.append({
+                'token': token,
+                'created_at': info.get('created_at', ''),
+            })
+    return jsonify({'shares': shares})
+
+
+@app.route('/api/dashboard-public/<token>', methods=['GET'])
+def get_public_dashboard(token):
+    """Serve dashboard data for a public/embed share token."""
+    # Validate token
+    if not re.match(r'^[a-f0-9]{32}$', token):
+        return jsonify({'error': 'Invalid token'}), 400
+
+    config = read_dashboard_config()
+    share = config.get('shares', {}).get(token)
+    if not share or not share.get('active', True):
+        return jsonify({'error': 'Share not found or revoked'}), 404
+
+    dashboard_id = share['dashboard_id']
+    dashboard = config.get('dashboards', {}).get(dashboard_id)
+    if not dashboard:
+        return jsonify({'error': 'Dashboard not found'}), 404
+
+    # Check cache
+    cached = _public_cache.get(token)
+    if cached and (time.time() - cached['timestamp']) < CACHE_TTL:
+        return jsonify(cached['data'])
+
+    # Fetch data from KPI
+    svc_token = get_service_token()
+    if not svc_token:
+        return jsonify({'error': 'Service token not configured'}), 500
+
+    headers = {'Authorization': f'Token {svc_token}', 'Accept': 'application/json'}
+
+    try:
+        # Fetch forms
+        forms_resp = http_requests.get(
+            f'{KPI_URL}/api/v2/assets/',
+            params={
+                'asset_type': 'survey',
+                'fields': '["uid","name","deployment_status","deployment__submission_count"]',
+                'limit': 200
+            },
+            headers=headers, timeout=15
+        )
+        forms_data = forms_resp.json() if forms_resp.ok else {'results': []}
+        forms = [f for f in forms_data.get('results', []) if f.get('deployment_status') == 'deployed']
+
+        # Determine which forms the dashboard needs
+        widget_uids = set()
+        for w in dashboard.get('widgets', []):
+            form_refs = w.get('forms', ['__all__'])
+            if '__all__' in form_refs:
+                widget_uids = {f['uid'] for f in forms}
+                break
+            widget_uids.update(form_refs)
+
+        # Fetch submissions per form (limit to keep response fast)
+        submissions = {}
+        for uid in widget_uids:
+            try:
+                sub_resp = http_requests.get(
+                    f'{KPI_URL}/api/v2/assets/{uid}/data/',
+                    params={'limit': 1000, 'sort': '{"_submission_time":-1}'},
+                    headers=headers, timeout=15
+                )
+                if sub_resp.ok:
+                    sub_data = sub_resp.json()
+                    submissions[uid] = sub_data.get('results', [])
+            except Exception:
+                submissions[uid] = []
+
+        result = {
+            'dashboard': {
+                'name': dashboard.get('name', dashboard_id),
+                'widgets': dashboard.get('widgets', [])
+            },
+            'forms': forms,
+            'submissions': submissions
+        }
+
+        # Cache it
+        _public_cache[token] = {'data': result, 'timestamp': time.time()}
+
+        return jsonify(result)
+
+    except Exception as e:
+        log.error(f"Failed to fetch public dashboard data: {e}")
+        return jsonify({'error': 'Failed to fetch data'}), 500
 
 
 if __name__ == '__main__':

@@ -1,0 +1,19 @@
+Resilience Academy | Ramani Yangu
+==================================
+New Submission Received
+
+Form: {form_title}
+Submitted by: {submitted_by}
+Time: {submission_time}
+Submission ID: #{submission_id}
+
+Data:
+{field_summary}
+
+View submission: {sub_link}
+View all data: {form_link}
+
+--
+Resilience Academy | Ramani Yangu Data Collection Platform
+{KOBO_URL}
+Contact: info@ramaniyangu.com

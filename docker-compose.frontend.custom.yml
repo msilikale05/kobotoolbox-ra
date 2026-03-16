@@ -74,6 +74,7 @@ services:
     volumes:
       - ../basic-kobotoolbox/customization/services/webhook-relay/config.env:/app/config.env:ro
       - ../basic-kobotoolbox/customization/static/config:/app/config
+      - ../basic-kobotoolbox/customization/email-templates/submission:/app/templates/submission:ro
     networks:
       kobo-fe-network:
     restart: unless-stopped

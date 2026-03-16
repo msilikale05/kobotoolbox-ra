@@ -74,6 +74,35 @@
     '.ra-do__header img { height: 32px; width: auto; }',
     '.ra-do__header h1 { font-size: 18px; font-weight: 600; margin: 0; }',
     '.ra-do__header-right { display: flex; align-items: center; gap: 16px; font-size: 13px; }',
+    '.ra-do__username { cursor: pointer; position: relative; color: #fff; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }',
+    '.ra-do__username:hover { color: #7dc0e8; }',
+    '.ra-do__user-dropdown { position: absolute; top: 100%; right: 0; margin-top: 8px; background: #fff; border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.25); min-width: 200px; z-index: 9999; padding: 6px 0; display: none; }',
+    '.ra-do__user-dropdown--open { display: block; }',
+    '.ra-do__user-dropdown-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; font-size: 13px; color: #333; cursor: pointer; border: none; background: none; width: 100%; text-align: left; }',
+    '.ra-do__user-dropdown-item:hover { background: #f5f7fa; }',
+    '.ra-do__user-dropdown-item svg { width: 16px; height: 16px; fill: #666; flex-shrink: 0; }',
+
+    /* Profile edit popup */
+    '.ra-do__popup-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 99999; display: flex; align-items: center; justify-content: center; }',
+    '.ra-do__popup { background: #fff; border-radius: 12px; width: 440px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,0.3); }',
+    '.ra-do__popup-header { padding: 16px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }',
+    '.ra-do__popup-header h3 { margin: 0; font-size: 16px; color: #1a2a3a; }',
+    '.ra-do__popup-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #999; padding: 4px 8px; }',
+    '.ra-do__popup-close:hover { color: #333; }',
+    '.ra-do__popup-body { padding: 16px 20px; overflow-y: auto; flex: 1; }',
+    '.ra-do__popup-field { margin-bottom: 14px; }',
+    '.ra-do__popup-field label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; }',
+    '.ra-do__popup-field input, .ra-do__popup-field textarea { width: 100%; padding: 8px 10px; font-size: 13px; border: 1px solid #d0d5dd; border-radius: 6px; box-sizing: border-box; font-family: inherit; }',
+    '.ra-do__popup-field textarea { resize: vertical; min-height: 60px; }',
+    '.ra-do__popup-field input:focus, .ra-do__popup-field textarea:focus { border-color: #54a8dc; outline: none; }',
+    '.ra-do__popup-footer { padding: 12px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 8px; }',
+    '.ra-do__popup-btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; border: 1px solid #d0d5dd; background: #fff; color: #333; }',
+    '.ra-do__popup-btn:hover { background: #f5f7fa; }',
+    '.ra-do__popup-btn--primary { background: #54a8dc; color: #fff; border-color: #54a8dc; }',
+    '.ra-do__popup-btn--primary:hover { background: #3d8abf; }',
+    '.ra-do__popup-status { padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-top: 8px; display: none; }',
+    '.ra-do__popup-status--ok { display: block; background: #e8f5e9; color: #2e7d32; }',
+    '.ra-do__popup-status--err { display: block; background: #fbe9e7; color: #c62828; }',
     '.ra-do__logout {',
     '  background: rgba(255,255,255,0.2); color: #fff; border: none;',
     '  padding: 7px 16px; border-radius: 5px; font-size: 13px; cursor: pointer;',
@@ -148,6 +177,48 @@
     if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
     if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
     return new Date(ds).toLocaleDateString();
+  }
+
+  // Common form field names that hold the submitter/collector name
+  var NAME_FIELD_PATTERNS = [
+    'collector_name', 'enumerator_name', 'enumerator', 'collector',
+    'surveyor_name', 'surveyor', 'interviewer_name', 'interviewer',
+    'recorder_name', 'recorder', 'agent_name', 'agent',
+    'field_officer', 'data_collector', 'respondent_name', 'your_name'
+  ];
+
+  function getSubmitter(s, nameField) {
+    // 1. If explicit nameField is configured, use it first
+    if (nameField) {
+      var keys = Object.keys(s);
+      for (var j = 0; j < keys.length; j++) {
+        var k = keys[j];
+        if (k === nameField || k.indexOf('/' + nameField) === k.length - nameField.length - 1) {
+          var v = s[k];
+          if (v && String(v).trim()) return String(v).trim();
+        }
+      }
+    }
+
+    // 2. Check _submitted_by (KoboToolbox system field)
+    var user = s._submitted_by;
+    if (user && user !== '' && user !== 'AnonymousUser') return user;
+
+    // 3. Auto-detect common name fields in the submission data
+    var allKeys = Object.keys(s);
+    for (var i = 0; i < NAME_FIELD_PATTERNS.length; i++) {
+      var pattern = NAME_FIELD_PATTERNS[i];
+      for (var jj = 0; jj < allKeys.length; jj++) {
+        var kk = allKeys[jj];
+        if (kk === pattern || kk.indexOf('/' + pattern) === kk.length - pattern.length - 1) {
+          var val = s[kk];
+          if (val && String(val).trim()) return String(val).trim();
+        }
+      }
+    }
+
+    // 4. Fallback
+    return 'Unknown';
   }
 
   function fetchJSON(url) {
@@ -230,7 +301,16 @@
           '<h1>' + esc(dashName) + '</h1>' +
         '</div>' +
         '<div class="ra-do__header-right">' +
-          '<span>Welcome, <strong>' + esc(currentUser ? currentUser.username : '') + '</strong></span>' +
+          '<span>Welcome, <strong class="ra-do__username" id="ra-do-username">' + esc(currentUser ? currentUser.username : '') +
+            '<div class="ra-do__user-dropdown" id="ra-do-user-dropdown">' +
+              '<button class="ra-do__user-dropdown-item" data-action="edit-profile">' +
+                '<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>' +
+                'Edit Profile</button>' +
+              '<button class="ra-do__user-dropdown-item" data-action="change-password">' +
+                '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>' +
+                'Change Password</button>' +
+            '</div>' +
+          '</strong></span>' +
           '<button class="ra-do__logout" id="ra-do-logout-btn">Logout</button>' +
         '</div>' +
       '</div>' +
@@ -259,6 +339,117 @@
       form.appendChild(inp);
       document.body.appendChild(form);
       form.submit();
+    });
+
+    // Username dropdown toggle
+    var usernameEl = document.getElementById('ra-do-username');
+    var userDropdown = document.getElementById('ra-do-user-dropdown');
+    if (usernameEl && userDropdown) {
+      usernameEl.addEventListener('click', function (e) {
+        e.stopPropagation();
+        userDropdown.classList.toggle('ra-do__user-dropdown--open');
+      });
+      document.addEventListener('click', function () {
+        userDropdown.classList.remove('ra-do__user-dropdown--open');
+      });
+      userDropdown.addEventListener('click', function (e) {
+        var item = e.target.closest('[data-action]');
+        if (!item) return;
+        e.stopPropagation();
+        userDropdown.classList.remove('ra-do__user-dropdown--open');
+        var act = item.getAttribute('data-action');
+        if (act === 'edit-profile') openDashEditProfile();
+        else if (act === 'change-password') openDashChangePassword();
+      });
+    }
+  }
+
+  function getCsrf() {
+    var c = document.cookie.split(';').find(function (s) { return s.trim().indexOf('csrftoken=') === 0; });
+    return c ? c.trim().substring(10) : '';
+  }
+
+  function openDashEditProfile() {
+    fetchJSON('/me/').then(function (user) {
+      if (!user) return;
+      var extra = user.extra_details || {};
+      var overlay = document.createElement('div');
+      overlay.className = 'ra-do__popup-overlay';
+      overlay.innerHTML =
+        '<div class="ra-do__popup">' +
+          '<div class="ra-do__popup-header"><h3>Edit Profile</h3><button class="ra-do__popup-close">&times;</button></div>' +
+          '<div class="ra-do__popup-body">' +
+            '<div class="ra-do__popup-field"><label>Full Name</label><input type="text" id="ra-do-pf-name" value="' + esc(extra.name || '') + '" placeholder="Your full name"></div>' +
+            '<div class="ra-do__popup-field"><label>Organization</label><input type="text" id="ra-do-pf-org" value="' + esc(extra.organization || '') + '" placeholder="Your organization"></div>' +
+            '<div class="ra-do__popup-field"><label>Bio</label><textarea id="ra-do-pf-bio" placeholder="About you...">' + esc(extra.bio || '') + '</textarea></div>' +
+            '<div class="ra-do__popup-field"><label>City</label><input type="text" id="ra-do-pf-city" value="' + esc(extra.city || '') + '"></div>' +
+            '<div class="ra-do__popup-field"><label>Country</label><input type="text" id="ra-do-pf-country" value="' + esc(extra.country || '') + '"></div>' +
+            '<div class="ra-do__popup-status" id="ra-do-pf-status"></div>' +
+          '</div>' +
+          '<div class="ra-do__popup-footer"><button class="ra-do__popup-btn" id="ra-do-pf-cancel">Cancel</button><button class="ra-do__popup-btn ra-do__popup-btn--primary" id="ra-do-pf-save">Save</button></div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      overlay.querySelector('.ra-do__popup-close').addEventListener('click', function () { overlay.remove(); });
+      overlay.querySelector('#ra-do-pf-cancel').addEventListener('click', function () { overlay.remove(); });
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+      overlay.querySelector('#ra-do-pf-save').addEventListener('click', function () {
+        var statusEl = overlay.querySelector('#ra-do-pf-status');
+        fetch('/me/', {
+          method: 'PATCH', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+          body: JSON.stringify({ extra_details: {
+            name: overlay.querySelector('#ra-do-pf-name').value.trim(),
+            organization: overlay.querySelector('#ra-do-pf-org').value.trim(),
+            bio: overlay.querySelector('#ra-do-pf-bio').value.trim(),
+            city: overlay.querySelector('#ra-do-pf-city').value.trim(),
+            country: overlay.querySelector('#ra-do-pf-country').value.trim()
+          }})
+        }).then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          statusEl.className = 'ra-do__popup-status ra-do__popup-status--ok';
+          statusEl.textContent = 'Profile updated!';
+          setTimeout(function () { overlay.remove(); }, 1200);
+        }).catch(function (err) {
+          statusEl.className = 'ra-do__popup-status ra-do__popup-status--err';
+          statusEl.textContent = 'Failed: ' + err.message;
+        });
+      });
+    });
+  }
+
+  function openDashChangePassword() {
+    var overlay = document.createElement('div');
+    overlay.className = 'ra-do__popup-overlay';
+    overlay.innerHTML =
+      '<div class="ra-do__popup">' +
+        '<div class="ra-do__popup-header"><h3>Change Password</h3><button class="ra-do__popup-close">&times;</button></div>' +
+        '<div class="ra-do__popup-body">' +
+          '<div class="ra-do__popup-field"><label>Current Password</label><input type="password" id="ra-do-pw-old"></div>' +
+          '<div class="ra-do__popup-field"><label>New Password</label><input type="password" id="ra-do-pw-new1"></div>' +
+          '<div class="ra-do__popup-field"><label>Confirm New Password</label><input type="password" id="ra-do-pw-new2"></div>' +
+          '<div class="ra-do__popup-status" id="ra-do-pw-status"></div>' +
+        '</div>' +
+        '<div class="ra-do__popup-footer"><button class="ra-do__popup-btn" id="ra-do-pw-cancel">Cancel</button><button class="ra-do__popup-btn ra-do__popup-btn--primary" id="ra-do-pw-save">Update Password</button></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    overlay.querySelector('.ra-do__popup-close').addEventListener('click', function () { overlay.remove(); });
+    overlay.querySelector('#ra-do-pw-cancel').addEventListener('click', function () { overlay.remove(); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('#ra-do-pw-save').addEventListener('click', function () {
+      var statusEl = overlay.querySelector('#ra-do-pw-status');
+      var oldPw = overlay.querySelector('#ra-do-pw-old').value;
+      var newPw1 = overlay.querySelector('#ra-do-pw-new1').value;
+      var newPw2 = overlay.querySelector('#ra-do-pw-new2').value;
+      if (!oldPw || !newPw1 || !newPw2) { statusEl.className = 'ra-do__popup-status ra-do__popup-status--err'; statusEl.textContent = 'All fields are required.'; return; }
+      if (newPw1 !== newPw2) { statusEl.className = 'ra-do__popup-status ra-do__popup-status--err'; statusEl.textContent = 'Passwords do not match.'; return; }
+      if (newPw1.length < 8) { statusEl.className = 'ra-do__popup-status ra-do__popup-status--err'; statusEl.textContent = 'Minimum 8 characters.'; return; }
+      var fd = new FormData();
+      fd.append('oldpassword', oldPw); fd.append('password1', newPw1); fd.append('password2', newPw2);
+      fetch('/accounts/password/change/', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': getCsrf() }, body: fd })
+      .then(function (r) {
+        if (r.ok || r.status === 302) { statusEl.className = 'ra-do__popup-status ra-do__popup-status--ok'; statusEl.textContent = 'Password changed!'; setTimeout(function () { overlay.remove(); }, 1200); }
+        else { return r.text().then(function (t) { if (t.indexOf('current password') !== -1) throw new Error('Current password is incorrect.'); throw new Error('Failed to change password.'); }); }
+      }).catch(function (err) { statusEl.className = 'ra-do__popup-status ra-do__popup-status--err'; statusEl.textContent = err.message; });
     });
   }
 
@@ -318,11 +509,28 @@
     var grid = document.getElementById('ra-do-grid');
     if (!grid) return;
 
+    var WIDGET_LABELS = {
+      'stat-cards': 'Overview', 'chart': 'Submissions Chart', 'form-table': 'Form Table',
+      'recent-feed': 'Recent Submissions', 'pie-chart': 'Pie Chart', 'single-stat': 'Single Stat',
+      'field-number': 'Field Number', 'field-text-list': 'Field Text List',
+      'field-select-bar': 'Select Bar Chart', 'field-counter': 'Field Counter',
+      'field-latest': 'Latest Value', 'field-timeline': 'Field Timeline',
+      'submissions-by-form': 'Submissions by Form', 'top-contributors': 'Top Contributors',
+      'submissions-by-day': 'Submissions by Day', 'avg-per-day': 'Average Per Day',
+      'submissions-period': 'Submissions by Period', 'geo-coverage': 'Geographic Coverage',
+      'form-status': 'Form Status', 'info-text': 'Info Text'
+    };
+
     grid.innerHTML = widgets.map(function (w) {
       var cls = w.width === 'full' ? ' ra-do__widget--full' : '';
-      return '<div class="ra-do__widget' + cls + '" data-wid="' + esc(w.id) + '">' +
-        '<div class="ra-do__widget-header">' + esc(w.title || w.type) + '</div>' +
-        '<div class="ra-do__widget-body" id="ra-do-wb-' + esc(w.id) + '"></div>' +
+      var displayTitle = w.title || WIDGET_LABELS[w.type] || w.type;
+      var cfg = w.config || {};
+      var wStyle = cfg.bgColor ? 'background-color:' + cfg.bgColor + ';' : '';
+      var bodyStyle = cfg.textColor ? 'color:' + cfg.textColor + ';' : '';
+      var headerStyle = cfg.headerColor ? 'color:' + cfg.headerColor + ';' : '';
+      return '<div class="ra-do__widget' + cls + '" data-wid="' + esc(w.id) + '"' + (wStyle ? ' style="' + wStyle + '"' : '') + '>' +
+        '<div class="ra-do__widget-header"' + (headerStyle ? ' style="' + headerStyle + '"' : '') + '>' + esc(displayTitle) + '</div>' +
+        '<div class="ra-do__widget-body" id="ra-do-wb-' + esc(w.id) + '"' + (bodyStyle ? ' style="' + bodyStyle + '"' : '') + '></div>' +
       '</div>';
     }).join('');
 
@@ -390,6 +598,8 @@
 
   // ── Widget: Stat Cards ──
   function renderStatCards(el, w, subs) {
+    var cfg = w.config || {};
+    var days = cfg.days || 7;
     var totalForms = formsCache.length;
     var totalSubs = 0;
     formsCache.forEach(function (f) { totalSubs += (f.deployment__submission_count || 0); });
@@ -398,17 +608,17 @@
     today.setHours(0, 0, 0, 0);
     var todayCount = subs.filter(function (s) { return new Date(s._submission_time) >= today; }).length;
 
-    var weekAgo = new Date(Date.now() - 7 * 86400000);
+    var cutoff = new Date(Date.now() - days * 86400000);
     var contributors = {};
     subs.forEach(function (s) {
-      if (new Date(s._submission_time) >= weekAgo) contributors[s._submitted_by || 'anon'] = true;
+      if (new Date(s._submission_time) >= cutoff) contributors[getSubmitter(s)] = true;
     });
 
     el.innerHTML = '<div class="ra-do__stats">' +
       stat(totalForms, 'Active Forms') +
       stat(totalSubs, 'Total Submissions') +
       stat(todayCount, 'Today') +
-      stat(Object.keys(contributors).length, 'Contributors (7d)') +
+      stat(Object.keys(contributors).length, 'Contributors (' + days + 'd)') +
     '</div>';
   }
 
@@ -459,7 +669,15 @@
 
   // ── Widget: Form Table ──
   function renderFormTable(el, w) {
-    var forms = formsCache.slice().sort(function (a, b) { return (b.deployment__submission_count || 0) - (a.deployment__submission_count || 0); });
+    var cfg = w.config || {};
+    var sortBy = cfg.sortBy || 'count';
+    var limit = cfg.limit || 50;
+    var forms = formsCache.slice();
+    if (sortBy === 'name') forms.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    else if (sortBy === 'name-desc') forms.sort(function (a, b) { return b.name.localeCompare(a.name); });
+    else if (sortBy === 'count-asc') forms.sort(function (a, b) { return (a.deployment__submission_count || 0) - (b.deployment__submission_count || 0); });
+    else forms.sort(function (a, b) { return (b.deployment__submission_count || 0) - (a.deployment__submission_count || 0); });
+    forms = forms.slice(0, limit);
     if (!forms.length) { el.innerHTML = '<p style="color:#94a3b8;">No forms</p>'; return; }
     var rows = forms.map(function (f) {
       return '<tr><td style="font-weight:600;">' + esc(f.name) + '</td><td style="text-align:right;font-weight:600;">' + (f.deployment__submission_count || 0) + '</td></tr>';
@@ -471,10 +689,11 @@
   function renderRecentFeed(el, w, subs) {
     var cfg = w.config || {};
     var limit = cfg.limit || 15;
+    var nameField = cfg.nameField || '';
     var items = subs.slice(0, limit);
     if (!items.length) { el.innerHTML = '<p style="color:#94a3b8;">No recent submissions</p>'; return; }
     el.innerHTML = items.map(function (s) {
-      var user = s._submitted_by || 'anonymous';
+      var user = getSubmitter(s, nameField);
       return '<div class="ra-do__feed-item">' +
         '<div class="ra-do__feed-avatar">' + user.charAt(0).toUpperCase() + '</div>' +
         '<div class="ra-do__feed-info"><span class="ra-do__feed-user">' + esc(user) + '</span> <span class="ra-do__feed-form">' + esc(s._form_name || '') + '</span></div>' +
@@ -546,12 +765,13 @@
       value = subs.filter(function (s) { return new Date(s._submission_time) >= today; }).length;
     } else if (metric === 'contributors') {
       var c = {};
-      subs.forEach(function (s) { c[s._submitted_by || 'anon'] = true; });
+      subs.forEach(function (s) { c[getSubmitter(s)] = true; });
       value = Object.keys(c).length;
     }
 
+    var display = (cfg.prefix || '') + value + (cfg.suffix || '');
     el.innerHTML = '<div style="text-align:center;padding:20px;">' +
-      '<div style="font-size:48px;font-weight:700;color:#1e293b;">' + value + '</div>' +
+      '<div style="font-size:48px;font-weight:700;color:#1e293b;">' + esc(display) + '</div>' +
       '<div style="font-size:13px;color:#64748b;margin-top:4px;">' + esc(cfg.label || metric) + '</div>' +
     '</div>';
   }
@@ -605,8 +825,9 @@
 
     var displayVal = (typeof value === 'number' && value % 1 !== 0) ? value.toLocaleString(undefined, {maximumFractionDigits: 2}) : value.toLocaleString();
 
+    var displayStr = (cfg.prefix || '') + displayVal + (cfg.suffix || '');
     el.innerHTML = '<div style="text-align:center;padding:20px;">' +
-      '<div style="font-size:42px;font-weight:700;color:#1e293b;">' + displayVal + '</div>' +
+      '<div style="font-size:42px;font-weight:700;color:#1e293b;">' + esc(displayStr) + '</div>' +
       '<div style="font-size:13px;color:#64748b;margin-top:6px;">' + esc(cfg.label || (op + ' of ' + field)) + '</div>' +
       '<div style="font-size:11px;color:#94a3b8;margin-top:2px;">' + vals.length + ' values from ' + subs.length + ' submissions</div>' +
     '</div>';
@@ -627,8 +848,12 @@
       }
     });
 
+    var sortBy = cfg.sortBy || 'count';
     var entries = Object.keys(counts).map(function (k) { return { label: k, count: counts[k] }; });
-    entries.sort(function (a, b) { return b.count - a.count; });
+    if (sortBy === 'name') entries.sort(function (a, b) { return a.label.localeCompare(b.label); });
+    else if (sortBy === 'name-desc') entries.sort(function (a, b) { return b.label.localeCompare(a.label); });
+    else if (sortBy === 'count-asc') entries.sort(function (a, b) { return a.count - b.count; });
+    else entries.sort(function (a, b) { return b.count - a.count; });
     entries = entries.slice(0, limit);
 
     if (!entries.length) { el.innerHTML = '<p style="color:#94a3b8;text-align:center;">No data for field "' + esc(field) + '"</p>'; return; }
@@ -666,7 +891,8 @@
 
     var entries = Object.keys(counts).map(function (k) { return { label: k, count: counts[k] }; });
     entries.sort(function (a, b) { return b.count - a.count; });
-    if (entries.length > 12) entries = entries.slice(0, 12);
+    var maxItems = cfg.limit || 12;
+    if (entries.length > maxItems) entries = entries.slice(0, maxItems);
 
     if (!entries.length) { el.innerHTML = '<p style="color:#94a3b8;text-align:center;">No data</p>'; return; }
 
@@ -734,7 +960,7 @@
       if (v !== undefined && v !== null && v !== '') {
         latestVal = String(v);
         latestTime = subs[i]._submission_time || '';
-        latestBy = subs[i]._submitted_by || 'anonymous';
+        latestBy = getSubmitter(subs[i]);
         break;
       }
     }
@@ -760,7 +986,7 @@
     for (var i = days - 1; i >= 0; i--) {
       var d = new Date(Date.now() - i * 86400000);
       var key = d.toISOString().split('T')[0];
-      buckets[key] = { sum: 0, count: 0 };
+      buckets[key] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
       labels.push(key);
     }
 
@@ -771,12 +997,19 @@
       if (buckets[key] && !isNaN(v)) {
         buckets[key].sum += v;
         buckets[key].count++;
+        if (v < buckets[key].min) buckets[key].min = v;
+        if (v > buckets[key].max) buckets[key].max = v;
       }
     });
 
+    var agg = cfg.aggregation || 'average';
     var values = labels.map(function (l) {
       var b = buckets[l];
-      return b.count ? Math.round(b.sum / b.count * 100) / 100 : null;
+      if (!b.count) return null;
+      if (agg === 'sum') return Math.round(b.sum * 100) / 100;
+      if (agg === 'min') return b.min;
+      if (agg === 'max') return b.max;
+      return Math.round(b.sum / b.count * 100) / 100;
     });
 
     // Find min/max for scaling
@@ -829,23 +1062,43 @@
   function renderInfoText(el, w) {
     var cfg = w.config || {};
     var html = cfg.html || '<p>No content configured. Edit this widget to add contact information.</p>';
-    el.innerHTML = '<div style="line-height:1.7;font-size:14px;color:#334155;">' + html + '</div>';
+    var textColor = cfg.textColor || '#334155';
+    var bgColor = cfg.bgColor || '';
+    var style = 'line-height:1.7;font-size:14px;color:' + textColor + ';';
+    if (bgColor) style += 'background:' + bgColor + ';padding:16px;border-radius:6px;';
+    el.innerHTML = '<div style="' + style + '">' + html + '</div>';
+    // Apply text color to all child elements that don't have inline color
+    if (cfg.textColor) {
+      el.querySelectorAll('p,div,span,li,td,th,h1,h2,h3,h4,h5,h6,b,strong,i,em,u,small').forEach(function (node) {
+        if (!node.style.color) node.style.color = cfg.textColor;
+      });
+    }
     // Make links open in new tab
+    var linkColor = cfg.textColor ? cfg.textColor : '#54a8dc';
     el.querySelectorAll('a').forEach(function (a) {
       a.target = '_blank';
       a.rel = 'noopener';
-      a.style.color = '#54a8dc';
+      if (!a.style.color) a.style.color = linkColor;
     });
   }
 
   // ── Widget: Submissions by Form (KoboToolbox) ──
   function renderSubmissionsByForm(el, w) {
+    var cfg = w.config || {};
+    var sortBy = cfg.sortBy || 'count';
+    var limit = cfg.limit || 50;
     var html = '';
+    var forms = formsCache.slice();
+    if (sortBy === 'name') forms.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    else if (sortBy === 'name-desc') forms.sort(function (a, b) { return b.name.localeCompare(a.name); });
+    else if (sortBy === 'count-asc') forms.sort(function (a, b) { return (a.deployment__submission_count || 0) - (b.deployment__submission_count || 0); });
+    else forms.sort(function (a, b) { return (b.deployment__submission_count || 0) - (a.deployment__submission_count || 0); });
+    forms = forms.slice(0, limit);
     var maxCount = 0;
-    formsCache.forEach(function (f) { if ((f.deployment__submission_count || 0) > maxCount) maxCount = f.deployment__submission_count; });
+    forms.forEach(function (f) { if ((f.deployment__submission_count || 0) > maxCount) maxCount = f.deployment__submission_count; });
     if (!maxCount) maxCount = 1;
 
-    formsCache.forEach(function (f) {
+    forms.forEach(function (f) {
       var count = f.deployment__submission_count || 0;
       var pct = Math.round((count / maxCount) * 100);
       var status = f.deployment_status === 'deployed' ? '#54a8dc' : '#94a3b8';
@@ -864,9 +1117,10 @@
   function renderTopContributors(el, w, subs) {
     var cfg = w.config || {};
     var limit = cfg.limit || 10;
+    var nameField = cfg.nameField || '';
     var users = {};
     subs.forEach(function (s) {
-      var u = s._submitted_by || 'anonymous';
+      var u = getSubmitter(s, nameField);
       users[u] = (users[u] || 0) + 1;
     });
     var sorted = Object.keys(users).map(function (u) { return { name: u, count: users[u] }; })
@@ -891,17 +1145,21 @@
 
   // ── Widget: Submissions by Day of Week (KoboToolbox) ──
   function renderSubmissionsByDay(el, w, subs) {
-    var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    var cfg = w.config || {};
+    var filterDays = cfg.days || 0; // 0 = all time
+    var cutoff = filterDays ? new Date(Date.now() - filterDays * 86400000) : null;
+    var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     var counts = [0, 0, 0, 0, 0, 0, 0];
     subs.forEach(function (s) {
       if (!s._submission_time) return;
-      var d = new Date(s._submission_time).getDay();
-      counts[d]++;
+      var dt = new Date(s._submission_time);
+      if (cutoff && dt < cutoff) return;
+      counts[dt.getDay()]++;
     });
     var maxC = Math.max.apply(null, counts) || 1;
 
     el.innerHTML = '<div style="display:flex;align-items:flex-end;gap:8px;height:120px;padding-top:10px;">' +
-      days.map(function (day, i) {
+      dayNames.map(function (day, i) {
         var pct = Math.round((counts[i] / maxC) * 100);
         var isHighest = counts[i] === maxC && counts[i] > 0;
         var color = isHighest ? '#54a8dc' : '#cbd5e1';
@@ -916,21 +1174,30 @@
   // ── Widget: Average Per Day (KoboToolbox) ──
   function renderAvgPerDay(el, w, subs) {
     if (!subs.length) { el.innerHTML = '<p style="color:#94a3b8;text-align:center;">No submissions</p>'; return; }
+    var cfg = w.config || {};
+    var filterDays = cfg.days || 0;
+    var cutoff = filterDays ? new Date(Date.now() - filterDays * 86400000) : null;
 
     var dates = {};
     subs.forEach(function (s) {
       if (!s._submission_time) return;
+      if (cutoff && new Date(s._submission_time) < cutoff) return;
       var d = s._submission_time.split('T')[0];
       dates[d] = (dates[d] || 0) + 1;
     });
-    var dayCount = Object.keys(dates).length || 1;
-    var avg = (subs.length / dayCount).toFixed(1);
-    var maxDay = Object.keys(dates).reduce(function (a, b) { return dates[a] > dates[b] ? a : b; }, Object.keys(dates)[0]);
-    var minDay = Object.keys(dates).reduce(function (a, b) { return dates[a] < dates[b] ? a : b; }, Object.keys(dates)[0]);
+    var dayKeys = Object.keys(dates);
+    if (!dayKeys.length) { el.innerHTML = '<p style="color:#94a3b8;text-align:center;">No submissions in period</p>'; return; }
+    var dayCount = dayKeys.length;
+    var totalInPeriod = 0;
+    dayKeys.forEach(function (k) { totalInPeriod += dates[k]; });
+    var avg = (totalInPeriod / dayCount).toFixed(1);
+    var maxDay = dayKeys.reduce(function (a, b) { return dates[a] > dates[b] ? a : b; }, dayKeys[0]);
+    var minDay = dayKeys.reduce(function (a, b) { return dates[a] < dates[b] ? a : b; }, dayKeys[0]);
 
+    var display = (cfg.prefix || '') + avg + (cfg.suffix || '');
     el.innerHTML = '<div style="text-align:center;">' +
-      '<div style="font-size:48px;font-weight:700;color:#54a8dc;">' + avg + '</div>' +
-      '<div style="font-size:13px;color:#64748b;margin-bottom:16px;">submissions per day</div>' +
+      '<div style="font-size:48px;font-weight:700;color:#54a8dc;">' + esc(display) + '</div>' +
+      '<div style="font-size:13px;color:#64748b;margin-bottom:16px;">submissions per day' + (filterDays ? ' (last ' + filterDays + ' days)' : '') + '</div>' +
       '<div style="display:flex;justify-content:center;gap:24px;font-size:12px;color:#94a3b8;">' +
         '<div>Peak: <strong style="color:#29292a;">' + dates[maxDay] + '</strong> on ' + maxDay + '</div>' +
         '<div>Lowest: <strong style="color:#29292a;">' + dates[minDay] + '</strong> on ' + minDay + '</div>' +

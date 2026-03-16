@@ -1,0 +1,167 @@
+============================================================
+  EMAIL TEMPLATE VARIABLES REFERENCE
+  Resilience Academy - Form Submission Notifications
+============================================================
+
+HOW IT WORKS:
+  When a form is submitted, the webhook-relay receives ALL the
+  submission data and replaces the {variable} tags in the email
+  template with actual values. You can copy any tag below and
+  paste it into notification.html to display that value.
+
+============================================================
+  SYSTEM VARIABLES (always available)
+============================================================
+
+  {submitted_by}       - KoboToolbox username of the person who submitted
+                         Example: "sasa", "msilikale"
+
+  {submission_time}    - Date and time of submission (formatted nicely)
+                         Example: "March 16, 2026 at 04:30 PM"
+
+  {submission_id}      - Unique submission ID number
+                         Example: "54321"
+
+  {form_title}         - Name of the form
+                         Example: "LVBWB Geospatial Mapping Form"
+
+  {form_uid}           - Unique form identifier (used in URLs)
+                         Example: "atWc8mN2Y4EMa3UaiGbdhk"
+
+  {field_count}        - Number of data fields in the submission
+                         Example: "12"
+
+  {attachment_count}   - Number of files/photos attached
+                         Example: "2"
+
+  {logo_url}           - URL to the RA logo image
+                         Example: "https://kf.ramaniyangu.com/custom-static/images/ra-logo.png"
+
+  {KOBO_URL}           - Base URL of the platform
+                         Example: "https://kf.ramaniyangu.com"
+
+  {sub_link}           - Direct link to view this specific submission
+  {form_link}          - Link to view all data for this form
+
+============================================================
+  GENERATED HTML BLOCKS (sections you can move/remove)
+============================================================
+
+  {geo_html}           - Location card with GPS coordinates and Google Maps link
+                         (empty if no GPS data in the submission)
+
+  {field_rows}         - HTML table rows with ALL form field data
+                         (each row has field name + value)
+
+  {attach_html}        - Attachments section with download links
+                         (empty if no files attached)
+
+  {field_summary}      - Plain-text version of all fields
+                         (used in the .txt template, not HTML)
+
+============================================================
+  FORM FIELD VARIABLES
+============================================================
+
+  YES - you can use the FIELD NAMES from your form directly!
+
+  The field name is the "name" column in your XLSForm, or the
+  "Data Column Name" shown in KoboToolbox form builder.
+
+  To find your field names:
+  1. Open your form in KoboToolbox
+  2. Go to Settings > Data Sharing
+  3. Or download the XLSForm and look at the "name" column
+
+  IMPORTANT: Field names are NOT the question labels.
+  They are the technical names (no spaces, often snake_case).
+
+  Examples from your forms:
+  ──────────────────────────────────────────────────────
+  LVBWB Geospatial Mapping Form:
+    location_name       → "Mwanza - Ilemela District"
+    water_source_type   → "Borehole"
+    depth_meters        → "52.3"
+    water_quality       → "Good"
+    flow_rate           → "12.5 L/min"
+    gps_coordinates     → "-6.7924 39.2083 0 5"
+    condition           → "Operational"
+    notes               → "Located near Capri Point..."
+
+  LVBWB Sample Collection Form:
+    (check your form for exact field names)
+  ──────────────────────────────────────────────────────
+
+  HOW TO USE:
+  Currently, ALL fields are automatically included in the
+  {field_rows} table. You don't need to add them individually.
+
+  But if you want to highlight a SPECIFIC field prominently
+  in the email (e.g., show "location_name" in big text at
+  the top), you would need to add custom code in app.py.
+
+  For example, to show the location name prominently:
+    data.get('location_name', '')
+  This gets the value of the "location_name" field.
+
+============================================================
+  INTERNAL/METADATA FIELDS (start with underscore)
+============================================================
+
+  These are KoboToolbox system fields, not your form fields:
+
+  _submitted_by        - Username
+  _submission_time     - ISO timestamp (2026-03-16T14:30:00Z)
+  _id                  - Submission ID
+  _xform_id_string     - Form internal name
+  _geolocation         - [latitude, longitude] array
+  _attachments         - List of file objects
+  _version             - Form version
+  _status              - Submission status
+  _uuid                - Unique identifier
+  _tags                - Tags
+  _notes               - Notes
+
+  These are used internally. The email template already
+  extracts the useful ones (submitted_by, time, geo, etc.)
+
+============================================================
+  CUSTOMIZING THE EMAIL
+============================================================
+
+  The email template is at:
+    customization/email-templates/submission/notification.html
+
+  To customize:
+  1. Edit notification.html directly
+  2. The changes take effect after restarting webhook-relay
+  3. You can rearrange sections, change colors, add/remove blocks
+
+  To add a specific form field prominently:
+  1. Edit app.py (format_email_html function)
+  2. Add: specific_value = data.get('your_field_name', '')
+  3. Add it to the HTML template as a new section
+
+  The template uses standard HTML email (table-based layout)
+  with inline CSS styles for email client compatibility.
+
+============================================================
+  COLOR REFERENCE
+============================================================
+
+  Primary blue:     #54a8dc
+  Dark blue/navy:   #1a2a3a
+  Mid blue:         #2c5f8a
+  Light background: #f1f5f9
+  Card background:  #f8fafc
+  Card border:      #e2e8f0
+  Text dark:        #1e293b
+  Text medium:      #475569
+  Text light:       #64748b
+  Text muted:       #94a3b8
+  Green (location): #16a34a
+  Green bg:         #f0fdf4
+  Green border:     #bbf7d0
+  Error red:        #e74c3c
+
+============================================================

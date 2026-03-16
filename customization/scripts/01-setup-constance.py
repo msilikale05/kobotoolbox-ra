@@ -50,6 +50,7 @@ def setup_sitewide_settings():
     settings_map = {
         'MFA_ENABLED': False,
         'ALLOW_UNSECURED_BROWSER_CONNECTIONS': True,
+        'REGISTRATION_OPEN': False,
     }
 
     for key, value in settings_map.items():
