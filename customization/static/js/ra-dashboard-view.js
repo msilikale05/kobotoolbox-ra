@@ -410,7 +410,7 @@
         '<div class="ra-do__grid" id="ra-do-grid"></div>' +
         '<div class="ra-do__refresh" id="ra-do-refresh"></div>' +
       '</div>' +
-      '<div id="ra-do-footer"></div>';
+      '<div id="ra-do-footer" style="display:none;"></div>';
 
     document.body.appendChild(page);
     page.classList.add('ra-do--visible');
@@ -629,6 +629,9 @@
       renderWidgets(widgets);
       var ref = document.getElementById('ra-do-refresh');
       if (ref) ref.textContent = 'Auto-refreshes every 30s \u00b7 Last updated: ' + new Date().toLocaleTimeString();
+      // Show footer after content has loaded
+      var footerEl = document.getElementById('ra-do-footer');
+      if (footerEl) footerEl.style.display = '';
     });
   }
 
