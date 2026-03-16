@@ -66,58 +66,26 @@
     setTimeout(replaceLogo, 5000);
   })();
 
-  // Persistently override the browser tab title with page context
+  // Title is managed by the interceptor in ra-dashboard-view.js (non-deferred).
+  // That interceptor uses window.__raGetPageName() which we update here for form-specific titles.
+  // We only need to handle hashchange for form-specific page names.
   (function overrideTitle() {
-    function getPageName() {
-      var hash = window.location.hash;
-      if (hash === '#/leaderboard') return 'Leaderboard';
-      if (hash === '#/map') return 'Map';
-      if (hash.indexOf('#/library') === 0) return 'Library';
-      if (hash.indexOf('#/forms/') === 0) {
-        // For form pages, extract name from the existing title if KPI set it
-        var current = document.title
-          .replace(/KoboToolbox/gi, '')
-          .replace(/\s*\|\s*/g, '|')
-          .split('|')
-          .filter(function (s) { return s.trim() && s.trim() !== BRAND_NAME; });
-        return current.length ? current[0].trim() : null;
-      }
-      if (hash === '' || hash === '#/' || hash.indexOf('#/projects') === 0 || hash.indexOf('#/forms') === 0) return 'Projects';
-      return null;
+    // Update __raGetPageName to handle form-specific titles (needs React's title)
+    var origGetPageName = window.__raGetPageName;
+    if (origGetPageName) {
+      window.__raGetPageName = function () {
+        var hash = window.location.hash;
+        if (hash.indexOf('#/forms/') === 0) {
+          // For individual form pages, try to extract form name from React's intended title
+          var titleEl = document.querySelector('title');
+          var raw = titleEl ? titleEl.textContent : '';
+          var parts = raw.replace(/KoboToolbox/gi, '').replace(/\s*\|\s*/g, '|').split('|')
+            .filter(function (s) { return s.trim() && s.trim() !== BRAND_NAME && s.trim() !== 'Loading...'; });
+          return parts.length ? parts[0].trim() : null;
+        }
+        return origGetPageName();
+      };
     }
-
-    function setTitle() {
-      var pageName = getPageName();
-
-      // Always remove KoboToolbox from the title
-      if (document.title.indexOf('KoboToolbox') !== -1) {
-        document.title = document.title.replace(/KoboToolbox/gi, BRAND_NAME);
-      }
-
-      // If leaderboard script already set the title, don't override
-      if (document.title.indexOf('Leaderboard | ' + BRAND_NAME) !== -1) return;
-
-      if (pageName) {
-        document.title = pageName + ' | ' + BRAND_NAME;
-      } else if (document.title.indexOf(BRAND_NAME) === -1) {
-        document.title = BRAND_NAME;
-      }
-    }
-    setTitle();
-
-    // Poll every 300ms to catch React title changes instantly
-    // React sets document.title directly — no DOM mutation to observe
-    setInterval(function () {
-      if (document.title.indexOf('KoboToolbox') !== -1) {
-        setTitle();
-      }
-    }, 300);
-
-    // Update title on navigation
-    window.addEventListener('hashchange', function () {
-      setTimeout(setTitle, 100);
-      setTimeout(setTitle, 500);
-    });
   })();
 
   function isProjectListPage() {
@@ -158,7 +126,7 @@
       '      <div class="ra-welcome__card-title">New Survey</div>',
       '      <div class="ra-welcome__card-desc">Create a new data collection form</div>',
       '    </a>',
-      '    <a href="https://resilienceacademy.ac.tz" target="_blank" rel="noopener" class="ra-welcome__card">',
+      '    <a href="https://ramaniyangu.com" target="_blank" rel="noopener" class="ra-welcome__card">',
       '      <div class="ra-welcome__card-icon" role="img" aria-label="Portal">&#127758;</div>',
       '      <div class="ra-welcome__card-title">RA Portal</div>',
       '      <div class="ra-welcome__card-desc">Visit the Resilience Academy main site</div>',
@@ -414,4 +382,177 @@
 
   // Poll for access-denied page (React renders async)
   setInterval(customizeAccessDenied, 1000);
+
+  // ── Announcement Banner System ──
+  (function announcementBanner() {
+    // Skip login/signup pages
+    if (/\/accounts\/(login|signup|password)/.test(window.location.pathname)) return;
+
+    var BANNER_CONTAINER_ID = 'ra-announcement-banners';
+    var DISMISSED_KEY = 'ra_dismissed_announcements';
+    var POLL_MS = 120000; // re-fetch every 2 minutes
+
+    // Announcement banner styles
+    var annStyle = document.createElement('style');
+    annStyle.textContent = [
+      '#' + BANNER_CONTAINER_ID + ' {',
+      '  position: fixed;',
+      '  top: 64px;',
+      '  left: 0;',
+      '  right: 0;',
+      '  z-index: 1050;',
+      '  display: flex;',
+      '  flex-direction: column;',
+      '  pointer-events: none;',
+      '}',
+      '.ra-ann-banner {',
+      '  display: flex;',
+      '  align-items: center;',
+      '  justify-content: space-between;',
+      '  padding: 10px 20px;',
+      '  font-size: 13px;',
+      '  line-height: 1.4;',
+      '  pointer-events: auto;',
+      '  animation: ra-ann-slide-in 0.3s ease-out;',
+      '}',
+      '.ra-ann-banner--info {',
+      '  background: #eff6ff;',
+      '  color: #1e40af;',
+      '  border-bottom: 1px solid #bfdbfe;',
+      '}',
+      '.ra-ann-banner--warning {',
+      '  background: #fffbeb;',
+      '  color: #92400e;',
+      '  border-bottom: 1px solid #fde68a;',
+      '}',
+      '.ra-ann-banner--urgent {',
+      '  background: #fef2f2;',
+      '  color: #991b1b;',
+      '  border-bottom: 1px solid #fecaca;',
+      '}',
+      '.ra-ann-banner__content {',
+      '  display: flex;',
+      '  align-items: center;',
+      '  gap: 10px;',
+      '  flex: 1;',
+      '  min-width: 0;',
+      '}',
+      '.ra-ann-banner__title {',
+      '  font-weight: 700;',
+      '  white-space: nowrap;',
+      '}',
+      '.ra-ann-banner__message {',
+      '  overflow: hidden;',
+      '  text-overflow: ellipsis;',
+      '  white-space: nowrap;',
+      '}',
+      '.ra-ann-banner__close {',
+      '  background: none;',
+      '  border: none;',
+      '  cursor: pointer;',
+      '  font-size: 18px;',
+      '  opacity: 0.5;',
+      '  padding: 0 4px;',
+      '  line-height: 1;',
+      '  color: inherit;',
+      '  flex-shrink: 0;',
+      '}',
+      '.ra-ann-banner__close:hover { opacity: 1; }',
+      '@keyframes ra-ann-slide-in {',
+      '  from { transform: translateY(-100%); opacity: 0; }',
+      '  to { transform: translateY(0); opacity: 1; }',
+      '}'
+    ].join('\n');
+    document.head.appendChild(annStyle);
+
+    function getDismissed() {
+      try {
+        return JSON.parse(sessionStorage.getItem(DISMISSED_KEY)) || {};
+      } catch (e) { return {}; }
+    }
+
+    function setDismissed(id) {
+      var d = getDismissed();
+      d[id] = true;
+      try { sessionStorage.setItem(DISMISSED_KEY, JSON.stringify(d)); } catch (e) {}
+    }
+
+    function fetchAnnouncements() {
+      fetch('/webhook-api/announcements', { credentials: 'same-origin' })
+        .then(function (r) {
+          if (!r.ok) throw new Error('not ok');
+          return r.json();
+        })
+        .then(function (data) {
+          renderBanners(data.announcements || []);
+        })
+        .catch(function () {
+          // Try local dev fallback
+          fetch('http://localhost:5050/api/announcements')
+            .then(function (r) { return r.json(); })
+            .then(function (data) { renderBanners(data.announcements || []); })
+            .catch(function () { /* silently fail */ });
+        });
+    }
+
+    function renderBanners(announcements) {
+      var container = document.getElementById(BANNER_CONTAINER_ID);
+      if (!container) {
+        container = document.createElement('div');
+        container.id = BANNER_CONTAINER_ID;
+        document.body.appendChild(container);
+      }
+      container.innerHTML = '';
+
+      var dismissed = getDismissed();
+
+      announcements.forEach(function (a) {
+        if (dismissed[a.id]) return;
+
+        var typeClass = 'ra-ann-banner--' + (a.type || 'info');
+        var typeIcon = a.type === 'urgent' ? '&#9888;' : a.type === 'warning' ? '&#9888;' : '&#8505;';
+
+        var banner = document.createElement('div');
+        banner.className = 'ra-ann-banner ' + typeClass;
+        banner.innerHTML =
+          '<div class="ra-ann-banner__content">' +
+            '<span>' + typeIcon + '</span>' +
+            '<span class="ra-ann-banner__title">' + escapeHtmlBanner(a.title) + '</span>' +
+            '<span class="ra-ann-banner__message">' + escapeHtmlBanner(a.message) + '</span>' +
+          '</div>' +
+          '<button class="ra-ann-banner__close" title="Dismiss">&times;</button>';
+
+        banner.querySelector('.ra-ann-banner__close').addEventListener('click', function () {
+          setDismissed(a.id);
+          banner.style.animation = 'none';
+          banner.style.transition = 'opacity 0.2s, max-height 0.2s';
+          banner.style.opacity = '0';
+          banner.style.maxHeight = '0';
+          banner.style.overflow = 'hidden';
+          banner.style.padding = '0 20px';
+          setTimeout(function () { banner.remove(); }, 250);
+        });
+
+        container.appendChild(banner);
+      });
+    }
+
+    function escapeHtmlBanner(str) {
+      var div = document.createElement('div');
+      div.appendChild(document.createTextNode(str || ''));
+      return div.innerHTML;
+    }
+
+    // Initial fetch after page loads
+    function initBanners() {
+      setTimeout(fetchAnnouncements, 1500);
+      setInterval(fetchAnnouncements, POLL_MS);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initBanners);
+    } else {
+      initBanners();
+    }
+  })();
 })();

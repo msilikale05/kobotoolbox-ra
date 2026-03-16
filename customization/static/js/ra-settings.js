@@ -263,7 +263,12 @@
     { id: 'geonode', label: 'Data Sources', icon: '<svg viewBox="0 0 24 24"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zM7 19c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM7 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>' },
     { id: 'export', label: 'Batch Export', icon: '<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>' },
     { id: 'map', label: 'Map Defaults', icon: '<svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>' },
-    { id: 'notifications', label: 'Notifications', icon: '<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>' }
+    { id: 'notifications', label: 'Notifications', icon: '<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>' },
+    { id: 'scheduler', label: 'Form Scheduler', icon: '<svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>' },
+    { id: 'tags', label: 'Project Tags', icon: '<svg viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>' },
+    { id: 'assignments', label: 'Assignments', icon: '<svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>' },
+    { id: 'announcements', label: 'Announcements', icon: '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 9h-2V5h2v6zm0 4h-2v-2h2v2z"/></svg>' },
+    { id: 'teams', label: 'Teams', icon: '<svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>' }
   ];
 
   // Restore active section from sessionStorage (survives refresh)
@@ -317,6 +322,11 @@
     else if (sectionId === 'export') renderExportSection(main);
     else if (sectionId === 'map') renderComingSoon(main, 'Map Defaults', 'Default map center, zoom level, and base layer settings.');
     else if (sectionId === 'notifications') renderComingSoon(main, 'Notifications', 'Configure submission alerts and notification preferences.');
+    else if (sectionId === 'scheduler') { if (window.raSettingsExtras) window.raSettingsExtras.renderScheduler(main); else renderComingSoon(main, 'Form Scheduler', 'Loading...'); }
+    else if (sectionId === 'tags') { if (window.raSettingsExtras) window.raSettingsExtras.renderTags(main); else renderComingSoon(main, 'Project Tags', 'Loading...'); }
+    else if (sectionId === 'assignments') renderAssignmentsSection(main);
+    else if (sectionId === 'announcements') renderAnnouncementsSection(main);
+    else if (sectionId === 'teams') renderTeamsSection(main);
   }
 
   function renderComingSoon(main, title, desc) {
@@ -379,11 +389,17 @@
           return loadDashConfig(cb);
         }
         _dashConfig = { dashboards: {}, users: {} };
+        _dashConfig._loadFailed = true;  // Mark as failed load — prevent saves from wiping data
         if (cb) cb();
       });
   }
 
   function saveDashConfig(cb) {
+    // Never save if config failed to load — prevents wiping existing data
+    if (_dashConfig && _dashConfig._loadFailed) {
+      if (cb) cb('Config not loaded properly. Refresh the page and try again.');
+      return;
+    }
     fetch(apiUrl('/dashboard-config'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -739,11 +755,11 @@
             '<div style="font-size:12px;color:#94a3b8;margin-top:4px;">' + escapeHtml(d.id) + ' &middot; ' + widgetCount + ' widgets &middot; ' + userCount + ' users assigned</div>' +
           '</div>' +
           '<div style="display:flex;gap:8px;">' +
-            '<button class="ra-st__btn ra-st__btn--primary ra-dl-edit-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;">Edit</button>' +
-            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-rename-dash" data-id="' + escapeHtml(d.id) + '" data-name="' + escapeHtml(d.name) + '" style="padding:8px 16px;font-size:13px;">Rename</button>' +
+            '<button class="ra-st__btn ra-st__btn--primary ra-dl-edit-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;" title="Edit dashboard widgets">Edit</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-rename-dash" data-id="' + escapeHtml(d.id) + '" data-name="' + escapeHtml(d.name) + '" style="padding:8px 16px;font-size:13px;" title="Rename this dashboard">Rename</button>' +
             '<button class="ra-st__btn ra-st__btn--secondary ra-dl-share-dash" data-id="' + escapeHtml(d.id) + '" data-name="' + escapeHtml(d.name) + '" style="padding:8px 16px;font-size:13px;">Share</button>' +
-            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-preview-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;">Preview</button>' +
-            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-delete-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;color:#e74c3c;">Delete</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-preview-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;" title="Preview dashboard">Preview</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-delete-dash" data-id="' + escapeHtml(d.id) + '" style="padding:8px 16px;font-size:13px;color:#e74c3c;" title="Delete this dashboard">Delete</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -771,7 +787,7 @@
         if (!confirm('Delete dashboard "' + dashId + '"? Users assigned to it will need to be reassigned.')) return;
         delete _dashConfig.dashboards[dashId];
         var users = _dashConfig.users || {};
-        Object.keys(users).forEach(function (u) { if (users[u] === dashId) delete users[u]; });
+        Object.keys(users).forEach(function (u) { if (users[u] === dashId) users[u] = ''; });  // Mark for removal
         saveDashConfig(function (err) {
           if (err) {
             showStatus(document.getElementById('ra-st-dl-status'), 'err', err);
@@ -795,7 +811,7 @@
     modal.innerHTML =
       '<div style="background:#fff;border-radius:10px;width:400px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,0.2);">' +
         '<div style="padding:18px 20px;border-bottom:1px solid #e2e8f0;font-size:16px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">' +
-          'Rename Dashboard<button id="ra-dl-rn-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
+          'Rename Dashboard<button id="ra-dl-rn-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;" title="Close">&times;</button>' +
         '</div>' +
         '<div style="padding:20px;">' +
           '<div class="ra-st__field"><label>Dashboard Name</label><input type="text" id="ra-dl-rn-name" value="' + escapeHtml(currentName) + '"></div>' +
@@ -850,7 +866,7 @@
     modal.innerHTML =
       '<div style="background:#fff;border-radius:10px;width:400px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,0.2);">' +
         '<div style="padding:18px 20px;border-bottom:1px solid #e2e8f0;font-size:16px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">' +
-          'New Dashboard<button id="ra-dl-nd-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
+          'New Dashboard<button id="ra-dl-nd-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;" title="Close">&times;</button>' +
         '</div>' +
         '<div style="padding:20px;">' +
           '<div class="ra-st__field"><label>Dashboard Name</label><input type="text" id="ra-dl-nd-name" placeholder="e.g., Field Team Dashboard"></div>' +
@@ -868,8 +884,11 @@
       var nameVal = (document.getElementById('ra-dl-nd-name').value || '').trim();
       if (!nameVal) { alert('Dashboard name is required'); return; }
       var idVal = generateSlug(nameVal);
+      if (!idVal) idVal = 'dashboard-' + Date.now();
+      // Avoid conflicts (max 20 attempts to prevent any loop)
       var base = idVal; var counter = 1;
-      while (_dashConfig && _dashConfig.dashboards && _dashConfig.dashboards[idVal]) { idVal = base + '-' + counter; counter++; }
+      var maxAttempts = 20;
+      while (_dashConfig && _dashConfig.dashboards && _dashConfig.dashboards[idVal] && counter < maxAttempts) { idVal = base + '-' + counter; counter++; }
       if (!idVal) { alert('Could not generate a valid ID'); return; }
       _dashConfig.dashboards[idVal] = { name: nameVal, widgets: [] };
       saveDashConfig(function (err) {
@@ -1007,8 +1026,8 @@
             '<span style="font-weight:600;color:#1e293b;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(w.title || typeDef.label) + '</span>' +
           '</div>' +
           '<div style="display:flex;gap:4px;flex-shrink:0;">' +
-            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-edit" data-idx="' + idx + '" style="padding:3px 8px;font-size:11px;">Edit</button>' +
-            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-remove" data-idx="' + idx + '" style="padding:3px 8px;font-size:11px;color:#e74c3c;">&#10005;</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-edit" data-idx="' + idx + '" style="padding:3px 8px;font-size:11px;" title="Edit widget">Edit</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-remove" data-idx="' + idx + '" style="padding:3px 8px;font-size:11px;color:#e74c3c;" title="Remove widget">&#10005;</button>' +
           '</div>' +
         '</div>' +
         '<div style="padding:16px;min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;">' +
@@ -1191,7 +1210,7 @@
       '<div style="background:#fff;border-radius:10px;width:500px;max-width:90vw;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);">' +
         '<div style="padding:18px 20px;border-bottom:1px solid #e2e8f0;font-size:16px;font-weight:600;color:#1e293b;display:flex;justify-content:space-between;align-items:center;">' +
           (isEdit ? 'Edit Widget' : 'Add Widget') +
-          '<button id="ra-dl-modal-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
+          '<button id="ra-dl-modal-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;" title="Close">&times;</button>' +
         '</div>' +
         '<div style="padding:20px;">' +
           '<div class="ra-st__field"><label>Widget Title <span style="font-weight:400;color:#94a3b8;">(shown on dashboard)</span></label><input type="text" id="ra-dl-title" value="' + escapeHtml(w.title || '') + '" placeholder="Leave empty for default title"><small>This is the heading users see on the dashboard. Leave blank to use the widget type name.</small></div>' +
@@ -1233,20 +1252,20 @@
                   '<input type="text" id="ra-dl-headercolor-hex" value="' + escapeHtml(cfg.headerColor || '#1e293b') + '" style="width:75px;padding:3px 6px;font-size:11px;font-family:monospace;border:1px solid #d0d5dd;border-radius:3px;" placeholder="#1e293b">' +
                 '</div>' +
               '</div>' +
-              '<button type="button" id="ra-dl-colors-reset" class="ra-st__btn ra-st__btn--secondary" style="padding:4px 10px;font-size:11px;">Reset</button>' +
+              '<button type="button" id="ra-dl-colors-reset" class="ra-st__btn ra-st__btn--secondary" style="padding:4px 10px;font-size:11px;" title="Reset to default colors">Reset</button>' +
               '<small style="display:block;margin-top:6px;">Pick a color or paste a hex code (e.g. #54a8dc). Click Reset for defaults.</small>' +
             '</div>' +
             '<div class="ra-st__field" id="ra-dl-richtext-wrap">' +
               '<label>Content</label>' +
               '<div style="border:1px solid #d0d5dd;border-radius:6px;overflow:hidden;">' +
                 '<div id="ra-dl-toolbar" style="display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid #e2e8f0;background:#f8fafc;flex-wrap:wrap;">' +
-                  '<button type="button" data-cmd="bold" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-weight:700;">B</button>' +
-                  '<button type="button" data-cmd="italic" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-style:italic;">I</button>' +
-                  '<button type="button" data-cmd="underline" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;text-decoration:underline;">U</button>' +
+                  '<button type="button" data-cmd="bold" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-weight:700;" title="Bold">B</button>' +
+                  '<button type="button" data-cmd="italic" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-style:italic;" title="Italic">I</button>' +
+                  '<button type="button" data-cmd="underline" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;text-decoration:underline;" title="Underline">U</button>' +
                   '<span style="width:1px;background:#d0d5dd;margin:0 4px;"></span>' +
-                  '<button type="button" data-cmd="fontSize" data-val="5" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-size:16px;">A</button>' +
-                  '<button type="button" data-cmd="fontSize" data-val="3" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-size:13px;">A</button>' +
-                  '<button type="button" data-cmd="fontSize" data-val="1" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-size:10px;">a</button>' +
+                  '<button type="button" data-cmd="fontSize" data-val="5" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-size:16px;" title="Large text">A</button>' +
+                  '<button type="button" data-cmd="fontSize" data-val="3" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-size:13px;" title="Medium text">A</button>' +
+                  '<button type="button" data-cmd="fontSize" data-val="1" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-size:10px;" title="Small text">a</button>' +
                   '<span style="width:1px;background:#d0d5dd;margin:0 4px;"></span>' +
                   '<button type="button" data-cmd="justifyLeft" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;" title="Align Left">&#8676;</button>' +
                   '<button type="button" data-cmd="justifyCenter" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;" title="Align Center">&#8596;</button>' +
@@ -1255,9 +1274,9 @@
                   '<label style="padding:4px 6px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;display:flex;align-items:center;gap:4px;font-size:11px;" title="Text Color">A<input type="color" data-cmd="foreColor" value="#000000" style="width:16px;height:16px;border:none;padding:0;cursor:pointer;"></label>' +
                   '<label style="padding:4px 6px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;display:flex;align-items:center;gap:4px;font-size:11px;" title="Highlight Color">&#9608;<input type="color" data-cmd="hiliteColor" value="#ffff00" style="width:16px;height:16px;border:none;padding:0;cursor:pointer;"></label>' +
                   '<span style="width:1px;background:#d0d5dd;margin:0 4px;"></span>' +
-                  '<button type="button" data-cmd="insertUnorderedList" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;">&#8226; List</button>' +
-                  '<button type="button" data-cmd="insertOrderedList" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;">1. List</button>' +
-                  '<button type="button" data-cmd="createLink" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;">&#128279; Link</button>' +
+                  '<button type="button" data-cmd="insertUnorderedList" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;" title="Bullet list">&#8226; List</button>' +
+                  '<button type="button" data-cmd="insertOrderedList" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;" title="Numbered list">1. List</button>' +
+                  '<button type="button" data-cmd="createLink" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;" title="Insert link">&#128279; Link</button>' +
                   '<button type="button" data-cmd="removeFormat" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;" title="Clear Formatting">&#10060;</button>' +
                 '</div>' +
                 '<div id="ra-dl-richtext" contenteditable="true" style="min-height:120px;padding:12px;font-size:14px;line-height:1.6;outline:none;">' +
@@ -1493,7 +1512,7 @@
       '<div style="background:#fff;border-radius:10px;width:520px;max-width:90vw;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);">' +
         '<div style="padding:18px 20px;border-bottom:1px solid #e2e8f0;font-size:16px;font-weight:600;color:#1e293b;display:flex;justify-content:space-between;align-items:center;">' +
           'Share Dashboard: ' + escapeHtml(dashName) +
-          '<button id="ra-share-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
+          '<button id="ra-share-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;" title="Close">&times;</button>' +
         '</div>' +
         '<div style="padding:20px;" id="ra-share-body">' +
           '<div style="text-align:center;padding:20px;color:#94a3b8;">Loading share links...</div>' +
@@ -1730,7 +1749,7 @@
       '<div class="ra-st__popup">' +
         '<div class="ra-st__popup-header">' +
           '<h3>' + (connToEdit ? 'Edit Data Source' : 'Add Data Source') + '</h3>' +
-          '<button class="ra-st__popup-close">&times;</button>' +
+          '<button class="ra-st__popup-close" title="Close">&times;</button>' +
         '</div>' +
         '<div class="ra-st__popup-body">' +
           '<div class="ra-st__field"><label>Source Type</label>' +
@@ -2378,6 +2397,664 @@
       });
   }
 
+  // ── Assignments Section ──
+  var _assignmentsData = null;
+  var _assignmentsForms = null;
+  var _assignmentsUsers = null;
+
+  function loadAssignmentsData(cb) {
+    fetch(apiUrl('/assignments'), { credentials: 'same-origin' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('not ok');
+        return r.json();
+      })
+      .then(function (data) {
+        _assignmentsData = data;
+        if (cb) cb();
+      })
+      .catch(function () {
+        if (_apiBase === '/webhook-api') {
+          _apiBase = 'http://localhost:5050/api';
+          return loadAssignmentsData(cb);
+        }
+        _assignmentsData = { assignments: [] };
+        if (cb) cb();
+      });
+  }
+
+  function renderAssignmentsSection(main) {
+    main.innerHTML =
+      '<h1 class="ra-st__page-title">Assignments</h1>' +
+      '<div class="ra-st__content" style="max-width:900px;">' +
+        '<p style="color:#666;margin:0 0 16px;font-size:14px;">' +
+          'Assign forms to users with deadlines. Track progress by comparing submission counts against expectations.' +
+        '</p>' +
+        '<div style="margin-bottom:20px;">' +
+          '<button class="ra-st__btn ra-st__btn--primary" id="ra-asgn-new">+ New Assignment</button>' +
+        '</div>' +
+        '<div class="ra-st__status" id="ra-asgn-status"></div>' +
+        '<div id="ra-asgn-list"><div style="padding:16px;text-align:center;color:#999;">Loading...</div></div>' +
+      '</div>';
+
+    document.getElementById('ra-asgn-new').addEventListener('click', function () {
+      showAssignmentModal();
+    });
+
+    loadAssignmentsData(function () {
+      renderAssignmentsList();
+    });
+
+    // Preload forms and users for the create modal
+    if (!_assignmentsForms) {
+      fetch('/api/v2/assets/?asset_type=survey&fields=["uid","name","deployment_status","deployment__submission_count"]&limit=200', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          _assignmentsForms = (data.results || []).filter(function (f) { return f.deployment_status === 'deployed'; });
+        })
+        .catch(function () { _assignmentsForms = []; });
+    }
+    if (!_assignmentsUsers) {
+      fetch('/api/v2/users/?format=json&limit=200', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          _assignmentsUsers = (data.results || []).filter(function (u) {
+            return u.is_active && u.username !== 'AnonymousUser';
+          });
+        })
+        .catch(function () { _assignmentsUsers = []; });
+    }
+  }
+
+  function renderAssignmentsList() {
+    var listEl = document.getElementById('ra-asgn-list');
+    if (!listEl || !_assignmentsData) return;
+
+    var assignments = _assignmentsData.assignments || [];
+    if (!assignments.length) {
+      listEl.innerHTML = '<div style="padding:32px;text-align:center;color:#94a3b8;border:2px dashed #e2e8f0;border-radius:8px;">' +
+        '<p style="font-size:14px;margin:0 0 8px;">No assignments yet</p>' +
+        '<p style="font-size:12px;margin:0;">Click "+ New Assignment" to assign a form to users.</p></div>';
+      return;
+    }
+
+    listEl.innerHTML = assignments.map(function (a) {
+      var userCount = (a.assigned_to || []).length;
+      var subCount = a.submission_count || 0;
+      var deadline = a.deadline || 'No deadline';
+      var statusColor = a.status === 'completed' ? '#10b981' : '#f59e0b';
+      var statusLabel = a.status === 'completed' ? 'Completed' : 'Active';
+
+      return '<div style="border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;background:#fff;overflow:hidden;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;">' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+              '<div style="font-size:16px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(a.form_name || a.form_uid || 'Unknown Form') + '</div>' +
+              '<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:' + statusColor + '20;color:' + statusColor + ';font-weight:600;">' + statusLabel + '</span>' +
+            '</div>' +
+            '<div style="font-size:12px;color:#94a3b8;margin-top:4px;">' +
+              userCount + ' user(s) assigned &middot; Deadline: ' + escapeHtml(deadline) + ' &middot; Created by: ' + escapeHtml(a.created_by || 'admin') +
+            '</div>' +
+            '<div style="margin-top:8px;">' +
+              '<div style="font-size:11px;color:#64748b;margin-bottom:4px;">Assigned to: ' + escapeHtml((a.assigned_to || []).join(', ')) + '</div>' +
+              '<div style="background:#e2e8f0;border-radius:4px;height:8px;overflow:hidden;">' +
+                '<div style="background:#54a8dc;height:100%;width:' + Math.min(100, Math.round((subCount / Math.max(userCount, 1)) * 100)) + '%;border-radius:4px;transition:width 0.3s;"></div>' +
+              '</div>' +
+              '<div style="font-size:10px;color:#94a3b8;margin-top:2px;">' + subCount + ' submissions</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;flex-shrink:0;margin-left:16px;">' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-asgn-toggle" data-id="' + escapeHtml(a.id) + '" data-status="' + escapeHtml(a.status) + '" style="padding:8px 16px;font-size:13px;">' + (a.status === 'completed' ? 'Reactivate' : 'Complete') + '</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-asgn-delete" data-id="' + escapeHtml(a.id) + '" style="padding:8px 16px;font-size:13px;color:#e74c3c;">Delete</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    listEl.querySelectorAll('.ra-asgn-delete').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = this.getAttribute('data-id');
+        if (!confirm('Delete this assignment?')) return;
+        fetch(apiUrl('/assignments/' + id), { method: 'DELETE', credentials: 'same-origin' })
+          .then(function (r) { return r.json(); })
+          .then(function () {
+            loadAssignmentsData(function () { renderAssignmentsList(); });
+            showStatus(document.getElementById('ra-asgn-status'), 'ok', 'Assignment deleted.');
+          })
+          .catch(function () {
+            showStatus(document.getElementById('ra-asgn-status'), 'err', 'Failed to delete assignment.');
+          });
+      });
+    });
+
+    listEl.querySelectorAll('.ra-asgn-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = this.getAttribute('data-id');
+        var currentStatus = this.getAttribute('data-status');
+        var newStatus = currentStatus === 'completed' ? 'active' : 'completed';
+        var asgn = null;
+        for (var i = 0; i < _assignmentsData.assignments.length; i++) {
+          if (_assignmentsData.assignments[i].id === id) { asgn = _assignmentsData.assignments[i]; break; }
+        }
+        if (!asgn) return;
+        asgn.status = newStatus;
+        fetch(apiUrl('/assignments'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(asgn)
+        }).then(function () {
+          loadAssignmentsData(function () { renderAssignmentsList(); });
+        });
+      });
+    });
+  }
+
+  function showAssignmentModal() {
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;';
+
+    var formOptions = '<option value="">Loading forms...</option>';
+    if (_assignmentsForms && _assignmentsForms.length) {
+      formOptions = '<option value="">-- Select a form --</option>' +
+        _assignmentsForms.map(function (f) {
+          return '<option value="' + escapeHtml(f.uid) + '" data-name="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + ' (' + (f.deployment__submission_count || 0) + ' submissions)</option>';
+        }).join('');
+    }
+
+    var userCheckboxes = '<div style="color:#999;font-size:13px;">Loading users...</div>';
+    if (_assignmentsUsers && _assignmentsUsers.length) {
+      userCheckboxes = _assignmentsUsers.map(function (u) {
+        var label = u.username;
+        if (u.metadata && u.metadata.name) label += ' (' + u.metadata.name + ')';
+        return '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer;">' +
+          '<input type="checkbox" value="' + escapeHtml(u.username) + '" class="ra-asgn-user-cb" style="width:16px;height:16px;">' +
+          escapeHtml(label) +
+        '</label>';
+      }).join('');
+    }
+
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:10px;width:500px;max-width:90vw;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);">' +
+        '<div style="padding:18px 20px;border-bottom:1px solid #e2e8f0;font-size:16px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">' +
+          'New Assignment' +
+          '<button id="ra-asgn-modal-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:20px;">' +
+          '<div class="ra-st__field"><label>Form</label><select id="ra-asgn-form">' + formOptions + '</select></div>' +
+          '<div class="ra-st__field"><label>Assign to Users</label><div id="ra-asgn-users" style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;">' + userCheckboxes + '</div></div>' +
+          '<div class="ra-st__field"><label>Deadline</label><input type="date" id="ra-asgn-deadline"></div>' +
+          '<div style="display:flex;gap:10px;margin-top:20px;">' +
+            '<button class="ra-st__btn ra-st__btn--primary" id="ra-asgn-modal-save">Create Assignment</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary" id="ra-asgn-modal-cancel">Cancel</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+
+    function closeModal() { modal.remove(); }
+    document.getElementById('ra-asgn-modal-close').addEventListener('click', closeModal);
+    document.getElementById('ra-asgn-modal-cancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+
+    document.getElementById('ra-asgn-modal-save').addEventListener('click', function () {
+      var formSelect = document.getElementById('ra-asgn-form');
+      var formUid = formSelect.value;
+      var formName = formSelect.options[formSelect.selectedIndex] ? formSelect.options[formSelect.selectedIndex].getAttribute('data-name') || '' : '';
+      var deadline = document.getElementById('ra-asgn-deadline').value;
+      var users = [];
+      modal.querySelectorAll('.ra-asgn-user-cb:checked').forEach(function (cb) {
+        users.push(cb.value);
+      });
+
+      if (!formUid) { alert('Select a form'); return; }
+      if (!users.length) { alert('Select at least one user'); return; }
+
+      var payload = {
+        form_uid: formUid,
+        form_name: formName,
+        assigned_to: users,
+        deadline: deadline,
+        created_by: 'admin'
+      };
+
+      fetch(apiUrl('/assignments'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function () {
+          closeModal();
+          loadAssignmentsData(function () { renderAssignmentsList(); });
+          showStatus(document.getElementById('ra-asgn-status'), 'ok', 'Assignment created.');
+        })
+        .catch(function () {
+          alert('Failed to create assignment');
+        });
+    });
+  }
+
+
+  // ── Announcements Section ──
+  var _announcementsData = null;
+
+  function loadAnnouncementsData(cb) {
+    fetch(apiUrl('/announcements'), { credentials: 'same-origin' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('not ok');
+        return r.json();
+      })
+      .then(function (data) {
+        _announcementsData = data;
+        if (cb) cb();
+      })
+      .catch(function () {
+        if (_apiBase === '/webhook-api') {
+          _apiBase = 'http://localhost:5050/api';
+          return loadAnnouncementsData(cb);
+        }
+        _announcementsData = { announcements: [] };
+        if (cb) cb();
+      });
+  }
+
+  function renderAnnouncementsSection(main) {
+    main.innerHTML =
+      '<h1 class="ra-st__page-title">Announcements</h1>' +
+      '<div class="ra-st__content" style="max-width:900px;">' +
+        '<p style="color:#666;margin:0 0 16px;font-size:14px;">' +
+          'Create announcements that appear as banners on all pages for all users. Use different types for different urgency levels.' +
+        '</p>' +
+        '<div style="margin-bottom:20px;">' +
+          '<button class="ra-st__btn ra-st__btn--primary" id="ra-ann-new">+ New Announcement</button>' +
+        '</div>' +
+        '<div class="ra-st__status" id="ra-ann-status"></div>' +
+        '<div id="ra-ann-list"><div style="padding:16px;text-align:center;color:#999;">Loading...</div></div>' +
+      '</div>';
+
+    document.getElementById('ra-ann-new').addEventListener('click', function () {
+      showAnnouncementModal();
+    });
+
+    loadAnnouncementsData(function () {
+      renderAnnouncementsList();
+    });
+  }
+
+  function renderAnnouncementsList() {
+    var listEl = document.getElementById('ra-ann-list');
+    if (!listEl || !_announcementsData) return;
+
+    var announcements = _announcementsData.announcements || [];
+    if (!announcements.length) {
+      listEl.innerHTML = '<div style="padding:32px;text-align:center;color:#94a3b8;border:2px dashed #e2e8f0;border-radius:8px;">' +
+        '<p style="font-size:14px;margin:0 0 8px;">No active announcements</p>' +
+        '<p style="font-size:12px;margin:0;">Click "+ New Announcement" to create one.</p></div>';
+      return;
+    }
+
+    var typeColors = { info: '#3b82f6', warning: '#f59e0b', urgent: '#ef4444' };
+    var typeBgColors = { info: '#eff6ff', warning: '#fffbeb', urgent: '#fef2f2' };
+    var typeLabels = { info: 'Info', warning: 'Warning', urgent: 'Urgent' };
+
+    listEl.innerHTML = announcements.map(function (a) {
+      var color = typeColors[a.type] || typeColors.info;
+      var bg = typeBgColors[a.type] || typeBgColors.info;
+      var label = typeLabels[a.type] || 'Info';
+      var expires = a.expires_at ? 'Expires: ' + a.expires_at.split('T')[0] : 'No expiry';
+
+      return '<div style="border:1px solid ' + color + '40;border-left:4px solid ' + color + ';border-radius:8px;margin-bottom:12px;background:' + bg + ';overflow:hidden;">' +
+        '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:16px 20px;">' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' +
+              '<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:' + color + ';color:#fff;font-weight:600;text-transform:uppercase;">' + label + '</span>' +
+              '<span style="font-size:16px;font-weight:600;color:#1e293b;">' + escapeHtml(a.title) + '</span>' +
+            '</div>' +
+            '<div style="font-size:14px;color:#475569;margin-bottom:6px;">' + escapeHtml(a.message) + '</div>' +
+            '<div style="font-size:11px;color:#94a3b8;">' +
+              escapeHtml(expires) + ' &middot; Created: ' + escapeHtml((a.created_at || '').split('T')[0]) +
+              (a.created_by ? ' by ' + escapeHtml(a.created_by) : '') +
+            '</div>' +
+          '</div>' +
+          '<button class="ra-st__btn ra-st__btn--secondary ra-ann-delete" data-id="' + escapeHtml(a.id) + '" style="padding:8px 16px;font-size:13px;color:#e74c3c;flex-shrink:0;margin-left:16px;">Delete</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    listEl.querySelectorAll('.ra-ann-delete').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = this.getAttribute('data-id');
+        if (!confirm('Delete this announcement?')) return;
+        fetch(apiUrl('/announcements/' + id), { method: 'DELETE', credentials: 'same-origin' })
+          .then(function (r) { return r.json(); })
+          .then(function () {
+            loadAnnouncementsData(function () { renderAnnouncementsList(); });
+            showStatus(document.getElementById('ra-ann-status'), 'ok', 'Announcement deleted.');
+          })
+          .catch(function () {
+            showStatus(document.getElementById('ra-ann-status'), 'err', 'Failed to delete.');
+          });
+      });
+    });
+  }
+
+  function showAnnouncementModal() {
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:10px;width:480px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,0.2);">' +
+        '<div style="padding:18px 20px;border-bottom:1px solid #e2e8f0;font-size:16px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">' +
+          'New Announcement' +
+          '<button id="ra-ann-modal-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:20px;">' +
+          '<div class="ra-st__field"><label>Title</label><input type="text" id="ra-ann-title" placeholder="e.g., System Maintenance"></div>' +
+          '<div class="ra-st__field"><label>Message</label><textarea id="ra-ann-message" rows="3" style="width:100%;padding:10px 12px;font-size:14px;border:1px solid #d0d5dd;border-radius:6px;box-sizing:border-box;resize:vertical;font-family:inherit;" placeholder="Describe the announcement..."></textarea></div>' +
+          '<div style="display:flex;gap:12px;">' +
+            '<div class="ra-st__field" style="flex:1;"><label>Type</label><select id="ra-ann-type"><option value="info">Info (blue)</option><option value="warning">Warning (yellow)</option><option value="urgent">Urgent (red)</option></select></div>' +
+            '<div class="ra-st__field" style="flex:1;"><label>Expires</label><input type="date" id="ra-ann-expires"></div>' +
+          '</div>' +
+          '<div style="display:flex;gap:10px;margin-top:20px;">' +
+            '<button class="ra-st__btn ra-st__btn--primary" id="ra-ann-modal-save">Create Announcement</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary" id="ra-ann-modal-cancel">Cancel</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+
+    function closeModal() { modal.remove(); }
+    document.getElementById('ra-ann-modal-close').addEventListener('click', closeModal);
+    document.getElementById('ra-ann-modal-cancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+
+    document.getElementById('ra-ann-modal-save').addEventListener('click', function () {
+      var title = document.getElementById('ra-ann-title').value.trim();
+      var message = document.getElementById('ra-ann-message').value.trim();
+      var type = document.getElementById('ra-ann-type').value;
+      var expires = document.getElementById('ra-ann-expires').value;
+
+      if (!title || !message) { alert('Title and message are required'); return; }
+
+      var payload = {
+        title: title,
+        message: message,
+        type: type,
+        expires_at: expires ? expires + 'T23:59:59Z' : '',
+        created_by: 'admin'
+      };
+
+      fetch(apiUrl('/announcements'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function () {
+          closeModal();
+          loadAnnouncementsData(function () { renderAnnouncementsList(); });
+          showStatus(document.getElementById('ra-ann-status'), 'ok', 'Announcement created.');
+        })
+        .catch(function () {
+          alert('Failed to create announcement');
+        });
+    });
+  }
+
+
+  // ── Teams Section ──
+  var _teamsData = null;
+  var _teamsForms = null;
+  var _teamsUsers = null;
+
+  function loadTeamsData(cb) {
+    fetch(apiUrl('/teams'), { credentials: 'same-origin' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('not ok');
+        return r.json();
+      })
+      .then(function (data) {
+        _teamsData = data;
+        if (cb) cb();
+      })
+      .catch(function () {
+        if (_apiBase === '/webhook-api') {
+          _apiBase = 'http://localhost:5050/api';
+          return loadTeamsData(cb);
+        }
+        _teamsData = { teams: [] };
+        if (cb) cb();
+      });
+  }
+
+  function renderTeamsSection(main) {
+    main.innerHTML =
+      '<h1 class="ra-st__page-title">Teams</h1>' +
+      '<div class="ra-st__content" style="max-width:900px;">' +
+        '<p style="color:#666;margin:0 0 16px;font-size:14px;">' +
+          'Organize users into teams with leaders, geographic zones, and assigned forms. Track team performance and submission stats.' +
+        '</p>' +
+        '<div style="margin-bottom:20px;">' +
+          '<button class="ra-st__btn ra-st__btn--primary" id="ra-team-new">+ New Team</button>' +
+        '</div>' +
+        '<div class="ra-st__status" id="ra-team-status"></div>' +
+        '<div id="ra-team-list"><div style="padding:16px;text-align:center;color:#999;">Loading...</div></div>' +
+      '</div>';
+
+    document.getElementById('ra-team-new').addEventListener('click', function () {
+      showTeamModal();
+    });
+
+    loadTeamsData(function () {
+      renderTeamsList();
+    });
+
+    // Preload forms and users
+    if (!_teamsForms) {
+      fetch('/api/v2/assets/?asset_type=survey&fields=["uid","name","deployment_status"]&limit=200', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          _teamsForms = (data.results || []).filter(function (f) { return f.deployment_status === 'deployed'; });
+        })
+        .catch(function () { _teamsForms = []; });
+    }
+    if (!_teamsUsers) {
+      fetch('/api/v2/users/?format=json&limit=200', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          _teamsUsers = (data.results || []).filter(function (u) {
+            return u.is_active && u.username !== 'AnonymousUser';
+          });
+        })
+        .catch(function () { _teamsUsers = []; });
+    }
+  }
+
+  function renderTeamsList() {
+    var listEl = document.getElementById('ra-team-list');
+    if (!listEl || !_teamsData) return;
+
+    var teams = _teamsData.teams || [];
+    if (!teams.length) {
+      listEl.innerHTML = '<div style="padding:32px;text-align:center;color:#94a3b8;border:2px dashed #e2e8f0;border-radius:8px;">' +
+        '<p style="font-size:14px;margin:0 0 8px;">No teams yet</p>' +
+        '<p style="font-size:12px;margin:0;">Click "+ New Team" to organize your users into teams.</p></div>';
+      return;
+    }
+
+    var teamColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+
+    listEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">' +
+      teams.map(function (t, idx) {
+        var memberCount = (t.members || []).length;
+        var formCount = (t.forms || []).length;
+        var color = teamColors[idx % teamColors.length];
+
+        return '<div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;overflow:hidden;">' +
+          '<div style="height:6px;background:' + color + ';"></div>' +
+          '<div style="padding:20px;">' +
+            '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">' + escapeHtml(t.name) + '</div>' +
+            '<div style="display:flex;gap:16px;margin-bottom:12px;">' +
+              '<div style="text-align:center;">' +
+                '<div style="font-size:22px;font-weight:700;color:' + color + ';">' + memberCount + '</div>' +
+                '<div style="font-size:10px;color:#94a3b8;text-transform:uppercase;">Members</div>' +
+              '</div>' +
+              '<div style="text-align:center;">' +
+                '<div style="font-size:22px;font-weight:700;color:' + color + ';">' + formCount + '</div>' +
+                '<div style="font-size:10px;color:#94a3b8;text-transform:uppercase;">Forms</div>' +
+              '</div>' +
+            '</div>' +
+            '<div style="font-size:12px;color:#64748b;margin-bottom:4px;">' +
+              '<strong>Leader:</strong> ' + escapeHtml(t.leader || 'Not assigned') +
+            '</div>' +
+            '<div style="font-size:12px;color:#64748b;margin-bottom:4px;">' +
+              '<strong>Zone:</strong> ' + escapeHtml(t.zone || 'Not specified') +
+            '</div>' +
+            '<div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">' +
+              'Members: ' + escapeHtml((t.members || []).join(', ') || 'None') +
+            '</div>' +
+            '<div style="display:flex;gap:8px;">' +
+              '<button class="ra-st__btn ra-st__btn--secondary ra-team-edit" data-id="' + escapeHtml(t.id) + '" style="padding:6px 14px;font-size:12px;flex:1;">Edit</button>' +
+              '<button class="ra-st__btn ra-st__btn--secondary ra-team-delete" data-id="' + escapeHtml(t.id) + '" style="padding:6px 14px;font-size:12px;color:#e74c3c;">Delete</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+
+    listEl.querySelectorAll('.ra-team-delete').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = this.getAttribute('data-id');
+        if (!confirm('Delete this team?')) return;
+        fetch(apiUrl('/teams/' + id), { method: 'DELETE', credentials: 'same-origin' })
+          .then(function (r) { return r.json(); })
+          .then(function () {
+            loadTeamsData(function () { renderTeamsList(); });
+            showStatus(document.getElementById('ra-team-status'), 'ok', 'Team deleted.');
+          })
+          .catch(function () {
+            showStatus(document.getElementById('ra-team-status'), 'err', 'Failed to delete team.');
+          });
+      });
+    });
+
+    listEl.querySelectorAll('.ra-team-edit').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = this.getAttribute('data-id');
+        var team = null;
+        for (var i = 0; i < _teamsData.teams.length; i++) {
+          if (_teamsData.teams[i].id === id) { team = _teamsData.teams[i]; break; }
+        }
+        if (team) showTeamModal(team);
+      });
+    });
+  }
+
+  function showTeamModal(existingTeam) {
+    var isEdit = !!existingTeam;
+    var t = existingTeam || { name: '', leader: '', members: [], zone: '', forms: [] };
+
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;';
+
+    var userOptions = '<option value="">-- Select leader --</option>';
+    var memberCheckboxes = '<div style="color:#999;font-size:13px;">Loading users...</div>';
+    if (_teamsUsers && _teamsUsers.length) {
+      userOptions += _teamsUsers.map(function (u) {
+        var sel = t.leader === u.username ? ' selected' : '';
+        return '<option value="' + escapeHtml(u.username) + '"' + sel + '>' + escapeHtml(u.username) + '</option>';
+      }).join('');
+
+      memberCheckboxes = _teamsUsers.map(function (u) {
+        var checked = (t.members || []).indexOf(u.username) !== -1 ? ' checked' : '';
+        var label = u.username;
+        if (u.metadata && u.metadata.name) label += ' (' + u.metadata.name + ')';
+        return '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer;">' +
+          '<input type="checkbox" value="' + escapeHtml(u.username) + '" class="ra-team-member-cb"' + checked + ' style="width:16px;height:16px;">' +
+          escapeHtml(label) +
+        '</label>';
+      }).join('');
+    }
+
+    var formCheckboxes = '<div style="color:#999;font-size:13px;">Loading forms...</div>';
+    if (_teamsForms && _teamsForms.length) {
+      formCheckboxes = _teamsForms.map(function (f) {
+        var checked = (t.forms || []).indexOf(f.uid) !== -1 ? ' checked' : '';
+        return '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer;">' +
+          '<input type="checkbox" value="' + escapeHtml(f.uid) + '" class="ra-team-form-cb"' + checked + ' style="width:16px;height:16px;">' +
+          escapeHtml(f.name) +
+        '</label>';
+      }).join('');
+    }
+
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:10px;width:500px;max-width:90vw;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);">' +
+        '<div style="padding:18px 20px;border-bottom:1px solid #e2e8f0;font-size:16px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">' +
+          (isEdit ? 'Edit Team' : 'New Team') +
+          '<button id="ra-team-modal-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:20px;">' +
+          '<div class="ra-st__field"><label>Team Name</label><input type="text" id="ra-team-name" value="' + escapeHtml(t.name) + '" placeholder="e.g., Kinondoni Field Team"></div>' +
+          '<div class="ra-st__field"><label>Team Leader</label><select id="ra-team-leader">' + userOptions + '</select></div>' +
+          '<div class="ra-st__field"><label>Members</label><div style="max-height:160px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;">' + memberCheckboxes + '</div></div>' +
+          '<div class="ra-st__field"><label>Geographic Zone</label><input type="text" id="ra-team-zone" value="' + escapeHtml(t.zone || '') + '" placeholder="e.g., Kinondoni District"></div>' +
+          '<div class="ra-st__field"><label>Assigned Forms</label><div style="max-height:160px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;">' + formCheckboxes + '</div></div>' +
+          '<div style="display:flex;gap:10px;margin-top:20px;">' +
+            '<button class="ra-st__btn ra-st__btn--primary" id="ra-team-modal-save">' + (isEdit ? 'Update Team' : 'Create Team') + '</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary" id="ra-team-modal-cancel">Cancel</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+
+    function closeModal() { modal.remove(); }
+    document.getElementById('ra-team-modal-close').addEventListener('click', closeModal);
+    document.getElementById('ra-team-modal-cancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+
+    document.getElementById('ra-team-modal-save').addEventListener('click', function () {
+      var name = document.getElementById('ra-team-name').value.trim();
+      var leader = document.getElementById('ra-team-leader').value;
+      var zone = document.getElementById('ra-team-zone').value.trim();
+      var members = [];
+      modal.querySelectorAll('.ra-team-member-cb:checked').forEach(function (cb) { members.push(cb.value); });
+      var forms = [];
+      modal.querySelectorAll('.ra-team-form-cb:checked').forEach(function (cb) { forms.push(cb.value); });
+
+      if (!name) { alert('Team name is required'); return; }
+
+      var payload = {
+        name: name,
+        leader: leader,
+        members: members,
+        zone: zone,
+        forms: forms
+      };
+      if (isEdit) payload.id = t.id;
+
+      fetch(apiUrl('/teams'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function () {
+          closeModal();
+          loadTeamsData(function () { renderTeamsList(); });
+          showStatus(document.getElementById('ra-team-status'), 'ok', isEdit ? 'Team updated.' : 'Team created.');
+        })
+        .catch(function () {
+          alert('Failed to save team');
+        });
+    });
+  }
+
+
   function showStatus(el, type, msg) {
     if (!el) return;
     el.style.display = 'block';
@@ -2479,3 +3156,7 @@
     if (window.location.hash !== lastHash) { lastHash = window.location.hash; handleNavigation(); }
   }, 300);
 })();
+
+// ── Form Scheduler (appended) ──
+// This code is appended to ra-settings.js via the build process.
+// It adds form scheduling and project tags functionality.

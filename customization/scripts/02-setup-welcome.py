@@ -26,7 +26,7 @@ WELCOME_BODY = """
   <strong style="font-size: 15px;">Welcome to Resilience Academy Data Collection</strong>
   <p style="margin: 8px 0 0; font-size: 13px; opacity: 0.9;">
     Use this platform to create surveys, collect field data, and analyze results for urban resilience research across Tanzania.
-    Need help? Visit <a href="https://resilienceacademy.ac.tz" style="color: #fff; text-decoration: underline;">resilienceacademy.ac.tz</a>
+    Need help? Contact <a href="mailto:info@ramaniyangu.com" style="color: #fff; text-decoration: underline;">info@ramaniyangu.com</a>
   </p>
 </div>
 """

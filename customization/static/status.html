@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Submission Status | Ramani Yangu</title>
+<link rel="icon" href="/custom-static/images/favicon.png" type="image/png">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Roboto, -apple-system, sans-serif; background: #f8fafc; color: #29292a; }
+.header { background: #1a2a3a; color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 10px; }
+.header img { height: 24px; }
+.header h1 { font-size: 15px; font-weight: 600; }
+.container { max-width: 600px; margin: 20px auto; padding: 0 16px; }
+.card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; overflow: hidden; }
+.card-title { font-size: 14px; font-weight: 600; padding: 12px 16px; border-bottom: 1px solid #f0f0f0; color: #475569; }
+.card-body { padding: 16px; }
+.stat { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f8fafc; font-size: 14px; }
+.stat:last-child { border: none; }
+.stat-value { font-weight: 700; color: #54a8dc; }
+.form-item { padding: 10px 0; border-bottom: 1px solid #f5f5f5; }
+.form-item:last-child { border: none; }
+.form-name { font-size: 14px; font-weight: 600; }
+.form-meta { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+.form-count { font-size: 20px; font-weight: 700; color: #54a8dc; }
+.loading { text-align: center; padding: 20px; color: #94a3b8; }
+.refresh { text-align: center; padding: 12px; font-size: 12px; color: #94a3b8; }
+.refresh button { background: #54a8dc; color: #fff; border: none; padding: 8px 20px; border-radius: 4px; font-size: 13px; cursor: pointer; }
+.error { color: #ef4444; text-align: center; padding: 20px; }
+.online { color: #10b981; } .offline { color: #ef4444; }
+</style>
+</head>
+<body>
+<div class="header">
+  <img src="/custom-static/images/ra-logo.png" alt="RA">
+  <h1>Submission Status</h1>
+</div>
+<div class="container">
+  <div class="card">
+    <div class="card-title">Connection Status</div>
+    <div class="card-body">
+      <div class="stat"><span>Server</span><span id="st-server" class="stat-value">Checking...</span></div>
+      <div class="stat"><span>Internet</span><span id="st-internet" class="stat-value">Checking...</span></div>
+      <div class="stat"><span>Last checked</span><span id="st-time" class="stat-value">-</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Form Submissions</div>
+    <div class="card-body" id="st-forms"><div class="loading">Loading...</div></div>
+  </div>
+  <div class="refresh">
+    <button onclick="checkStatus()">Refresh</button>
+    <div style="margin-top:8px;">Auto-refreshes every 30 seconds</div>
+  </div>
+</div>
+<script>
+function checkStatus() {
+  document.getElementById('st-time').textContent = new Date().toLocaleTimeString();
+
+  // Check internet
+  document.getElementById('st-internet').innerHTML = navigator.onLine
+    ? '<span class="online">Online</span>'
+    : '<span class="offline">Offline</span>';
+
+  // Check server + get form data
+  fetch('/api/v2/assets/?asset_type=survey&fields=["uid","name","deployment_status","deployment__submission_count"]&limit=50', { credentials: 'same-origin' })
+    .then(function (r) {
+      document.getElementById('st-server').innerHTML = '<span class="online">Connected</span>';
+      return r.json();
+    })
+    .then(function (data) {
+      var forms = (data.results || []).filter(function (f) { return f.deployment_status === 'deployed'; });
+      if (!forms.length) {
+        document.getElementById('st-forms').innerHTML = '<div class="loading">No deployed forms</div>';
+        return;
+      }
+      var total = forms.reduce(function (s, f) { return s + (f.deployment__submission_count || 0); }, 0);
+      document.getElementById('st-forms').innerHTML =
+        '<div class="stat" style="font-weight:600;"><span>Total across all forms</span><span class="form-count">' + total + '</span></div>' +
+        forms.map(function (f) {
+          return '<div class="form-item"><div style="display:flex;justify-content:space-between;align-items:center;">' +
+            '<div><div class="form-name">' + f.name + '</div>' +
+            '<div class="form-meta">Status: deployed</div></div>' +
+            '<div class="form-count">' + (f.deployment__submission_count || 0) + '</div>' +
+          '</div></div>';
+        }).join('');
+    })
+    .catch(function () {
+      document.getElementById('st-server').innerHTML = '<span class="offline">Unreachable</span>';
+      document.getElementById('st-forms').innerHTML = '<div class="error">Cannot reach server. Check your connection.</div>';
+    });
+}
+checkStatus();
+setInterval(checkStatus, 30000);
+</script>
+</body>
+</html>

@@ -31,84 +31,6 @@
 
   if (/\/accounts\/(login|signup|password)/.test(window.location.pathname)) return;
 
-  // ── TITLE INTERCEPTOR ──
-  // This runs BEFORE React and ra-welcome.js (no defer on this script).
-  // Intercepts every document.title change and replaces it instantly.
-  window.__raDashPending = true;
-  window.__raGetPageName = function () {
-    var hash = window.location.hash;
-    if (hash === '#/leaderboard') return 'Leaderboard';
-    if (hash === '#/map') return 'Map';
-    if (hash.indexOf('#/library') === 0) return 'Library';
-    if (hash.indexOf('#/forms/') === 0) return null; // resolved later by ra-welcome.js
-    if (hash === '' || hash === '#/' || hash.indexOf('#/projects') === 0 || hash.indexOf('#/forms') === 0) return 'Projects';
-    return null;
-  };
-
-  var _raSettingTitle = false;
-  function _raSetTitle(val) {
-    _raSettingTitle = true;
-    var titleEl = document.querySelector('title');
-    if (titleEl) titleEl.textContent = val;
-    _raSettingTitle = false;
-  }
-  _raSetTitle(BRAND_NAME);
-
-  // Override document.title setter — catches React's title changes INSTANTLY
-  try {
-    var _raTitleDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'title') ||
-                       Object.getOwnPropertyDescriptor(HTMLDocument.prototype, 'title');
-    if (_raTitleDesc && _raTitleDesc.set) {
-      var _raOriginalTitleSet = _raTitleDesc.set;
-      var _raOriginalTitleGet = _raTitleDesc.get;
-      Object.defineProperty(document, 'title', {
-        get: function () { return _raOriginalTitleGet.call(this); },
-        set: function (val) {
-          if (_raSettingTitle) { _raOriginalTitleSet.call(this, val); return; }
-          // Dashboard user — always enforce username title
-          if (window.__raDashboardUser) {
-            _raSettingTitle = true;
-            _raOriginalTitleSet.call(this, window.__raDashboardUser + ' | ' + BRAND_NAME);
-            _raSettingTitle = false;
-            return;
-          }
-          // Dashboard detection pending — show brand name only
-          if (window.__raDashPending) {
-            _raSettingTitle = true;
-            _raOriginalTitleSet.call(this, BRAND_NAME);
-            _raSettingTitle = false;
-            return;
-          }
-          // Normal user — replace with our page title
-          var pageName = window.__raGetPageName();
-          var desired = pageName ? pageName + ' | ' + BRAND_NAME : BRAND_NAME;
-          // Allow ra-welcome.js to set form-specific titles
-          if (val.indexOf(BRAND_NAME) !== -1 && val.indexOf('KoboToolbox') === -1) {
-            _raOriginalTitleSet.call(this, val);
-          } else {
-            _raSettingTitle = true;
-            _raOriginalTitleSet.call(this, desired);
-            _raSettingTitle = false;
-          }
-        },
-        configurable: true
-      });
-    }
-  } catch (e) {}
-
-  // Also observe <title> element for DOM-based changes
-  var _raTitleEl = document.querySelector('title');
-  if (_raTitleEl) {
-    new MutationObserver(function () {
-      if (_raSettingTitle) return;
-      if (window.__raDashboardUser) {
-        _raSetTitle(window.__raDashboardUser + ' | ' + BRAND_NAME);
-      } else if (window.__raDashPending) {
-        if (document.title !== BRAND_NAME) _raSetTitle(BRAND_NAME);
-      }
-    }).observe(_raTitleEl, { childList: true, characterData: true, subtree: true });
-  }
-
   // ── INSTANT SCREEN COVER (replaces default KoboToolbox loading) ──
   var screenCover = document.createElement('div');
   screenCover.id = 'ra-do-screencover';
@@ -326,19 +248,31 @@
           activeDashboardId = users[data.username];
           // Set title immediately and flag globally so ra-welcome.js stops overriding
           document.title = data.username + ' | ' + BRAND_NAME;
-          window.__raDashboardUser = data.username;
         } else {
           isDashboardOnly = false;
           activeDashboardId = null;
-          window.__raDashPending = false;  // Not a dashboard user — let ra-welcome.js resume
         }
         return isDashboardOnly;
       });
-    }).catch(function () { window.__raDashPending = false; return false; });
+    }).catch(function () { return false; });
+  }
+
+  function fetchWithTimeout(url, opts, ms) {
+    ms = ms || 5000;
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () { reject(new Error('timeout')); }, ms);
+      fetch(url, opts || {}).then(function (r) {
+        clearTimeout(timer);
+        resolve(r);
+      }).catch(function (e) {
+        clearTimeout(timer);
+        reject(e);
+      });
+    });
   }
 
   function loadDashboardConfig() {
-    return fetch(CONFIG_URL, { credentials: 'same-origin' })
+    return fetchWithTimeout(CONFIG_URL, { credentials: 'same-origin' }, 3000)
       .then(function (r) {
         if (!r.ok) throw new Error('not ok');
         return r.json();
@@ -346,7 +280,7 @@
       .then(function (c) { dashConfig = c; })
       .catch(function () {
         // Fallback for local dev
-        return fetch(CONFIG_URL_FALLBACK)
+        return fetchWithTimeout(CONFIG_URL_FALLBACK, {}, 3000)
           .then(function (r) { return r.ok ? r.json() : {}; })
           .then(function (c) { dashConfig = c; })
           .catch(function () { dashConfig = { dashboards: {}, users: {} }; });
@@ -1628,15 +1562,31 @@
 
   // ── Bootstrap ──
   function bootstrap() {
+    // Safety: always remove cover after 3 seconds no matter what
+    setTimeout(removeScreenCover, 3000);
+
     detectUser().then(function (isDashOnly) {
-      if (!isDashOnly) { removeScreenCover(); return; }
-      createPage();
+      if (!isDashOnly) {
+        removeScreenCover();
+        return;
+      }
+      try {
+        createPage();
+      } catch (e) {
+        removeScreenCover();
+        return;
+      }
       removeScreenCover();
-      loadAndRender();
+      // Set title for dashboard user
+      document.title = (currentUser ? currentUser.username : '') + ' | ' + BRAND_NAME;
+      // Load data with error handling — don't let it hang
+      try {
+        loadAndRender();
+      } catch (e) {}
       startRefresh();
-      window.addEventListener('hashchange', enforceAccess);
-      setInterval(enforceAccess, 500);
-    }).catch(function () { removeScreenCover(); });
+    }).catch(function () {
+      removeScreenCover();
+    });
   }
 
   if (document.readyState === 'loading') {
@@ -1644,7 +1594,6 @@
   } else {
     bootstrap();
   }
-  setTimeout(removeScreenCover, 5000);
 
   // ── Admin Preview API ──
   window.__raDashboardPreview = {

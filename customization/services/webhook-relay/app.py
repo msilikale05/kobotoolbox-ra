@@ -31,7 +31,7 @@ load_dotenv('/app/config.env')
 # CORS support for local development (browser cross-origin requests)
 def add_cors_headers(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, DELETE, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     return response
 
@@ -49,6 +49,9 @@ WHATSAPP_RECIPIENTS = [r.strip() for r in os.getenv('WHATSAPP_RECIPIENTS', '').s
 NOTIFY_VIA = os.getenv('NOTIFY_VIA', 'email')
 WEBHOOK_SECRET = os.getenv('WEBHOOK_SECRET', '')
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+
+# WhatsApp Gateway (whatsapp-web.js based)
+WHATSAPP_GATEWAY_URL = os.getenv('WHATSAPP_GATEWAY_URL', 'http://whatsapp-gateway:3000')
 
 # Email configuration
 SMTP_HOST = os.getenv('SMTP_HOST', '')
@@ -441,6 +444,53 @@ def send_whatsapp(message, recipients):
             log.error(f"WhatsApp to {recipient} failed: {e}")
 
 
+def send_whatsapp_gateway(data, form_uid):
+    """Send WhatsApp notification via the whatsapp-web.js gateway."""
+    import requests as http_req
+
+    form_title = data.get('_xform_id_string', form_uid)
+    submitted_by = data.get('_submitted_by', 'Anonymous')
+    submission_time = data.get('_submission_time', '')
+
+    # Build fields for the notification
+    fields = {}
+    for key, value in data.items():
+        if key.startswith('_') or key in ('meta', 'formhub', '__version__'):
+            continue
+        if isinstance(value, (dict, list)):
+            continue
+        if value:
+            fields[key] = str(value)
+
+    # Location
+    geo = data.get('_geolocation', [])
+    location = ''
+    if geo and len(geo) >= 2 and geo[0] and geo[1]:
+        location = f'{geo[0]:.4f}, {geo[1]:.4f}'
+
+    payload = {
+        'form_title': form_title,
+        'form_uid': form_uid,
+        'submitted_by': submitted_by,
+        'submission_time': submission_time,
+        'fields': fields,
+        'location': location
+    }
+
+    try:
+        resp = http_req.post(
+            f'{WHATSAPP_GATEWAY_URL}/notify',
+            json=payload,
+            timeout=10
+        )
+        if resp.ok:
+            log.info("WhatsApp gateway notification sent")
+        else:
+            log.warning(f"WhatsApp gateway error: {resp.status_code} {resp.text[:100]}")
+    except Exception as e:
+        log.error(f"WhatsApp gateway failed: {e}")
+
+
 def check_rate_limit(form_uid):
     """Simple per-form rate limiter."""
     import time
@@ -501,9 +551,14 @@ def webhook(form_uid):
         send_sms(message, SMS_RECIPIENTS)
         _stats['sent_sms'] += 1
 
-    # Send WhatsApp notifications
+    # Send WhatsApp notifications (Twilio)
     if NOTIFY_VIA in ('whatsapp', 'all', 'both', 'email_whatsapp') and WHATSAPP_RECIPIENTS:
         send_whatsapp(message, WHATSAPP_RECIPIENTS)
+        _stats['sent_whatsapp'] += 1
+
+    # Send WhatsApp via gateway (whatsapp-web.js)
+    if NOTIFY_VIA in ('whatsapp_gateway', 'all', 'email_wa_gateway'):
+        send_whatsapp_gateway(data, form_uid)
         _stats['sent_whatsapp'] += 1
 
     return jsonify({'status': 'ok', 'form_uid': form_uid}), 200
@@ -560,25 +615,34 @@ def get_dashboard_config():
 
 @app.route('/api/dashboard-config', methods=['POST'])
 def set_dashboard_config():
-    """Save full multi-dashboard config."""
+    """Save multi-dashboard config."""
     try:
         config = request.get_json(force=True)
         if not isinstance(config, dict):
             return jsonify({'error': 'Config must be a JSON object'}), 400
-        # Ensure required keys
-        if 'dashboards' not in config:
-            config['dashboards'] = {}
-        if 'users' not in config:
-            config['users'] = {}
-        # Sanitize usernames in the users map
-        clean_users = {}
-        for username, dashboard_id in config.get('users', {}).items():
-            username = username.strip()
-            if re.match(r'^[\w.\-]+$', username) and isinstance(dashboard_id, str):
-                clean_users[username] = dashboard_id.strip()
-        config['users'] = clean_users
-        write_dashboard_config(config)
-        log.info(f"Dashboard config updated: {len(config['dashboards'])} dashboards, {len(config['users'])} users")
+
+        # Read existing config
+        existing = read_dashboard_config()
+
+        # Update dashboards (full replace)
+        if 'dashboards' in config:
+            existing['dashboards'] = config['dashboards']
+
+        # Users: full replace with sanitization.
+        # The client always sends the complete users dict.
+        if 'users' in config and isinstance(config['users'], dict):
+            clean_users = {}
+            for username, dashboard_id in config['users'].items():
+                username = username.strip()
+                if re.match(r'^[\w.\-@]+$', username) and isinstance(dashboard_id, str) and dashboard_id.strip():
+                    clean_users[username] = dashboard_id.strip()
+            existing['users'] = clean_users
+
+        if 'users' not in existing:
+            existing['users'] = {}
+
+        write_dashboard_config(existing)
+        log.info(f"Dashboard config updated: {len(existing['dashboards'])} dashboards, {len(existing['users'])} users")
         return jsonify({'status': 'ok'})
     except Exception as e:
         log.error(f"Failed to update dashboard config: {e}")
@@ -601,9 +665,18 @@ def get_user_dashboard(username):
 # ── Public Dashboard Sharing ──
 import secrets
 import time
-import requests as http_requests
+import urllib.request as urllib_request
+import urllib.parse as urllib_parse
+import urllib.error as urllib_error
 
-KPI_URL = os.getenv('KPI_INTERNAL_URL', 'http://kpi:8000')
+# Resolve nginx IP at startup to avoid DNS issues in Gunicorn workers
+import socket
+_nginx_ip = None
+try:
+    _nginx_ip = socket.gethostbyname('nginx')
+except Exception:
+    _nginx_ip = 'nginx'
+KPI_URL = os.getenv('KPI_INTERNAL_URL', f'http://{_nginx_ip}')
 SERVICE_TOKEN = None
 _public_cache = {}  # token -> {data, timestamp}
 CACHE_TTL = 30  # seconds
@@ -709,20 +782,36 @@ def get_public_dashboard(token):
     if not svc_token:
         return jsonify({'error': 'Service token not configured'}), 500
 
-    headers = {'Authorization': f'Token {svc_token}', 'Accept': 'application/json'}
+    # Need Host header so nginx routes to the KPI server block
+    kf_host = os.getenv('KF_HOST', 'kf.localhost')
+    headers = {
+        'Authorization': f'Token {svc_token}',
+        'Accept': 'application/json',
+        'Host': kf_host
+    }
+
+    def kpi_get(path, params=None):
+        """Make a GET request to KPI via http.client (most reliable in Gunicorn)."""
+        import http.client
+        query = ''
+        if params:
+            query = '?' + urllib_parse.urlencode(params)
+        conn = http.client.HTTPConnection(_nginx_ip, 80, timeout=15)
+        conn.request('GET', path + query, headers=headers)
+        resp = conn.getresponse()
+        body = resp.read()
+        conn.close()
+        if resp.status != 200:
+            raise Exception(f'KPI returned {resp.status}')
+        return json.loads(body.decode())
 
     try:
         # Fetch forms
-        forms_resp = http_requests.get(
-            f'{KPI_URL}/api/v2/assets/',
-            params={
-                'asset_type': 'survey',
-                'fields': '["uid","name","deployment_status","deployment__submission_count"]',
-                'limit': 200
-            },
-            headers=headers, timeout=15
-        )
-        forms_data = forms_resp.json() if forms_resp.ok else {'results': []}
+        forms_data = kpi_get('/api/v2/assets/', {
+            'asset_type': 'survey',
+            'fields': '["uid","name","deployment_status","deployment__submission_count"]',
+            'limit': 200
+        })
         forms = [f for f in forms_data.get('results', []) if f.get('deployment_status') == 'deployed']
 
         # Determine which forms the dashboard needs
@@ -734,18 +823,15 @@ def get_public_dashboard(token):
                 break
             widget_uids.update(form_refs)
 
-        # Fetch submissions per form (limit to keep response fast)
+        # Fetch submissions per form
         submissions = {}
         for uid in widget_uids:
             try:
-                sub_resp = http_requests.get(
-                    f'{KPI_URL}/api/v2/assets/{uid}/data/',
-                    params={'limit': 1000, 'sort': '{"_submission_time":-1}'},
-                    headers=headers, timeout=15
-                )
-                if sub_resp.ok:
-                    sub_data = sub_resp.json()
-                    submissions[uid] = sub_data.get('results', [])
+                sub_data = kpi_get(f'/api/v2/assets/{uid}/data/', {
+                    'limit': 1000,
+                    'sort': '{"_submission_time":-1}'
+                })
+                submissions[uid] = sub_data.get('results', [])
             except Exception:
                 submissions[uid] = []
 
@@ -766,6 +852,297 @@ def get_public_dashboard(token):
     except Exception as e:
         log.error(f"Failed to fetch public dashboard data: {e}")
         return jsonify({'error': 'Failed to fetch data'}), 500
+
+
+# ── Assignments API ──
+ASSIGNMENTS_CONFIG_PATH = os.getenv(
+    'ASSIGNMENTS_CONFIG_PATH', '/app/config/assignments.json'
+)
+
+
+def read_assignments_config():
+    """Read assignments config from JSON file."""
+    try:
+        with open(ASSIGNMENTS_CONFIG_PATH, 'r') as f:
+            data = json.load(f)
+            if 'assignments' not in data:
+                data['assignments'] = []
+            return data
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {'assignments': []}
+
+
+def write_assignments_config(config):
+    """Write assignments config to JSON file."""
+    os.makedirs(os.path.dirname(ASSIGNMENTS_CONFIG_PATH), exist_ok=True)
+    with open(ASSIGNMENTS_CONFIG_PATH, 'w') as f:
+        json.dump(config, f, indent=2)
+
+
+@app.route('/api/assignments', methods=['GET'])
+def get_assignments():
+    """Get all assignments."""
+    return jsonify(read_assignments_config())
+
+
+@app.route('/api/assignments', methods=['POST'])
+def create_assignment():
+    """Create or update an assignment."""
+    try:
+        data = request.get_json(force=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Expected JSON object'}), 400
+
+        config = read_assignments_config()
+
+        # If updating an existing assignment (has id)
+        assignment_id = data.get('id', '')
+        if assignment_id:
+            for i, a in enumerate(config['assignments']):
+                if a.get('id') == assignment_id:
+                    config['assignments'][i] = data
+                    write_assignments_config(config)
+                    return jsonify({'status': 'updated', 'id': assignment_id})
+            return jsonify({'error': 'Assignment not found'}), 404
+
+        # New assignment
+        new_id = 'asgn_' + str(int(time.time())) + '_' + secrets.token_hex(4)
+        data['id'] = new_id
+        data['created_at'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        if 'status' not in data:
+            data['status'] = 'active'
+
+        config['assignments'].append(data)
+        write_assignments_config(config)
+        log.info(f"Assignment created: {new_id}")
+        return jsonify({'status': 'created', 'id': new_id})
+    except Exception as e:
+        log.error(f"Failed to create assignment: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/assignments/<assignment_id>', methods=['DELETE'])
+def delete_assignment(assignment_id):
+    """Delete an assignment."""
+    if not re.match(r'^[\w-]+$', assignment_id):
+        return jsonify({'error': 'Invalid assignment ID'}), 400
+
+    config = read_assignments_config()
+    original_len = len(config['assignments'])
+    config['assignments'] = [a for a in config['assignments'] if a.get('id') != assignment_id]
+
+    if len(config['assignments']) == original_len:
+        return jsonify({'error': 'Assignment not found'}), 404
+
+    write_assignments_config(config)
+    log.info(f"Assignment deleted: {assignment_id}")
+    return jsonify({'status': 'deleted'})
+
+
+@app.route('/api/assignments/user/<username>', methods=['GET'])
+def get_user_assignments(username):
+    """Get assignments for a specific user."""
+    if not re.match(r'^[\w.\-@]+$', username):
+        return jsonify({'error': 'Invalid username'}), 400
+
+    config = read_assignments_config()
+    user_assignments = []
+    for a in config.get('assignments', []):
+        assigned_to = a.get('assigned_to', [])
+        if username in assigned_to:
+            user_assignments.append(a)
+    return jsonify({'assignments': user_assignments})
+
+
+# ── Announcements API ──
+ANNOUNCEMENTS_CONFIG_PATH = os.getenv(
+    'ANNOUNCEMENTS_CONFIG_PATH', '/app/config/announcements.json'
+)
+
+
+def read_announcements_config():
+    """Read announcements config from JSON file."""
+    try:
+        with open(ANNOUNCEMENTS_CONFIG_PATH, 'r') as f:
+            data = json.load(f)
+            if 'announcements' not in data:
+                data['announcements'] = []
+            return data
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {'announcements': []}
+
+
+def write_announcements_config(config):
+    """Write announcements config to JSON file."""
+    os.makedirs(os.path.dirname(ANNOUNCEMENTS_CONFIG_PATH), exist_ok=True)
+    with open(ANNOUNCEMENTS_CONFIG_PATH, 'w') as f:
+        json.dump(config, f, indent=2)
+
+
+@app.route('/api/announcements', methods=['GET'])
+def get_announcements():
+    """Get active (non-expired) announcements."""
+    config = read_announcements_config()
+    now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    active = []
+    for a in config.get('announcements', []):
+        expires = a.get('expires_at', '')
+        if expires and expires < now:
+            continue
+        active.append(a)
+    return jsonify({'announcements': active})
+
+
+@app.route('/api/announcements', methods=['POST'])
+def create_announcement():
+    """Create a new announcement."""
+    try:
+        data = request.get_json(force=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Expected JSON object'}), 400
+
+        title = data.get('title', '').strip()
+        message = data.get('message', '').strip()
+        ann_type = data.get('type', 'info')
+
+        if not title or not message:
+            return jsonify({'error': 'Title and message are required'}), 400
+        if ann_type not in ('info', 'warning', 'urgent'):
+            ann_type = 'info'
+
+        config = read_announcements_config()
+
+        new_id = 'ann_' + str(int(time.time())) + '_' + secrets.token_hex(4)
+        announcement = {
+            'id': new_id,
+            'title': title,
+            'message': message,
+            'type': ann_type,
+            'expires_at': data.get('expires_at', ''),
+            'created_by': data.get('created_by', ''),
+            'created_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        }
+
+        config['announcements'].append(announcement)
+        write_announcements_config(config)
+        log.info(f"Announcement created: {new_id}")
+        return jsonify({'status': 'created', 'id': new_id})
+    except Exception as e:
+        log.error(f"Failed to create announcement: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/announcements/<announcement_id>', methods=['DELETE'])
+def delete_announcement(announcement_id):
+    """Delete an announcement."""
+    if not re.match(r'^[\w-]+$', announcement_id):
+        return jsonify({'error': 'Invalid announcement ID'}), 400
+
+    config = read_announcements_config()
+    original_len = len(config['announcements'])
+    config['announcements'] = [a for a in config['announcements'] if a.get('id') != announcement_id]
+
+    if len(config['announcements']) == original_len:
+        return jsonify({'error': 'Announcement not found'}), 404
+
+    write_announcements_config(config)
+    log.info(f"Announcement deleted: {announcement_id}")
+    return jsonify({'status': 'deleted'})
+
+
+# ── Teams API ──
+TEAMS_CONFIG_PATH = os.getenv(
+    'TEAMS_CONFIG_PATH', '/app/config/teams.json'
+)
+
+
+def read_teams_config():
+    """Read teams config from JSON file."""
+    try:
+        with open(TEAMS_CONFIG_PATH, 'r') as f:
+            data = json.load(f)
+            if 'teams' not in data:
+                data['teams'] = []
+            return data
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {'teams': []}
+
+
+def write_teams_config(config):
+    """Write teams config to JSON file."""
+    os.makedirs(os.path.dirname(TEAMS_CONFIG_PATH), exist_ok=True)
+    with open(TEAMS_CONFIG_PATH, 'w') as f:
+        json.dump(config, f, indent=2)
+
+
+@app.route('/api/teams', methods=['GET'])
+def get_teams():
+    """Get all teams."""
+    return jsonify(read_teams_config())
+
+
+@app.route('/api/teams', methods=['POST'])
+def create_or_update_team():
+    """Create or update a team."""
+    try:
+        data = request.get_json(force=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Expected JSON object'}), 400
+
+        config = read_teams_config()
+
+        team_id = data.get('id', '')
+        if team_id:
+            for i, t in enumerate(config['teams']):
+                if t.get('id') == team_id:
+                    config['teams'][i] = data
+                    write_teams_config(config)
+                    return jsonify({'status': 'updated', 'id': team_id})
+            return jsonify({'error': 'Team not found'}), 404
+
+        # New team
+        new_id = 'team_' + str(int(time.time())) + '_' + secrets.token_hex(4)
+        data['id'] = new_id
+        data['created_at'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+
+        config['teams'].append(data)
+        write_teams_config(config)
+        log.info(f"Team created: {new_id}")
+        return jsonify({'status': 'created', 'id': new_id})
+    except Exception as e:
+        log.error(f"Failed to create/update team: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/teams/<team_id>', methods=['GET'])
+def get_team(team_id):
+    """Get a specific team's details."""
+    if not re.match(r'^[\w-]+$', team_id):
+        return jsonify({'error': 'Invalid team ID'}), 400
+
+    config = read_teams_config()
+    for t in config.get('teams', []):
+        if t.get('id') == team_id:
+            return jsonify(t)
+    return jsonify({'error': 'Team not found'}), 404
+
+
+@app.route('/api/teams/<team_id>', methods=['DELETE'])
+def delete_team(team_id):
+    """Delete a team."""
+    if not re.match(r'^[\w-]+$', team_id):
+        return jsonify({'error': 'Invalid team ID'}), 400
+
+    config = read_teams_config()
+    original_len = len(config['teams'])
+    config['teams'] = [t for t in config['teams'] if t.get('id') != team_id]
+
+    if len(config['teams']) == original_len:
+        return jsonify({'error': 'Team not found'}), 404
+
+    write_teams_config(config)
+    log.info(f"Team deleted: {team_id}")
+    return jsonify({'status': 'deleted'})
 
 
 if __name__ == '__main__':

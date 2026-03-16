@@ -21,7 +21,7 @@ sub_filter 'href="/static/favicon.png"' 'href="/custom-static/images/favicon.png
 sub_filter 'href="/static/apple-touch-icon.png"' 'href="/custom-static/images/favicon.png"';
 sub_filter 'href="/static/safari-pinned-tab.svg" color="#2095f3"' 'href="/custom-static/images/favicon.png" color="#54a8dc"';
 sub_filter '<meta name="description" content="KoboToolbox is a free toolkit for collecting and managing data in challenging environments and is the most widely-used tool in humanitarian emergencies">' '<meta name="description" content="Ramani Yangu - Resilience Academy Data Collection Platform for urban resilience research across Tanzania">\n<meta property="og:title" content="Ramani Yangu - Data Collection">\n<meta property="og:description" content="Resilience Academy Data Collection Platform for urban resilience research across Tanzania">\n<meta property="og:image" content="https://kf.ramaniyangu.com/custom-static/images/ra-logo-dark.png">\n<meta property="og:type" content="website">\n<meta property="og:url" content="https://kf.ramaniyangu.com">\n<meta name="twitter:card" content="summary">\n<meta name="twitter:title" content="Ramani Yangu - Data Collection">\n<meta name="twitter:image" content="https://kf.ramaniyangu.com/custom-static/images/ra-logo-dark.png">';
-sub_filter '</head>' '<link rel="stylesheet" href="/custom-static/css/custom-theme.css?v=5" />\n<script src="/custom-static/js/ra-welcome.js?v=7" defer></script>\n<script src="/custom-static/js/ra-submission-badge.js?v=6" defer></script>\n<script src="/custom-static/js/ra-leaderboard.js?v=12" defer></script>\n<script src="/custom-static/js/ra-map.js?v=17" defer></script>\n<script src="/custom-static/js/ra-settings.js?v=10" defer></script>\n<script src="/custom-static/js/ra-dashboard-view.js?v=15"></script>\n</head>';
+sub_filter '</head>' '<link rel="stylesheet" href="/custom-static/css/custom-theme.css?v=5" />\n<script src="/custom-static/js/ra-welcome.js?v=7" defer></script>\n<script src="/custom-static/js/ra-submission-badge.js?v=6" defer></script>\n<script src="/custom-static/js/ra-leaderboard.js?v=12" defer></script>\n<script src="/custom-static/js/ra-map.js?v=17" defer></script>\n<script src="/custom-static/js/ra-settings.js?v=10" defer></script>\n<script src="/custom-static/js/ra-dashboard-view.js?v=16" defer></script>\n<script src="/custom-static/js/ra-map-extras.js?v=1" defer></script>\n<script src="/custom-static/js/ra-settings-extras.js?v=1" defer></script>\n</head>';
 sub_filter_types text/html;
 
 location /custom-static {
@@ -138,5 +138,25 @@ sed -i '/server_name.*kf\./,/^}/{
     /location \/static {/i\    include /etc/nginx/includes/webhook_api.conf;
 }' "$NGINX_CONF"
 echo "Webhook API proxy configured."
+
+# WhatsApp Gateway proxy — QR code setup page (only if container is reachable)
+WHATSAPP_GW_CONF="/etc/nginx/includes/whatsapp_gateway.conf"
+if getent hosts whatsapp-gateway >/dev/null 2>&1; then
+    cat > "$WHATSAPP_GW_CONF" << 'NGINX_WA'
+location /whatsapp-setup/ {
+    proxy_pass http://whatsapp-gateway:3000/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+NGINX_WA
+    sed -i '/server_name.*kf\./,/^}/{
+        /location \/static {/i\    include /etc/nginx/includes/whatsapp_gateway.conf;
+    }' "$NGINX_CONF"
+    echo "WhatsApp gateway proxy configured."
+else
+    # Create empty config so include doesn't fail
+    echo "# WhatsApp gateway not available" > "$WHATSAPP_GW_CONF"
+    echo "WhatsApp gateway not found — skipping proxy."
+fi
 
 echo "Custom branding applied successfully."

@@ -28,3 +28,19 @@ sed -i '/server_name.*kf\./,/^}/{
 }' "$NGINX_CONF"
 
 echo "Dashboard sharing routes configured."
+
+# Offline status page for field teams
+STATUS_CONF="/etc/nginx/includes/status_page.conf"
+cat > "$STATUS_CONF" << 'NGINX2'
+location = /status {
+    alias /srv/custom-static/status.html;
+    default_type text/html;
+    add_header Cache-Control "no-cache";
+}
+NGINX2
+
+sed -i '/server_name.*kf\./,/^}/{
+    /location \/static {/i\    include /etc/nginx/includes/status_page.conf;
+}' "$NGINX_CONF"
+
+echo "Status page route configured."
