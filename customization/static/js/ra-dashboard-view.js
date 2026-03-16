@@ -301,17 +301,17 @@
           '<h1>' + esc(dashName) + '</h1>' +
         '</div>' +
         '<div class="ra-do__header-right">' +
-          '<span>Welcome, <strong class="ra-do__username" id="ra-do-username">' + esc(currentUser ? currentUser.username : '') +
+          '<span>Welcome, <strong class="ra-do__username" id="ra-do-username" title="Click for account options">' + esc(currentUser ? currentUser.username : '') +
             '<div class="ra-do__user-dropdown" id="ra-do-user-dropdown">' +
-              '<button class="ra-do__user-dropdown-item" data-action="edit-profile">' +
+              '<button class="ra-do__user-dropdown-item" data-action="edit-profile" title="Edit your profile details">' +
                 '<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>' +
                 'Edit Profile</button>' +
-              '<button class="ra-do__user-dropdown-item" data-action="change-password">' +
+              '<button class="ra-do__user-dropdown-item" data-action="change-password" title="Change your login password">' +
                 '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>' +
                 'Change Password</button>' +
             '</div>' +
           '</strong></span>' +
-          '<button class="ra-do__logout" id="ra-do-logout-btn">Logout</button>' +
+          '<button class="ra-do__logout" id="ra-do-logout-btn" title="Sign out of your account">Logout</button>' +
         '</div>' +
       '</div>' +
       '<div class="ra-do__content">' +
@@ -322,6 +322,11 @@
     document.body.appendChild(page);
     page.classList.add('ra-do--visible');
     if (!isPreviewMode) document.body.classList.add('ra-do-active');
+
+    // Set browser tab title to "username | Ramani Yangu"
+    if (currentUser && currentUser.username) {
+      document.title = currentUser.username + ' | ' + BRAND_NAME;
+    }
 
     document.getElementById('ra-do-logout-btn').addEventListener('click', function () {
       var csrf = '';
@@ -377,7 +382,7 @@
       overlay.className = 'ra-do__popup-overlay';
       overlay.innerHTML =
         '<div class="ra-do__popup">' +
-          '<div class="ra-do__popup-header"><h3>Edit Profile</h3><button class="ra-do__popup-close">&times;</button></div>' +
+          '<div class="ra-do__popup-header"><h3>Edit Profile</h3><button class="ra-do__popup-close" title="Close">&times;</button></div>' +
           '<div class="ra-do__popup-body">' +
             '<div class="ra-do__popup-field"><label>Full Name</label><input type="text" id="ra-do-pf-name" value="' + esc(extra.name || '') + '" placeholder="Your full name"></div>' +
             '<div class="ra-do__popup-field"><label>Organization</label><input type="text" id="ra-do-pf-org" value="' + esc(extra.organization || '') + '" placeholder="Your organization"></div>' +
@@ -422,7 +427,7 @@
     overlay.className = 'ra-do__popup-overlay';
     overlay.innerHTML =
       '<div class="ra-do__popup">' +
-        '<div class="ra-do__popup-header"><h3>Change Password</h3><button class="ra-do__popup-close">&times;</button></div>' +
+        '<div class="ra-do__popup-header"><h3>Change Password</h3><button class="ra-do__popup-close" title="Close">&times;</button></div>' +
         '<div class="ra-do__popup-body">' +
           '<div class="ra-do__popup-field"><label>Current Password</label><input type="password" id="ra-do-pw-old"></div>' +
           '<div class="ra-do__popup-field"><label>New Password</label><input type="password" id="ra-do-pw-new1"></div>' +
@@ -1521,7 +1526,7 @@
           var bar = document.createElement('div');
           bar.id = 'ra-do-preview-bar';
           bar.style.cssText = 'background:#f59e0b;color:#000;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;z-index:100000;';
-          bar.innerHTML = '<span>ADMIN PREVIEW \u2014 This is what dashboard users see</span><button id="ra-do-preview-exit" style="background:#000;color:#fff;border:none;padding:8px 18px;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;">Exit Preview</button>';
+          bar.innerHTML = '<span>ADMIN PREVIEW \u2014 This is what dashboard users see</span><button id="ra-do-preview-exit" title="Exit preview and return to settings" style="background:#000;color:#fff;border:none;padding:8px 18px;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;">Exit Preview</button>';
           page.insertBefore(bar, page.firstChild);
           var lb = document.getElementById('ra-do-logout-btn');
           if (lb) lb.style.display = 'none';
