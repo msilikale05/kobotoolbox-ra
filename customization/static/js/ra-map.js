@@ -556,8 +556,9 @@
 
       if (loading) loading.textContent = 'Loading submissions from ' + forms.length + ' form(s)...';
 
+      var savedColors = getSavedColors();
       var promises = forms.map(function (form, idx) {
-        var color = COLORS[idx % COLORS.length];
+        var color = savedColors[form.uid] || COLORS[idx % COLORS.length];
         var geoFields = findGeoFields(form.content);
 
         // If content wasn't in list response, fetch it separately
@@ -918,6 +919,7 @@
 
   // ── Persistence ──
   var HIDDEN_KEY = 'ra_map_hidden_layers';
+  var COLORS_KEY = 'ra_map_layer_colors';
 
   function getHiddenLayers() {
     try {
@@ -939,6 +941,20 @@
       list = list.filter(function (id) { return id !== uid; });
     }
     saveHiddenLayers(list);
+  }
+
+  function getSavedColors() {
+    try {
+      return JSON.parse(localStorage.getItem(COLORS_KEY)) || {};
+    } catch (e) { return {}; }
+  }
+
+  function saveColor(uid, color) {
+    try {
+      var colors = getSavedColors();
+      colors[uid] = color;
+      localStorage.setItem(COLORS_KEY, JSON.stringify(colors));
+    } catch (e) { /* ignore */ }
   }
 
   // ── Export Modal ──
@@ -1232,6 +1248,7 @@
     if (!g) return;
     g.color = newColor;
     formColorMap[uid] = newColor;
+    saveColor(uid, newColor);
 
     // Update all markers/shapes in the layer
     g.layer.eachLayer(function (layer) {
@@ -1277,8 +1294,9 @@
     fetchDeployedForms().then(function (forms) {
       if (!forms.length) return;
 
+      var savedColors = getSavedColors();
       var promises = forms.map(function (form) {
-        var color = formColorMap[form.uid];
+        var color = formColorMap[form.uid] || savedColors[form.uid];
         if (!color) {
           color = COLORS[Object.keys(formColorMap).length % COLORS.length];
           formColorMap[form.uid] = color;

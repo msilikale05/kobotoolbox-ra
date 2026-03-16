@@ -64,6 +64,16 @@ services:
       # Enketo RA theme CSS
       - ../basic-kobotoolbox/customization/static/css/enketo-ra-theme.css:/srv/src/enketo/packages/enketo-express/public/css/ra-theme.css:ro
 
+  # ===== Webhook Relay (email/SMS/WhatsApp notifications) =====
+  webhook-relay:
+    build:
+      context: ../basic-kobotoolbox/customization/services/webhook-relay
+    volumes:
+      - ../basic-kobotoolbox/customization/services/webhook-relay/config.env:/app/config.env:ro
+    networks:
+      kobo-fe-network:
+    restart: unless-stopped
+
   # ===== Nginx (branding + JS) =====
   nginx:
     networks:
