@@ -34,11 +34,11 @@
   // ── INSTANT SCREEN COVER (replaces default KoboToolbox loading) ──
   var screenCover = document.createElement('div');
   screenCover.id = 'ra-do-screencover';
-  screenCover.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#1a2a3a 0%,#2c4a60 100%);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.4s;';
+  screenCover.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#ffffff;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.4s;';
   screenCover.innerHTML =
-    '<img src="/custom-static/images/ra-logo.png" alt="Resilience Academy" style="width:200px;margin-bottom:20px;">' +
-    '<div style="color:rgba(255,255,255,0.7);font-size:13px;font-family:sans-serif;margin-bottom:16px;">Loading...</div>' +
-    '<div style="width:32px;height:32px;border:3px solid rgba(255,255,255,0.15);border-top-color:#54a8dc;border-radius:50%;animation:ra-cover-spin 0.8s linear infinite;"></div>' +
+    '<img src="/custom-static/images/ra-logo-dark.png" alt="Resilience Academy" style="width:200px;margin-bottom:20px;">' +
+    '<div style="color:#94a3b8;font-size:13px;font-family:sans-serif;margin-bottom:16px;">Loading...</div>' +
+    '<div style="width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#54a8dc;border-radius:50%;animation:ra-cover-spin 0.8s linear infinite;"></div>' +
     '<style>@keyframes ra-cover-spin{to{transform:rotate(360deg)}}</style>';
   document.documentElement.appendChild(screenCover);
 
