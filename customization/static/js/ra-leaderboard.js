@@ -369,12 +369,29 @@
     // Load forms into dropdown
     loadForms();
 
+    // Persist selections in localStorage
+    var LB_STORAGE_KEY = 'ra_leaderboard_prefs';
+    function saveLbPrefs() {
+      var formSelect = document.getElementById('ra-lb-form-select');
+      var fieldSelect = document.getElementById('ra-lb-field-select');
+      try {
+        localStorage.setItem(LB_STORAGE_KEY, JSON.stringify({
+          form: formSelect ? formSelect.value : '',
+          field: fieldSelect ? fieldSelect.value : '_submitted_by'
+        }));
+      } catch (e) {}
+    }
+    function getLbPrefs() {
+      try { return JSON.parse(localStorage.getItem(LB_STORAGE_KEY)) || {}; } catch (e) { return {}; }
+    }
+
     // Form change handler
     document.getElementById('ra-lb-form-select').addEventListener('change', function () {
       var uid = this.value;
       if (uid) {
         loadFormFields(uid);
         loadLeaderboard(uid);
+        saveLbPrefs();
       } else {
         document.getElementById('ra-lb-content').innerHTML =
           '<div class="ra-lb__empty">Select a form above to view the submission leaderboard.</div>';
@@ -386,6 +403,7 @@
     document.getElementById('ra-lb-field-select').addEventListener('change', function () {
       var formSelect = document.getElementById('ra-lb-form-select');
       if (formSelect.value) loadLeaderboard(formSelect.value);
+      saveLbPrefs();
     });
   }
 
@@ -397,14 +415,15 @@
     return t === 'integer' || t === 'decimal' || t === 'calculate' || t === 'range';
   }
 
-  function loadFormFields(uid) {
+  function loadFormFields(uid, callback) {
     var fieldSelect = document.getElementById('ra-lb-field-select');
-    if (!fieldSelect) return;
+    if (!fieldSelect) { if (callback) callback(); return; }
 
     if (uid === '__all__') {
       fieldSelect.innerHTML = '<option value="_submitted_by" data-type="text">Submitted by (default)</option>';
       selectedField = '_submitted_by';
       fieldTypeMap = {};
+      if (callback) callback();
       return;
     }
 
@@ -434,9 +453,11 @@
         });
         fieldSelect.innerHTML = options;
         selectedField = '_submitted_by';
+        if (callback) callback();
       })
       .catch(function () {
         fieldSelect.innerHTML = '<option value="_submitted_by" data-type="text">Submitted by (default)</option>';
+        if (callback) callback();
       });
   }
 
@@ -461,9 +482,28 @@
       });
       select.innerHTML = options;
 
-      // Auto-select "All Forms"
-      select.value = '__all__';
-      loadLeaderboard('__all__');
+      // Restore saved form selection or default to "All Forms"
+      var prefs = getLbPrefs();
+      var savedForm = prefs.form || '__all__';
+      // Verify the saved form still exists in the options
+      if (savedForm !== '__all__' && !select.querySelector('option[value="' + savedForm + '"]')) {
+        savedForm = '__all__';
+      }
+      select.value = savedForm;
+      if (savedForm !== '__all__') {
+        // Load fields for the saved form, then restore saved field selection
+        loadFormFields(savedForm, function () {
+          var savedField = prefs.field || '_submitted_by';
+          var fieldSelect = document.getElementById('ra-lb-field-select');
+          if (fieldSelect && fieldSelect.querySelector('option[value="' + savedField + '"]')) {
+            fieldSelect.value = savedField;
+            selectedField = savedField;
+          }
+          loadLeaderboard(savedForm);
+        });
+      } else {
+        loadLeaderboard('__all__');
+      }
     }).catch(function () {
       select.innerHTML = '<option value="">Error loading forms</option>';
     });

@@ -1922,12 +1922,29 @@
           '<div id="ra-img-stats" style="display:flex;gap:16px;font-size:13px;color:#666;"></div>' +
         '</div>' +
 
-        // Filters
-        '<div id="ra-img-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">' +
-          '<input type="text" id="ra-img-search" placeholder="Search by name, submitter..." style="flex:1;min-width:150px;padding:8px 12px;font-size:13px;border:1px solid #d0d5dd;border-radius:4px;">' +
-          '<input type="date" id="ra-img-date-from" title="From date" style="padding:8px;font-size:12px;border:1px solid #d0d5dd;border-radius:4px;">' +
-          '<input type="date" id="ra-img-date-to" title="To date" style="padding:8px;font-size:12px;border:1px solid #d0d5dd;border-radius:4px;">' +
-          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-img-filter-clear" style="font-size:12px;padding:8px 12px;">Clear</button>' +
+        // Filters — field-based dropdown + value + date range
+        '<div id="ra-img-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end;">' +
+          '<div style="min-width:130px;">' +
+            '<label style="font-size:10px;font-weight:600;color:#888;display:block;margin-bottom:3px;">Filter by field</label>' +
+            '<select id="ra-img-filter-field" style="width:100%;padding:8px;font-size:12px;border:1px solid #d0d5dd;border-radius:4px;">' +
+              '<option value="">No filter</option><option value="_submitted_by">Submitted By</option>' +
+            '</select>' +
+          '</div>' +
+          '<div style="flex:1;min-width:120px;">' +
+            '<label style="font-size:10px;font-weight:600;color:#888;display:block;margin-bottom:3px;">Value</label>' +
+            '<select id="ra-img-filter-value" style="width:100%;padding:8px;font-size:12px;border:1px solid #d0d5dd;border-radius:4px;">' +
+              '<option value="">All</option>' +
+            '</select>' +
+          '</div>' +
+          '<div style="min-width:120px;">' +
+            '<label style="font-size:10px;font-weight:600;color:#888;display:block;margin-bottom:3px;">From date</label>' +
+            '<input type="date" id="ra-img-date-from" style="width:100%;padding:8px;font-size:12px;border:1px solid #d0d5dd;border-radius:4px;box-sizing:border-box;">' +
+          '</div>' +
+          '<div style="min-width:120px;">' +
+            '<label style="font-size:10px;font-weight:600;color:#888;display:block;margin-bottom:3px;">To date</label>' +
+            '<input type="date" id="ra-img-date-to" style="width:100%;padding:8px;font-size:12px;border:1px solid #d0d5dd;border-radius:4px;box-sizing:border-box;">' +
+          '</div>' +
+          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-img-filter-clear" style="font-size:12px;padding:8px 12px;height:36px;">Clear</button>' +
         '</div>' +
 
         // Selection controls
@@ -1965,10 +1982,17 @@
           '<div style="margin-top:6px;font-size:12px;color:#94a3b8;">Preview: <strong id="ra-img-preview">image_001.jpg</strong></div>' +
         '</div>' +
 
-        // Export buttons
-        '<div style="display:flex;gap:8px;margin-top:14px;">' +
-          '<button class="ra-st__btn ra-st__btn--primary" id="ra-img-export-csv" style="flex:1;">Export List (CSV)</button>' +
-          '<button class="ra-st__btn ra-st__btn--primary" id="ra-img-export-links" style="flex:1;background:#10b981;">Download Links (HTML)</button>' +
+        // Export buttons — actual image downloads
+        '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">' +
+          '<button class="ra-st__btn ra-st__btn--primary" id="ra-img-export-zip" style="flex:1;min-width:180px;">&#128230; Download as ZIP</button>' +
+          '<button class="ra-st__btn ra-st__btn--primary" id="ra-img-export-single" style="flex:1;min-width:180px;background:#10b981;">&#128247; Download Selected Images</button>' +
+          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-img-export-csv" style="min-width:120px;">Export List (CSV)</button>' +
+        '</div>' +
+        '<div id="ra-img-progress" style="margin-top:8px;display:none;">' +
+          '<div style="background:#f1f5f9;border-radius:4px;height:20px;overflow:hidden;">' +
+            '<div id="ra-img-progress-bar" style="height:100%;background:#54a8dc;border-radius:4px;transition:width 0.3s;width:0%;"></div>' +
+          '</div>' +
+          '<div id="ra-img-progress-text" style="font-size:12px;color:#666;margin-top:4px;text-align:center;"></div>' +
         '</div>' +
         '<div class="ra-st__status" id="ra-img-status" style="margin-top:8px;"></div>' +
       '</div>';
