@@ -31,16 +31,23 @@
 
   if (/\/accounts\/(login|signup|password)/.test(window.location.pathname)) return;
 
-  // ── INSTANT SCREEN HIDE ──
+  // ── INSTANT SCREEN COVER (replaces default KoboToolbox loading) ──
   var screenCover = document.createElement('div');
   screenCover.id = 'ra-do-screencover';
-  screenCover.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#f1f5f9;z-index:9999;display:flex;align-items:center;justify-content:center;';
-  screenCover.innerHTML = '<div style="text-align:center;"><img src="/custom-static/images/ra-logo-dark.png" alt="" style="height:48px;display:block;margin:0 auto 12px;"><div style="color:#94a3b8;font-size:14px;">Loading...</div></div>';
+  screenCover.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#1a2a3a 0%,#2c4a60 100%);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.4s;';
+  screenCover.innerHTML =
+    '<img src="/custom-static/images/ra-logo.png" alt="Resilience Academy" style="width:200px;margin-bottom:20px;">' +
+    '<div style="color:rgba(255,255,255,0.7);font-size:13px;font-family:sans-serif;margin-bottom:16px;">Loading...</div>' +
+    '<div style="width:32px;height:32px;border:3px solid rgba(255,255,255,0.15);border-top-color:#54a8dc;border-radius:50%;animation:ra-cover-spin 0.8s linear infinite;"></div>' +
+    '<style>@keyframes ra-cover-spin{to{transform:rotate(360deg)}}</style>';
   document.documentElement.appendChild(screenCover);
 
   function removeScreenCover() {
     var c = document.getElementById('ra-do-screencover');
-    if (c) c.remove();
+    if (c) {
+      c.style.opacity = '0';
+      setTimeout(function () { if (c.parentNode) c.remove(); }, 400);
+    }
   }
 
   // ── Styles ──
