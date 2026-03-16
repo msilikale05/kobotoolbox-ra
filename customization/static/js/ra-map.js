@@ -53,7 +53,7 @@
 
     /* Page container */
     '#' + PAGE_ID + ' {',
-    '  position: fixed;',
+    '  position: absolute;',
     '  top: 64px;',
     '  left: 58px;',
     '  right: 0;',

@@ -43,7 +43,7 @@
 
     /* Page container */
     '#' + PAGE_ID + ' {',
-    '  position: fixed;',
+    '  position: absolute;',
     '  top: 64px;',
     '  left: 58px;',
     '  right: 0;',
@@ -259,9 +259,15 @@
 
   // ── Build leaderboard data ──
   function buildLeaderboard(submissions) {
+    // Use the selected field as the contributor identifier
+    var fieldSelect = document.getElementById('ra-lb-field-select');
+    selectedField = fieldSelect ? fieldSelect.value : '_submitted_by';
+
     var contributors = {};
     submissions.forEach(function (sub) {
-      var user = sub._submitted_by || 'anonymous';
+      var user = selectedField === '_submitted_by'
+        ? (sub._submitted_by || 'anonymous')
+        : (sub[selectedField] || 'unknown');
       if (!contributors[user]) {
         contributors[user] = {
           username: user,
@@ -315,6 +321,9 @@
       '  <select class="ra-lb__select" id="ra-lb-form-select">',
       '    <option value="">Loading forms...</option>',
       '  </select>',
+      '  <select class="ra-lb__select" id="ra-lb-field-select" style="max-width:250px;min-width:180px;">',
+      '    <option value="_submitted_by">Submitted by (default)</option>',
+      '  </select>',
       '  <div class="ra-lb__stats" id="ra-lb-stats"></div>',
       '</div>',
       '<div class="ra-lb__table-wrap" id="ra-lb-content">',
@@ -331,14 +340,54 @@
     document.getElementById('ra-lb-form-select').addEventListener('change', function () {
       var uid = this.value;
       if (uid) {
+        loadFormFields(uid);
         loadLeaderboard(uid);
       } else {
-        // No form selected — clear the table and stats
         document.getElementById('ra-lb-content').innerHTML =
           '<div class="ra-lb__empty">Select a form above to view the submission leaderboard.</div>';
         document.getElementById('ra-lb-stats').innerHTML = '';
       }
     });
+
+    // Field selector change handler
+    document.getElementById('ra-lb-field-select').addEventListener('change', function () {
+      var formSelect = document.getElementById('ra-lb-form-select');
+      if (formSelect.value) loadLeaderboard(formSelect.value);
+    });
+  }
+
+  var selectedField = '_submitted_by';
+
+  function loadFormFields(uid) {
+    var fieldSelect = document.getElementById('ra-lb-field-select');
+    if (!fieldSelect) return;
+
+    if (uid === '__all__') {
+      fieldSelect.innerHTML = '<option value="_submitted_by">Submitted by (default)</option>';
+      selectedField = '_submitted_by';
+      return;
+    }
+
+    // Fetch form content to get field names
+    fetchJSON('/api/v2/assets/' + uid + '/?fields=["content"]')
+      .then(function (data) {
+        var survey = (data.content || {}).survey || [];
+        var options = '<option value="_submitted_by">Submitted by (default)</option>';
+        survey.forEach(function (row) {
+          var t = row.type || '';
+          // Only show text, select_one, integer fields as identifier candidates
+          if (t === 'text' || t.indexOf('select_one') === 0 || t === 'integer') {
+            var name = row.name || row.$autoname || '';
+            var label = (row.label && row.label[0]) || name;
+            options += '<option value="' + escapeHtml(name) + '">' + escapeHtml(label) + '</option>';
+          }
+        });
+        fieldSelect.innerHTML = options;
+        selectedField = '_submitted_by';
+      })
+      .catch(function () {
+        fieldSelect.innerHTML = '<option value="_submitted_by">Submitted by (default)</option>';
+      });
   }
 
   function loadForms() {
