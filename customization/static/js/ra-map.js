@@ -1072,11 +1072,21 @@
     var totalPoints = 0;
     var totalForms = 0;
 
-    // Clear existing layers
+    // Clear existing form layers (preserve GeoNode layers)
     Object.keys(layerGroups).forEach(function (key) {
-      map.removeLayer(layerGroups[key]);
+      if (key.indexOf('gn_') === 0) return; // skip GeoNode layers
+      if (layerGroups[key].layer) {
+        map.removeLayer(layerGroups[key].layer);
+      } else {
+        map.removeLayer(layerGroups[key]);
+      }
     });
-    layerGroups = {};
+    // Keep only GeoNode layers
+    var preserved = {};
+    Object.keys(layerGroups).forEach(function (key) {
+      if (key.indexOf('gn_') === 0) preserved[key] = layerGroups[key];
+    });
+    layerGroups = preserved;
 
     // Remove existing legend and stats
     document.querySelectorAll('.ra-map__legend, .ra-map__stats').forEach(function (el) { el.remove(); });

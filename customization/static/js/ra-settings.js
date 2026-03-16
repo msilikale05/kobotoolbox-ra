@@ -170,6 +170,19 @@
     '.ra-st__btn--small { padding: 4px 10px; font-size: 11px; }',
     '.ra-st__btn--danger { color: #e74c3c; border-color: #e74c3c; }',
 
+    /* Popup modal overlay */
+    '.ra-st__popup-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center; }',
+    '.ra-st__popup { background: #fff; border-radius: 12px; width: 480px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,0.3); }',
+    '.ra-st__popup-header { padding: 16px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }',
+    '.ra-st__popup-header h3 { margin: 0; font-size: 16px; color: #1a2a3a; }',
+    '.ra-st__popup-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #999; padding: 4px 8px; }',
+    '.ra-st__popup-close:hover { color: #333; }',
+    '.ra-st__popup-body { padding: 16px 20px; overflow-y: auto; flex: 1; }',
+    '.ra-st__popup-body .ra-st__field { margin-bottom: 12px; }',
+    '.ra-st__popup-body label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; }',
+    '.ra-st__popup-body input, .ra-st__popup-body select { width: 100%; padding: 8px 10px; font-size: 13px; border: 1px solid #d0d5dd; border-radius: 6px; box-sizing: border-box; }',
+    '.ra-st__popup-footer { padding: 12px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 8px; }',
+
     /* Coming soon placeholder */
     '.ra-st__coming-soon {',
     '  padding: 20px;',
@@ -1277,30 +1290,144 @@
         '<p style="color:#888;margin:0 0 12px;font-size:13px;">Connect to GeoNode, WMS/WFS services, XYZ tiles, Google Maps, or Esri basemaps.</p>' +
         '<div id="ra-st-gn-list">' + listHtml + '</div>' +
         '<div class="ra-st__status" id="ra-st-gn-status"></div>' +
-        '<div id="ra-st-gn-form" style="display:none;border:1px solid #eee;border-radius:8px;padding:16px;margin-top:12px;background:#fafbfc;">' +
-          '<div class="ra-st__field"><label>Source Type</label>' +
-            '<select id="ra-st-gn-type" style="width:100%;padding:8px;font-size:13px;border:1px solid #d0d5dd;border-radius:6px;">' +
-              typeOptions +
-            '</select></div>' +
-          '<div id="ra-st-gn-presets" style="display:none;"></div>' +
-          '<div class="ra-st__field"><label>Connection Name</label><input type="text" id="ra-st-gn-name" placeholder="My Data Source"></div>' +
-          '<div id="ra-st-gn-url-field" class="ra-st__field"><label>URL</label><input type="url" id="ra-st-gn-url" placeholder="https://example.com"></div>' +
-          '<div id="ra-st-gn-auth-fields">' +
-            '<div class="ra-st__field"><label>API Token</label><input type="text" id="ra-st-gn-token" placeholder="Optional"></div>' +
-            '<div class="ra-st__field"><label>Username</label><input type="text" id="ra-st-gn-user" placeholder="Optional"></div>' +
-            '<div class="ra-st__field"><label>Password</label><input type="password" id="ra-st-gn-pass"></div>' +
-          '</div>' +
-          '<div class="ra-st__actions">' +
-            '<button class="ra-st__btn" id="ra-st-gn-cancel">Cancel</button>' +
-            '<button class="ra-st__btn ra-st__btn--success" id="ra-st-gn-save-conn">Save</button>' +
-          '</div>' +
-        '</div>' +
         '<div style="margin-top:12px;">' +
           '<button class="ra-st__btn ra-st__btn--secondary" id="ra-st-gn-add">+ Add Data Source</button>' +
         '</div>' +
       '</div>';
 
     attachGeoNodeHandlers();
+  }
+
+  function openDataSourcePopup(connToEdit) {
+    // Remove existing popup
+    var old = document.querySelector('.ra-st__popup-overlay');
+    if (old) old.remove();
+
+    var typeOptions = Object.keys(SOURCE_TYPES).map(function (key) {
+      var sel = connToEdit && connToEdit.type === key ? ' selected' : '';
+      return '<option value="' + key + '"' + sel + '>' + SOURCE_TYPES[key].label + '</option>';
+    }).join('');
+
+    var overlay = document.createElement('div');
+    overlay.className = 'ra-st__popup-overlay';
+    overlay.innerHTML =
+      '<div class="ra-st__popup">' +
+        '<div class="ra-st__popup-header">' +
+          '<h3>' + (connToEdit ? 'Edit Data Source' : 'Add Data Source') + '</h3>' +
+          '<button class="ra-st__popup-close">&times;</button>' +
+        '</div>' +
+        '<div class="ra-st__popup-body">' +
+          '<div class="ra-st__field"><label>Source Type</label>' +
+            '<select id="ra-st-gn-type" style="width:100%;padding:8px;font-size:13px;border:1px solid #d0d5dd;border-radius:6px;">' +
+              typeOptions +
+            '</select></div>' +
+          '<div id="ra-st-gn-presets" style="display:none;"></div>' +
+          '<div class="ra-st__field"><label>Connection Name</label>' +
+            '<input type="text" id="ra-st-gn-name" value="' + escapeHtml((connToEdit && connToEdit.name) || '') + '" placeholder="My Data Source"></div>' +
+          '<div id="ra-st-gn-url-field" class="ra-st__field"><label>URL</label>' +
+            '<input type="url" id="ra-st-gn-url" value="' + escapeHtml((connToEdit && connToEdit.url) || '') + '" placeholder="https://example.com"></div>' +
+          '<div id="ra-st-gn-auth-fields">' +
+            '<div class="ra-st__field"><label>API Token</label>' +
+              '<input type="text" id="ra-st-gn-token" value="' + escapeHtml((connToEdit && connToEdit.token) || '') + '" placeholder="Optional"></div>' +
+            '<div class="ra-st__field"><label>Username</label>' +
+              '<input type="text" id="ra-st-gn-user" value="' + escapeHtml((connToEdit && connToEdit.username) || '') + '" placeholder="Optional"></div>' +
+            '<div class="ra-st__field"><label>Password</label>' +
+              '<input type="password" id="ra-st-gn-pass" value="' + escapeHtml((connToEdit && connToEdit.password) || '') + '"></div>' +
+          '</div>' +
+          '<div class="ra-st__status" id="ra-st-gn-popup-status"></div>' +
+        '</div>' +
+        '<div class="ra-st__popup-footer">' +
+          '<button class="ra-st__btn" id="ra-st-gn-popup-cancel">Cancel</button>' +
+          '<button class="ra-st__btn ra-st__btn--success" id="ra-st-gn-popup-save">Save</button>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+
+    // Close handlers
+    overlay.querySelector('.ra-st__popup-close').addEventListener('click', function () { overlay.remove(); });
+    overlay.querySelector('#ra-st-gn-popup-cancel').addEventListener('click', function () { overlay.remove(); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+
+    // Type dropdown logic
+    var typeSelect = overlay.querySelector('#ra-st-gn-type');
+    function updateFormForType() {
+      var type = typeSelect.value;
+      var def = SOURCE_TYPES[type] || {};
+      var urlField = overlay.querySelector('#ra-st-gn-url-field');
+      var authFields = overlay.querySelector('#ra-st-gn-auth-fields');
+      var presetsEl = overlay.querySelector('#ra-st-gn-presets');
+
+      urlField.style.display = (def.fields && def.fields.indexOf('url') !== -1) || (!def.presets) ? 'block' : 'none';
+      authFields.style.display = def.fields && def.fields.indexOf('token') !== -1 ? 'block' : 'none';
+
+      if (def.presets) {
+        urlField.style.display = 'none';
+        var html = '<div class="ra-st__field"><label>Select Preset</label>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">';
+        def.presets.forEach(function (p) {
+          html += '<button type="button" class="ra-st__btn ra-st__btn--small ra-st-gn-preset" ' +
+            'data-preset-name="' + escapeHtml(p.name) + '" data-preset-url="' + escapeHtml(p.url) + '">' +
+            escapeHtml(p.name) + '</button>';
+        });
+        html += '</div></div>';
+        presetsEl.innerHTML = html;
+        presetsEl.style.display = 'block';
+      } else {
+        presetsEl.innerHTML = '';
+        presetsEl.style.display = 'none';
+      }
+    }
+    typeSelect.addEventListener('change', updateFormForType);
+    updateFormForType();
+
+    // Preset clicks
+    overlay.addEventListener('click', function (e) {
+      var preset = e.target.closest('.ra-st-gn-preset');
+      if (!preset) return;
+      overlay.querySelector('#ra-st-gn-name').value = preset.getAttribute('data-preset-name');
+      overlay.querySelector('#ra-st-gn-url').value = preset.getAttribute('data-preset-url');
+      overlay.querySelectorAll('.ra-st-gn-preset').forEach(function (b) { b.style.background = ''; b.style.color = ''; });
+      preset.style.background = '#54a8dc';
+      preset.style.color = '#fff';
+    });
+
+    // Save handler
+    overlay.querySelector('#ra-st-gn-popup-save').addEventListener('click', function () {
+      var name = overlay.querySelector('#ra-st-gn-name').value.trim();
+      var url = overlay.querySelector('#ra-st-gn-url').value.trim();
+      var type = typeSelect.value;
+      var defaultName = SOURCE_TYPES[type] ? SOURCE_TYPES[type].label : 'Data Source';
+
+      if (!url && !(SOURCE_TYPES[type] && SOURCE_TYPES[type].presets)) {
+        showStatus(overlay.querySelector('#ra-st-gn-popup-status'), 'err', 'URL is required.');
+        return;
+      }
+
+      var connData = {
+        id: connToEdit ? connToEdit.id : generateId(),
+        type: type,
+        name: name || defaultName,
+        url: url,
+        token: overlay.querySelector('#ra-st-gn-token').value.trim(),
+        username: overlay.querySelector('#ra-st-gn-user').value.trim(),
+        password: overlay.querySelector('#ra-st-gn-pass').value.trim()
+      };
+
+      var connections = getGeoNodeSettings();
+      if (connToEdit) {
+        for (var i = 0; i < connections.length; i++) {
+          if (connections[i].id === connToEdit.id) { connections[i] = connData; break; }
+        }
+      } else {
+        connections.push(connData);
+      }
+      saveGeoNodeSettings(connections);
+      overlay.remove();
+      var statusEl = document.getElementById('ra-st-gn-status');
+      if (statusEl) showStatus(statusEl, 'ok', '"' + connData.name + '" saved.');
+      renderGeoNodeSection(document.getElementById('ra-st-main'));
+    });
   }
 
   function renderExportSection(main) {
@@ -1764,7 +1891,6 @@
 
   function attachGeoNodeHandlers() {
     var listEl = document.getElementById('ra-st-gn-list');
-    var formEl = document.getElementById('ra-st-gn-form');
     var statusEl = document.getElementById('ra-st-gn-status');
 
     // Connection list: Test / Edit / Delete buttons (delegated)
@@ -1790,125 +1916,19 @@
           }
         });
       } else if (action === 'edit') {
-        _gnEditingId = connId;
-        document.getElementById('ra-st-gn-type').value = conn.type || 'geonode';
-        document.getElementById('ra-st-gn-name').value = conn.name || '';
-        document.getElementById('ra-st-gn-url').value = conn.url || '';
-        document.getElementById('ra-st-gn-token').value = conn.token || '';
-        document.getElementById('ra-st-gn-user').value = conn.username || '';
-        document.getElementById('ra-st-gn-pass').value = conn.password || '';
-        updateFormForType();
-        formEl.style.display = 'block';
+        openDataSourcePopup(conn);
       } else if (action === 'delete') {
-        if (!confirm('Delete connection "' + (conn.name || 'Unnamed') + '"?')) return;
+        if (!confirm('Delete "' + (conn.name || 'Unnamed') + '"?')) return;
         var updated = connections.filter(function (c) { return c.id !== connId; });
         saveGeoNodeSettings(updated);
-        showStatus(statusEl, 'ok', 'Connection deleted.');
+        showStatus(statusEl, 'ok', 'Deleted.');
         renderGeoNodeSection(document.getElementById('ra-st-main'));
       }
     });
 
-    // Source type change — show/hide fields and presets
-    var typeSelect = document.getElementById('ra-st-gn-type');
-    function updateFormForType() {
-      var type = typeSelect.value;
-      var def = SOURCE_TYPES[type] || {};
-      var urlField = document.getElementById('ra-st-gn-url-field');
-      var authFields = document.getElementById('ra-st-gn-auth-fields');
-      var presetsEl = document.getElementById('ra-st-gn-presets');
-
-      // Show/hide URL field
-      urlField.style.display = (def.fields && def.fields.indexOf('url') !== -1) || (!def.presets) ? 'block' : 'none';
-
-      // Show/hide auth fields (only for geonode)
-      authFields.style.display = def.fields && def.fields.indexOf('token') !== -1 ? 'block' : 'none';
-
-      // Show presets if available
-      if (def.presets) {
-        urlField.style.display = 'none';
-        var html = '<div class="ra-st__field"><label>Select Preset</label>' +
-          '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">';
-        def.presets.forEach(function (p) {
-          html += '<button type="button" class="ra-st__btn ra-st__btn--small ra-st-gn-preset" ' +
-            'data-preset-name="' + escapeHtml(p.name) + '" data-preset-url="' + escapeHtml(p.url) + '">' +
-            escapeHtml(p.name) + '</button>';
-        });
-        html += '</div></div>';
-        presetsEl.innerHTML = html;
-        presetsEl.style.display = 'block';
-      } else {
-        presetsEl.innerHTML = '';
-        presetsEl.style.display = 'none';
-      }
-    }
-    typeSelect.addEventListener('change', updateFormForType);
-
-    // Preset button clicks
-    document.getElementById('ra-st-gn-form').addEventListener('click', function (e) {
-      var preset = e.target.closest('.ra-st-gn-preset');
-      if (!preset) return;
-      document.getElementById('ra-st-gn-name').value = preset.getAttribute('data-preset-name');
-      document.getElementById('ra-st-gn-url').value = preset.getAttribute('data-preset-url');
-      // Highlight selected
-      document.querySelectorAll('.ra-st-gn-preset').forEach(function (b) { b.style.background = ''; });
-      preset.style.background = '#54a8dc';
-      preset.style.color = '#fff';
-    });
-
-    // Add Connection button
+    // Add button opens popup
     document.getElementById('ra-st-gn-add').addEventListener('click', function () {
-      _gnEditingId = null;
-      typeSelect.value = 'geonode';
-      document.getElementById('ra-st-gn-name').value = '';
-      document.getElementById('ra-st-gn-url').value = '';
-      document.getElementById('ra-st-gn-token').value = '';
-      document.getElementById('ra-st-gn-user').value = '';
-      document.getElementById('ra-st-gn-pass').value = '';
-      updateFormForType();
-      formEl.style.display = 'block';
-    });
-
-    // Cancel button
-    document.getElementById('ra-st-gn-cancel').addEventListener('click', function () {
-      formEl.style.display = 'none';
-      _gnEditingId = null;
-    });
-
-    // Save Connection button
-    document.getElementById('ra-st-gn-save-conn').addEventListener('click', function () {
-      var name = document.getElementById('ra-st-gn-name').value.trim();
-      var url = document.getElementById('ra-st-gn-url').value.trim();
-      var type = document.getElementById('ra-st-gn-type').value;
-      var defaultName = SOURCE_TYPES[type] ? SOURCE_TYPES[type].label : 'Data Source';
-      if (!url && !(SOURCE_TYPES[type] && SOURCE_TYPES[type].presets)) {
-        showStatus(statusEl, 'err', 'URL is required.');
-        return;
-      }
-      var connData = {
-        id: _gnEditingId || generateId(),
-        type: type,
-        name: name || defaultName,
-        url: url,
-        token: document.getElementById('ra-st-gn-token').value.trim(),
-        username: document.getElementById('ra-st-gn-user').value.trim(),
-        password: document.getElementById('ra-st-gn-pass').value.trim()
-      };
-
-      var connections = getGeoNodeSettings();
-      if (_gnEditingId) {
-        for (var i = 0; i < connections.length; i++) {
-          if (connections[i].id === _gnEditingId) {
-            connections[i] = connData;
-            break;
-          }
-        }
-      } else {
-        connections.push(connData);
-      }
-      saveGeoNodeSettings(connections);
-      _gnEditingId = null;
-      showStatus(statusEl, 'ok', 'Connection "' + connData.name + '" saved.');
-      renderGeoNodeSection(document.getElementById('ra-st-main'));
+      openDataSourcePopup(null);
     });
   }
 
