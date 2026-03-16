@@ -486,7 +486,7 @@
         '<button class="ra-do__subscribe-close">&times;</button>' +
       '</div>' +
       '<div class="ra-do__subscribe-body">' +
-        '<div id="surecontact-form-ra-subscriptions-contacts-copy"></div>' +
+        '<iframe src="https://app.surecontact.com/f/577cd0a9-b85a-4a26-a8bb-b93a82369994/ra-subscriptions-contacts-copy" width="100%" height="400" frameborder="0" style="border:none;border-radius:4px;"></iframe>' +
       '</div>';
 
     page.appendChild(btn);
@@ -494,31 +494,7 @@
 
     // Toggle popup
     btn.addEventListener('click', function () {
-      var isOpen = popup.classList.contains('ra-do__subscribe-popup--open');
-      if (isOpen) {
-        popup.classList.remove('ra-do__subscribe-popup--open');
-      } else {
-        popup.classList.add('ra-do__subscribe-popup--open');
-        // Load SureContact form if not already loaded
-        if (!window.SureContactForms) {
-          var script = document.createElement('script');
-          script.src = 'https://app.surecontact.com/embed/forms.js';
-          script.onload = function () {
-            if (window.SureContactForms) {
-              window.SureContactForms.render({
-                formId: '577cd0a9-b85a-4a26-a8bb-b93a82369994',
-                container: '#surecontact-form-ra-subscriptions-contacts-copy'
-              });
-            }
-          };
-          document.head.appendChild(script);
-        } else {
-          window.SureContactForms.render({
-            formId: '577cd0a9-b85a-4a26-a8bb-b93a82369994',
-            container: '#surecontact-form-ra-subscriptions-contacts-copy'
-          });
-        }
-      }
+      popup.classList.toggle('ra-do__subscribe-popup--open');
     });
 
     // Close button
@@ -1749,7 +1725,7 @@
           var bar = document.createElement('div');
           bar.id = 'ra-do-preview-bar';
           bar.style.cssText = 'background:#f59e0b;color:#000;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;z-index:100000;';
-          bar.innerHTML = '<span>ADMIN PREVIEW \u2014 This is what dashboard users see</span><button id="ra-do-preview-exit" title="Exit preview and return to settings" style="background:#000;color:#fff;border:none;padding:8px 18px;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;">Exit Preview</button>';
+          bar.innerHTML = '<span>ADMIN PREVIEW \u2014 This is what dashboard users see</span><button id="ra-do-preview-exit" title="Exit preview and return to Dashboard" style="background:#000;color:#fff;border:none;padding:8px 18px;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;">Exit Preview</button>';
           page.insertBefore(bar, page.firstChild);
           var lb = document.getElementById('ra-do-logout-btn');
           if (lb) lb.style.display = 'none';
@@ -1765,7 +1741,7 @@
       var page = document.getElementById(PAGE_ID);
       if (page) page.remove();
       document.body.classList.remove('ra-do-active');
-      window.location.hash = '#/settings';
+      window.location.hash = '#/dashboard-admin';
     }
   };
 })();
