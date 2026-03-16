@@ -486,15 +486,33 @@
         '<button class="ra-do__subscribe-close">&times;</button>' +
       '</div>' +
       '<div class="ra-do__subscribe-body">' +
-        '<iframe src="https://app.surecontact.com/f/577cd0a9-b85a-4a26-a8bb-b93a82369994/ra-subscriptions-contacts-copy" width="100%" height="400" frameborder="0" style="border:none;border-radius:4px;"></iframe>' +
+        '<div id="ra-do-subscribe-form"></div>' +
       '</div>';
 
     page.appendChild(btn);
     page.appendChild(popup);
 
+    // Preload the SureContact script immediately (in background)
+    var scScript = document.createElement('script');
+    scScript.src = 'https://app.surecontact.com/embed/forms.js';
+    document.head.appendChild(scScript);
+
     // Toggle popup
+    var formRendered = false;
     btn.addEventListener('click', function () {
-      popup.classList.toggle('ra-do__subscribe-popup--open');
+      var isOpen = popup.classList.contains('ra-do__subscribe-popup--open');
+      if (isOpen) {
+        popup.classList.remove('ra-do__subscribe-popup--open');
+      } else {
+        popup.classList.add('ra-do__subscribe-popup--open');
+        if (!formRendered && window.SureContactForms) {
+          window.SureContactForms.render({
+            formId: '577cd0a9-b85a-4a26-a8bb-b93a82369994',
+            container: '#ra-do-subscribe-form'
+          });
+          formRendered = true;
+        }
+      }
     });
 
     // Close button
@@ -707,7 +725,8 @@
       'submissions-by-form': 'Submissions by Form', 'top-contributors': 'Top Contributors',
       'submissions-by-day': 'Submissions by Day', 'avg-per-day': 'Average Per Day',
       'submissions-period': 'Submissions by Period', 'geo-coverage': 'Geographic Coverage',
-      'form-status': 'Form Status', 'info-text': 'Info Text'
+      'form-status': 'Form Status', 'info-text': 'Info Text',
+      'subscribe': 'Subscribe', 'embed': 'Embed'
     };
 
     grid.innerHTML = widgets.map(function (w) {
@@ -749,6 +768,8 @@
         case 'geo-coverage': renderGeoCoverage(el, w, subs); break;
         case 'form-status': renderFormStatus(el, w); break;
         case 'info-text': renderInfoText(el, w); break;
+        case 'subscribe': renderSubscribeWidget(el, w); break;
+        case 'embed': renderEmbedWidget(el, w); break;
         default: el.innerHTML = '<p style="color:#999;">Unknown widget type: ' + esc(w.type) + '</p>';
       }
     });
@@ -1269,6 +1290,52 @@
       a.rel = 'noopener';
       if (!a.style.color) a.style.color = linkColor;
     });
+  }
+
+  // ── Widget: Subscribe Form ──
+  function renderSubscribeWidget(el, w) {
+    var cfg = w.config || {};
+    var formId = cfg.formId || '577cd0a9-b85a-4a26-a8bb-b93a82369994';
+    var description = cfg.description || 'Subscribe to receive updates on data collection activities and urban resilience research.';
+    var containerId = 'ra-do-subscribe-widget-' + w.id;
+
+    el.innerHTML =
+      '<div style="text-align:center;padding:8px 0 12px;">' +
+        '<div style="font-size:13px;color:#64748b;margin-bottom:12px;">' + esc(description) + '</div>' +
+        '<div id="' + containerId + '"></div>' +
+      '</div>';
+
+    // Render form when SDK is ready
+    function tryRender() {
+      if (window.SureContactForms) {
+        window.SureContactForms.render({ formId: formId, container: '#' + containerId });
+      } else {
+        setTimeout(tryRender, 500);
+      }
+    }
+    // Load SDK if not already loaded
+    if (!document.querySelector('script[src*="surecontact"]')) {
+      var s = document.createElement('script');
+      s.src = 'https://app.surecontact.com/embed/forms.js';
+      s.onload = tryRender;
+      document.head.appendChild(s);
+    } else {
+      tryRender();
+    }
+  }
+
+  // ── Widget: Embed (generic iframe) ──
+  function renderEmbedWidget(el, w) {
+    var cfg = w.config || {};
+    var url = cfg.url || '';
+    var height = cfg.height || 400;
+
+    if (!url) {
+      el.innerHTML = '<p style="color:#999;text-align:center;padding:24px;">No URL configured. Edit this widget and set <code>config.url</code>.</p>';
+      return;
+    }
+
+    el.innerHTML = '<iframe src="' + esc(url) + '" width="100%" height="' + height + '" frameborder="0" style="border:none;border-radius:6px;" loading="lazy"></iframe>';
   }
 
   // ── Widget: Submissions by Form (KoboToolbox) ──
