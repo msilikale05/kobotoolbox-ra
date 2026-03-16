@@ -266,8 +266,9 @@
     { id: 'notifications', label: 'Notifications', icon: '<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>' }
   ];
 
+  // Restore active section from sessionStorage (survives refresh)
   var activeSection = 'dashboard';
-  // Restore active tab from sessionStorage (survives refresh, doesn't touch URL hash)
+  try { activeSection = sessionStorage.getItem('ra_settings_section') || 'dashboard'; } catch (e) {}
   var activeDashTab = 'users';
   try { activeDashTab = sessionStorage.getItem('ra_dash_tab') || 'users'; } catch (e) {}
 
@@ -298,6 +299,7 @@
       var item = e.target.closest('.ra-st__sidebar-item');
       if (!item) return;
       activeSection = item.getAttribute('data-section');
+      try { sessionStorage.setItem('ra_settings_section', activeSection); } catch (e) {}
       page.querySelectorAll('.ra-st__sidebar-item').forEach(function (el) { el.classList.remove('active'); });
       item.classList.add('active');
       renderSection(activeSection);
@@ -339,7 +341,15 @@
     { id: 'field-select-bar', label: 'Choices Bar Chart', desc: 'Horizontal bar chart of select field choices', group: 'Field Data' },
     { id: 'field-counter', label: 'Conditional Counter', desc: 'Count submissions where a field matches a condition', group: 'Field Data' },
     { id: 'field-latest', label: 'Latest Value', desc: 'Most recent value of a specific field', group: 'Field Data' },
-    { id: 'field-timeline', label: 'Field Timeline', desc: 'Line chart of a numeric field over time', group: 'Field Data' }
+    { id: 'field-timeline', label: 'Field Timeline', desc: 'Line chart of a numeric field over time', group: 'Field Data' },
+    { id: 'submissions-by-form', label: 'Submissions by Form', desc: 'Horizontal bar chart comparing submission counts across forms', group: 'KoboToolbox' },
+    { id: 'top-contributors', label: 'Top Contributors', desc: 'Leaderboard of users with most submissions', group: 'KoboToolbox' },
+    { id: 'submissions-by-day', label: 'Submissions by Day of Week', desc: 'When submissions happen most (Mon-Sun)', group: 'KoboToolbox' },
+    { id: 'avg-per-day', label: 'Average Per Day', desc: 'Average number of submissions per day', group: 'KoboToolbox' },
+    { id: 'submissions-period', label: 'Submissions by Period', desc: 'Tabbed chart: 7 days, 31 days, 3 months, 12 months (like KoboToolbox)', group: 'KoboToolbox' },
+    { id: 'geo-coverage', label: 'Geographic Coverage', desc: 'Mini map showing submission locations', group: 'KoboToolbox' },
+    { id: 'form-status', label: 'Form Status Overview', desc: 'Deployed, draft, and archived form counts', group: 'KoboToolbox' },
+    { id: 'info-text', label: 'Info / Contact Card', desc: 'Rich text with formatting — add contact details, instructions, or announcements', group: 'General' }
   ];
 
   var _layoutForms = null;
@@ -1012,7 +1022,15 @@
       'field-select-bar': '&#128202;',
       'field-counter': '&#9989;',
       'field-latest': '&#128337;',
-      'field-timeline': '&#128200;'
+      'field-timeline': '&#128200;',
+      'submissions-by-form': '&#128202;',
+      'top-contributors': '&#127942;',
+      'submissions-by-day': '&#128197;',
+      'avg-per-day': '&#128200;',
+      'submissions-period': '&#128202;',
+      'geo-coverage': '&#127758;',
+      'form-status': '&#128203;',
+      'info-text': '&#128172;'
     };
     return icons[type] || '&#9632;';
   }
@@ -1113,6 +1131,26 @@
             '<div class="ra-st__field" id="ra-dl-matchop-wrap"><label>Condition</label><select id="ra-dl-matchop"><option value="equals"' + (cfg.matchOp === 'equals' ? ' selected' : '') + '>Equals</option><option value="contains"' + (cfg.matchOp === 'contains' ? ' selected' : '') + '>Contains</option><option value="not_empty"' + (cfg.matchOp === 'not_empty' ? ' selected' : '') + '>Not empty</option><option value="greater_than"' + (cfg.matchOp === 'greater_than' ? ' selected' : '') + '>Greater than</option><option value="less_than"' + (cfg.matchOp === 'less_than' ? ' selected' : '') + '>Less than</option></select></div>' +
             '<div class="ra-st__field" id="ra-dl-matchval-wrap"><label>Match Value</label><input type="text" id="ra-dl-matchval" value="' + escapeHtml(cfg.matchValue || '') + '" placeholder="e.g., yes, 100, Dar es Salaam"></div>' +
             '<div class="ra-st__field" id="ra-dl-label-wrap"><label>Display Label</label><input type="text" id="ra-dl-label" value="' + escapeHtml(cfg.label || '') + '" placeholder="e.g., Total Records"></div>' +
+            '<div class="ra-st__field" id="ra-dl-richtext-wrap">' +
+              '<label>Content</label>' +
+              '<div style="border:1px solid #d0d5dd;border-radius:6px;overflow:hidden;">' +
+                '<div id="ra-dl-toolbar" style="display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid #e2e8f0;background:#f8fafc;">' +
+                  '<button type="button" data-cmd="bold" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-weight:700;">B</button>' +
+                  '<button type="button" data-cmd="italic" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-style:italic;">I</button>' +
+                  '<button type="button" data-cmd="underline" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;text-decoration:underline;">U</button>' +
+                  '<span style="width:1px;background:#d0d5dd;margin:0 4px;"></span>' +
+                  '<button type="button" data-cmd="fontSize" data-val="4" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-size:16px;">A</button>' +
+                  '<button type="button" data-cmd="fontSize" data-val="2" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;font-size:11px;">a</button>' +
+                  '<span style="width:1px;background:#d0d5dd;margin:0 4px;"></span>' +
+                  '<button type="button" data-cmd="insertUnorderedList" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;">&#8226; List</button>' +
+                  '<button type="button" data-cmd="createLink" style="padding:4px 8px;border:1px solid #d0d5dd;border-radius:3px;background:#fff;cursor:pointer;">&#128279; Link</button>' +
+                '</div>' +
+                '<div id="ra-dl-richtext" contenteditable="true" style="min-height:120px;padding:12px;font-size:14px;line-height:1.6;outline:none;">' +
+                  (cfg.html || '<p>Contact the administrator at <b>support@resilienceacademy.ac.tz</b> for any questions.</p>') +
+                '</div>' +
+              '</div>' +
+              '<small>Format text using the toolbar above. Supports bold, italic, links, and lists.</small>' +
+            '</div>' +
           '</div>' +
           '<div style="display:flex;gap:10px;margin-top:20px;">' +
             '<button class="ra-st__btn ra-st__btn--primary" id="ra-dl-modal-save">' + (isEdit ? 'Update' : 'Add') + '</button>' +
@@ -1127,6 +1165,24 @@
     document.getElementById('ra-dl-type').addEventListener('change', toggleExtraConfig);
     document.getElementById('ra-dl-modal-close').addEventListener('click', function () { modal.remove(); });
     document.getElementById('ra-dl-modal-cancel').addEventListener('click', function () { modal.remove(); });
+
+    // Rich text toolbar handlers
+    var toolbar = document.getElementById('ra-dl-toolbar');
+    if (toolbar) {
+      toolbar.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-cmd]');
+        if (!btn) return;
+        e.preventDefault();
+        var cmd = btn.getAttribute('data-cmd');
+        var val = btn.getAttribute('data-val') || null;
+        if (cmd === 'createLink') {
+          val = prompt('Enter URL:', 'https://');
+          if (!val) return;
+        }
+        document.execCommand(cmd, false, val);
+        document.getElementById('ra-dl-richtext').focus();
+      });
+    }
     document.getElementById('ra-dl-modal-save').addEventListener('click', function () {
       var newW = {
         id: w.id,
@@ -1155,6 +1211,11 @@
       // Label
       var labelEl = document.getElementById('ra-dl-label');
       if (labelEl && labelEl.value.trim()) newW.config.label = labelEl.value.trim();
+      // Rich text content
+      if (type === 'info-text') {
+        var rtEl = document.getElementById('ra-dl-richtext');
+        if (rtEl) newW.config.html = rtEl.innerHTML;
+      }
       if (!newW.title) {
         var td = null;
         for (var tt = 0; tt < WIDGET_TYPES.length; tt++) {
@@ -1209,6 +1270,7 @@
     show('ra-dl-matchop-wrap', needsMatch.indexOf(type) !== -1);
     show('ra-dl-matchval-wrap', needsMatch.indexOf(type) !== -1);
     show('ra-dl-label-wrap', needsLabel.indexOf(type) !== -1);
+    show('ra-dl-richtext-wrap', type === 'info-text');
   }
 
   function saveLayout() {
@@ -1226,12 +1288,12 @@
 
   var _gnEditingId = null; // null = adding new, string = editing existing
 
-  // Source type definitions
+  // Source type definitions with all tile presets
   var SOURCE_TYPES = {
     geonode: { label: 'GeoNode', fields: ['url', 'token', 'username', 'password'], testable: true },
     wms: { label: 'WMS Service', fields: ['url'], testable: false },
     wfs: { label: 'WFS Service', fields: ['url'], testable: false },
-    xyz: { label: 'XYZ Tiles', fields: ['url'], testable: false },
+    xyz: { label: 'XYZ Tiles (Custom URL)', fields: ['url'], testable: false },
     google: { label: 'Google Maps', fields: [], testable: false, presets: [
       { name: 'Google Satellite', url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}' },
       { name: 'Google Hybrid', url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}' },
@@ -1239,9 +1301,34 @@
       { name: 'Google Streets', url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}' }
     ]},
     esri: { label: 'Esri / ArcGIS', fields: [], testable: false, presets: [
-      { name: 'Esri Satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}' },
-      { name: 'Esri Topo', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}' },
-      { name: 'Esri Streets', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}' }
+      { name: 'Esri Imagery', url: 'https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}' },
+      { name: 'Esri Streets', url: 'https://server.arcgisonline.com/arcgis/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}' },
+      { name: 'Esri Topo', url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}' },
+      { name: 'Esri Terrain', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}' },
+      { name: 'Esri Gray Light', url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}' },
+      { name: 'Esri Gray Dark', url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}' },
+      { name: 'Esri National Geographic', url: 'https://services.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}' },
+      { name: 'Esri Ocean', url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}' }
+    ]},
+    osm: { label: 'OpenStreetMap', fields: [], testable: false, presets: [
+      { name: 'OSM Standard', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png' },
+      { name: 'OSM Humanitarian (HOT)', url: 'https://tile.openstreetmap.fr/hot/{z}/{x}/{y}.png' }
+    ]},
+    carto: { label: 'Carto / MapBox', fields: [], testable: false, presets: [
+      { name: 'Carto Light (Positron)', url: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png' },
+      { name: 'Carto Dark', url: 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png' },
+      { name: 'Carto Voyager', url: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png' }
+    ]},
+    stamen: { label: 'Stamen / Stadia', fields: [], testable: false, presets: [
+      { name: 'Stamen Terrain', url: 'https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}.png' },
+      { name: 'Stamen Toner', url: 'https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}.png' },
+      { name: 'Stamen Toner Light', url: 'https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}.png' },
+      { name: 'Stamen Watercolor', url: 'https://tiles.stadiamaps.com/tiles/stamen_watercolor/{z}/{x}/{y}.jpg' }
+    ]},
+    weather: { label: 'Weather Overlays', fields: [], testable: false, presets: [
+      { name: 'OpenWeather Clouds', url: 'https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?APPID=ef3c5137f6c31db50c4c6f1ce4e7e9dd' },
+      { name: 'OpenWeather Temperature', url: 'https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?APPID=1c3e4ef8e25596946ee1f3846b53218a' },
+      { name: 'OpenWeather Wind', url: 'https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?APPID=f9d0069aa69438d52276ae25c1ee9893' }
     ]}
   };
 

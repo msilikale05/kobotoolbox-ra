@@ -592,9 +592,10 @@
         return;
     }
 
-    // Separate browsable (geonode, wms) from direct-add (xyz, google, esri)
+    // Tile sources go to basemap switcher; only GeoNode/WMS are browsable here
+    var tileTypes = ['xyz', 'google', 'esri', 'osm', 'carto', 'stamen', 'weather'];
     var browsable = connections.filter(function (c) { return !c.type || c.type === 'geonode' || c.type === 'wms' || c.type === 'wfs'; });
-    var directAdd = connections.filter(function (c) { return c.type === 'xyz' || c.type === 'google' || c.type === 'esri'; });
+    var directAdd = connections.filter(function (c) { return tileTypes.indexOf(c.type) !== -1; });
 
     var activeConn = browsable.length ? browsable[0] : null;
 
@@ -802,7 +803,17 @@
     var displayName = dataset.title || dataset.name || layerName;
     var dsId = dataset.pk || dataset.id || layerName;
 
-    var wmsLayer = L.tileLayer.wms(wmsUrl, {
+    // Try multiple WMS URL patterns for compatibility
+    var wmsEndpoints = [
+      baseUrl + '/geoserver/ows',
+      baseUrl + '/geoserver/wms',
+      baseUrl + '/gs/ows',
+      baseUrl + '/gs/wms'
+    ];
+    var currentEndpointIdx = 0;
+    var errorCount = 0;
+
+    var wmsLayer = L.tileLayer.wms(wmsEndpoints[0], {
       layers: layerName,
       format: 'image/png',
       transparent: true,
@@ -814,10 +825,13 @@
     });
 
     wmsLayer.on('tileerror', function() {
-        if (wmsUrl.indexOf('/geoserver/ows') !== -1) {
-            var altUrl = baseUrl + '/geoserver/wms';
-            wmsLayer.setUrl(altUrl);
-        }
+      errorCount++;
+      // After 3 failed tiles, try next endpoint
+      if (errorCount >= 3 && currentEndpointIdx < wmsEndpoints.length - 1) {
+        currentEndpointIdx++;
+        errorCount = 0;
+        wmsLayer.setUrl(wmsEndpoints[currentEndpointIdx]);
+      }
     });
 
     wmsLayer.addTo(map);
@@ -825,8 +839,29 @@
     // Store in geonodeLayers
     var gnId = 'gn_' + dsId;
     var bounds = null;
-    if (dataset.bbox && dataset.bbox.x0 != null) {
-        bounds = [[dataset.bbox.y0, dataset.bbox.x0], [dataset.bbox.y1, dataset.bbox.x1]];
+    if (dataset.bbox) {
+      var bb = dataset.bbox;
+      if (bb.x0 != null && bb.y0 != null) {
+        // GeoNode format: {x0, y0, x1, y1}
+        bounds = [[bb.y0, bb.x0], [bb.y1, bb.x1]];
+      } else if (Array.isArray(bb) && bb.length >= 4) {
+        // Array format: [minx, miny, maxx, maxy]
+        bounds = [[bb[1], bb[0]], [bb[3], bb[2]]];
+      } else if (bb.minx != null) {
+        // Alternative: {minx, miny, maxx, maxy}
+        bounds = [[bb.miny, bb.minx], [bb.maxy, bb.maxx]];
+      }
+    }
+    // Also try ll_bbox_polygon or spatial_extent
+    if (!bounds && dataset.ll_bbox_polygon) {
+      try {
+        var coords = dataset.ll_bbox_polygon.coordinates || dataset.ll_bbox_polygon;
+        if (Array.isArray(coords) && coords[0] && coords[0].length >= 4) {
+          var lats = coords[0].map(function (c) { return c[1]; });
+          var lons = coords[0].map(function (c) { return c[0]; });
+          bounds = [[Math.min.apply(null, lats), Math.min.apply(null, lons)], [Math.max.apply(null, lats), Math.max.apply(null, lons)]];
+        }
+      } catch (e) {}
     }
     var geomType = dataset.geom_type || 'vector';
     geonodeLayers[gnId] = {
@@ -835,7 +870,7 @@
       color: '#54a8dc',
       count: 0,
       isGeoNode: true,
-      wmsUrl: wmsUrl,
+      wmsUrl: wmsEndpoints[0],
       layerName: layerName,
       bounds: bounds,
       geomType: geomType,
@@ -979,26 +1014,37 @@
         'Satellite': satellite
       };
 
-      // Add user-configured XYZ/Google/Esri tile sources as basemap options
+      // Basemap types (radio selection — only one active at a time)
+      var basemapTypes = ['xyz', 'google', 'esri', 'osm', 'carto', 'stamen'];
+      // Overlay types (checkboxes — can stack on top of basemap)
+      var overlayTypes = ['weather'];
+      var overlays = {};
+
       var connections = getGeoNodeSettings();
       connections.forEach(function (conn) {
-        if (conn.type === 'xyz' || conn.type === 'google' || conn.type === 'esri') {
+        if (basemapTypes.indexOf(conn.type) !== -1) {
           baseMaps[conn.name] = L.tileLayer(conn.url, {
             attribution: conn.name || conn.type,
             maxZoom: 20,
             tileSize: 256,
             zoomOffset: 0
           });
+        } else if (overlayTypes.indexOf(conn.type) !== -1) {
+          overlays[conn.name] = L.tileLayer(conn.url, {
+            attribution: conn.name || conn.type,
+            maxZoom: 20,
+            tileSize: 256,
+            opacity: 0.6
+          });
         }
       });
 
-      // When basemap changes, maintain current view (don't reset zoom)
+      // When basemap changes, maintain current view
       map.on('baselayerchange', function () {
-        // Leaflet handles this by default, but invalidate to fix any rendering
         setTimeout(function () { map.invalidateSize(); }, 100);
       });
 
-      var layerControl = L.control.layers(baseMaps, null, { position: 'topleft' });
+      var layerControl = L.control.layers(baseMaps, overlays, { position: 'topleft' });
       layerControl.addTo(map);
       // Store reference for adding overlay layers later
       map._raLayerControl = layerControl;
@@ -1443,6 +1489,19 @@
       });
     });
 
+    // Right-click context menu on legend items (same options as three-dot menu)
+    legend.addEventListener('contextmenu', function (e) {
+      var item = e.target.closest('.ra-map__legend-item');
+      if (!item) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      var uid = item.getAttribute('data-uid');
+      // Simulate clicking the three-dot button for this item
+      var menuBtn = item.querySelector('.ra-map__legend-menu-btn');
+      if (menuBtn) menuBtn.click();
+    });
+
     // Close context menu on outside click
     document.addEventListener('mousedown', function (e) {
       if (e.target.closest('.ra-map__ctx-menu') || e.target.closest('.ra-map__legend-menu-btn')) return;
@@ -1799,15 +1858,25 @@
   function cycleOpacity(uid, groups) {
     var g = groups[uid];
     if (!g) return;
-    // Cycle through opacity levels: 0.85 -> 0.5 -> 0.25 -> 0.85
-    var current = -1;
-    g.layer.eachLayer(function (layer) {
-      if (current === -1 && layer.options) current = layer.options.fillOpacity || 0.85;
-    });
-    var next = current > 0.7 ? 0.5 : (current > 0.3 ? 0.25 : 0.85);
-    g.layer.eachLayer(function (layer) {
-      if (layer.setStyle) layer.setStyle({ fillOpacity: next, opacity: next + 0.15 });
-    });
+
+    var isWMS = g.isGeoNode || (g.layer && g.layer.setOpacity && !g.layer.eachLayer);
+
+    if (isWMS || (g.layer && g.layer.setOpacity && typeof g.layer.eachLayer !== 'function')) {
+      // WMS layer — use setOpacity directly
+      var currentOp = g.layer.options ? (g.layer.options.opacity || 1) : 1;
+      var nextOp = currentOp > 0.7 ? 0.5 : (currentOp > 0.3 ? 0.2 : 1);
+      g.layer.setOpacity(nextOp);
+    } else {
+      // Vector layer (LayerGroup/FeatureGroup) — use setStyle
+      var current = -1;
+      g.layer.eachLayer(function (layer) {
+        if (current === -1 && layer.options) current = layer.options.fillOpacity || 0.85;
+      });
+      var next = current > 0.7 ? 0.5 : (current > 0.3 ? 0.25 : 0.85);
+      g.layer.eachLayer(function (layer) {
+        if (layer.setStyle) layer.setStyle({ fillOpacity: next, opacity: next + 0.15 });
+      });
+    }
   }
 
   function createStats(formCount, pointCount) {
