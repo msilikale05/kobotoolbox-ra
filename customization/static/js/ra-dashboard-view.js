@@ -121,6 +121,37 @@
     '.ra-do__popup-status { padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-top: 8px; display: none; }',
     '.ra-do__popup-status--ok { display: block; background: #e8f5e9; color: #2e7d32; }',
     '.ra-do__popup-status--err { display: block; background: #fbe9e7; color: #c62828; }',
+
+    /* Subscribe floating button */
+    '.ra-do__subscribe-btn {',
+    '  position: fixed; bottom: 24px; right: 24px; z-index: 9998;',
+    '  background: #54a8dc; color: #fff; border: none; border-radius: 50px;',
+    '  padding: 12px 20px; font-size: 13px; font-weight: 600; cursor: pointer;',
+    '  box-shadow: 0 4px 16px rgba(84,168,220,0.4);',
+    '  display: flex; align-items: center; gap: 8px;',
+    '  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;',
+    '  font-family: inherit;',
+    '}',
+    '.ra-do__subscribe-btn:hover { background: #3d8abf; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(84,168,220,0.5); }',
+    '.ra-do__subscribe-btn svg { width: 18px; height: 18px; fill: #fff; }',
+    '.ra-do__subscribe-popup {',
+    '  position: fixed; bottom: 80px; right: 24px; z-index: 9999;',
+    '  background: #fff; border-radius: 12px; width: 380px;',
+    '  box-shadow: 0 12px 40px rgba(0,0,0,0.25);',
+    '  display: none; flex-direction: column;',
+    '  animation: ra-do-slidein 0.25s ease;',
+    '}',
+    '.ra-do__subscribe-popup--open { display: flex; }',
+    '@keyframes ra-do-slidein { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }',
+    '.ra-do__subscribe-header {',
+    '  padding: 14px 18px; border-bottom: 1px solid #eee;',
+    '  display: flex; align-items: center; justify-content: space-between;',
+    '}',
+    '.ra-do__subscribe-header h4 { margin: 0; font-size: 15px; color: #1a2a3a; }',
+    '.ra-do__subscribe-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #999; padding: 2px 6px; }',
+    '.ra-do__subscribe-close:hover { color: #333; }',
+    '.ra-do__subscribe-body { padding: 16px 18px; min-height: 200px; }',
+
     '.ra-do__logout {',
     '  background: rgba(255,255,255,0.2); color: #fff; border: none;',
     '  padding: 7px 16px; border-radius: 5px; font-size: 13px; cursor: pointer;',
@@ -389,6 +420,9 @@
     // Load footer from customization/footer/
     loadDashboardFooter();
 
+    // Subscribe floating button
+    createSubscribeButton(page);
+
     // Set browser tab title to "username | Ramani Yangu"
     if (currentUser && currentUser.username) {
       document.title = currentUser.username + ' | ' + BRAND_NAME;
@@ -433,6 +467,64 @@
         else if (act === 'change-password') openDashChangePassword();
       });
     }
+  }
+
+  function createSubscribeButton(page) {
+    // Floating subscribe button
+    var btn = document.createElement('button');
+    btn.className = 'ra-do__subscribe-btn';
+    btn.innerHTML =
+      '<svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>' +
+      'Subscribe';
+
+    // Popup
+    var popup = document.createElement('div');
+    popup.className = 'ra-do__subscribe-popup';
+    popup.innerHTML =
+      '<div class="ra-do__subscribe-header">' +
+        '<h4>Stay Updated</h4>' +
+        '<button class="ra-do__subscribe-close">&times;</button>' +
+      '</div>' +
+      '<div class="ra-do__subscribe-body">' +
+        '<div id="surecontact-form-ra-subscriptions-contacts-copy"></div>' +
+      '</div>';
+
+    page.appendChild(btn);
+    page.appendChild(popup);
+
+    // Toggle popup
+    btn.addEventListener('click', function () {
+      var isOpen = popup.classList.contains('ra-do__subscribe-popup--open');
+      if (isOpen) {
+        popup.classList.remove('ra-do__subscribe-popup--open');
+      } else {
+        popup.classList.add('ra-do__subscribe-popup--open');
+        // Load SureContact form if not already loaded
+        if (!window.SureContactForms) {
+          var script = document.createElement('script');
+          script.src = 'https://app.surecontact.com/embed/forms.js';
+          script.onload = function () {
+            if (window.SureContactForms) {
+              window.SureContactForms.render({
+                formId: '577cd0a9-b85a-4a26-a8bb-b93a82369994',
+                container: '#surecontact-form-ra-subscriptions-contacts-copy'
+              });
+            }
+          };
+          document.head.appendChild(script);
+        } else {
+          window.SureContactForms.render({
+            formId: '577cd0a9-b85a-4a26-a8bb-b93a82369994',
+            container: '#surecontact-form-ra-subscriptions-contacts-copy'
+          });
+        }
+      }
+    });
+
+    // Close button
+    popup.querySelector('.ra-do__subscribe-close').addEventListener('click', function () {
+      popup.classList.remove('ra-do__subscribe-popup--open');
+    });
   }
 
   function getCsrf() {
