@@ -320,6 +320,24 @@
 }
 
 /* ==========================================================================
+   Hide help/support icon (bottom of page)
+   ========================================================================== */
+.intercom-lightweight-app,
+.intercom-lightweight-app-launcher,
+[class*="intercom"],
+[class*="help-bubble"],
+[class*="support-widget"],
+[data-tip="Help"],
+.help-bubble,
+.kobo-help-icon,
+a[href*="support.kobotoolbox.org"],
+iframe[title*="Intercom"],
+.main-header__help,
+[class*="helpBubble"] {
+  display: none !important;
+}
+
+/* ==========================================================================
    Custom Access Denied / 404 Page
    ========================================================================== */
 /*

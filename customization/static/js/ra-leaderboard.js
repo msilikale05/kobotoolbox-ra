@@ -48,7 +48,7 @@
     '  left: 58px;',
     '  right: 0;',
     '  bottom: 0;',
-    '  background: #fff;',
+    '  background: #edeef2;',
     '  z-index: 1001;',
     '  overflow-y: auto;',
     '  display: none;',
@@ -67,22 +67,23 @@
 
     /* Header */
     '.ra-lb__header {',
-    '  padding: 20px 30px 0;',
+    '  padding: 30px 40px 0;',
     '}',
     '.ra-lb__header h1 {',
     '  margin: 0 0 6px;',
-    '  font-size: 22px;',
-    '  font-weight: 600;',
+    '  font-size: 24px;',
+    '  font-weight: 700;',
+    '  color: #333847;',
     '}',
     '.ra-lb__header p {',
     '  margin: 0;',
     '  font-size: 13px;',
-    '  opacity: 0.85;',
+    '  color: #64748b;',
     '}',
 
     /* Controls */
     '.ra-lb__controls {',
-    '  padding: 16px 30px;',
+    '  padding: 20px 40px;',
     '  display: flex;',
     '  align-items: center;',
     '  gap: 16px;',
@@ -94,10 +95,10 @@
     '  max-width: 500px;',
     '  padding: 10px 14px;',
     '  font-size: 14px;',
-    '  border: 1px solid #d0d5dd;',
-    '  border-radius: 6px;',
+    '  border: 1px solid #e1e3ea;',
+    '  border-radius: 4px;',
     '  background: #fff;',
-    '  color: #333;',
+    '  color: #333847;',
     '  cursor: pointer;',
     '  appearance: none;',
     '  background-image: url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath d=\'M6 8L1 3h10z\' fill=\'%23666\'/%3E%3C/svg%3E");',
@@ -125,16 +126,16 @@
 
     /* Table */
     '.ra-lb__table-wrap {',
-    '  padding: 0 30px 40px;',
+    '  padding: 0 40px 40px;',
     '}',
     '.ra-lb__table {',
     '  width: 100%;',
     '  border-collapse: collapse;',
     '  border-spacing: 0;',
     '  background: #fff;',
-    '  border-radius: 8px;',
+    '  border-radius: 4px;',
     '  overflow: hidden;',
-    '  box-shadow: 0 1px 3px rgba(0,0,0,0.08);',
+    '  border: 1px solid #e1e3ea;',
     '}',
     '.ra-lb__table th {',
     '  text-align: left;',
@@ -143,9 +144,9 @@
     '  font-weight: 600;',
     '  text-transform: uppercase;',
     '  letter-spacing: 0.5px;',
-    '  color: #666;',
-    '  background: transparent;',
-    '  border-bottom: 1px solid #eee;',
+    '  color: #64748b;',
+    '  background: #f9f9fb;',
+    '  border-bottom: 1px solid #e1e3ea;',
     '}',
     '.ra-lb__table th:last-child {',
     '  text-align: right;',
@@ -153,8 +154,8 @@
     '.ra-lb__table td {',
     '  padding: 12px 16px;',
     '  font-size: 14px;',
-    '  color: #333;',
-    '  border-bottom: 1px solid #f0f0f0;',
+    '  color: #333847;',
+    '  border-bottom: 1px solid #edeef2;',
     '}',
     '.ra-lb__table td:last-child {',
     '  text-align: right;',
@@ -339,6 +340,22 @@
     return div.innerHTML;
   }
 
+  // Persist leaderboard selections in localStorage
+  var LB_STORAGE_KEY = 'ra_leaderboard_prefs';
+  function saveLbPrefs() {
+    var formSelect = document.getElementById('ra-lb-form-select');
+    var fieldSelect = document.getElementById('ra-lb-field-select');
+    try {
+      localStorage.setItem(LB_STORAGE_KEY, JSON.stringify({
+        form: formSelect ? formSelect.value : '',
+        field: fieldSelect ? fieldSelect.value : '_submitted_by'
+      }));
+    } catch (e) {}
+  }
+  function getLbPrefs() {
+    try { return JSON.parse(localStorage.getItem(LB_STORAGE_KEY)) || {}; } catch (e) { return {}; }
+  }
+
   // ── Page rendering ──
   function createPage() {
     if (document.getElementById(PAGE_ID)) return;
@@ -368,22 +385,6 @@
 
     // Load forms into dropdown
     loadForms();
-
-    // Persist selections in localStorage
-    var LB_STORAGE_KEY = 'ra_leaderboard_prefs';
-    function saveLbPrefs() {
-      var formSelect = document.getElementById('ra-lb-form-select');
-      var fieldSelect = document.getElementById('ra-lb-field-select');
-      try {
-        localStorage.setItem(LB_STORAGE_KEY, JSON.stringify({
-          form: formSelect ? formSelect.value : '',
-          field: fieldSelect ? fieldSelect.value : '_submitted_by'
-        }));
-      } catch (e) {}
-    }
-    function getLbPrefs() {
-      try { return JSON.parse(localStorage.getItem(LB_STORAGE_KEY)) || {}; } catch (e) { return {}; }
-    }
 
     // Form change handler
     document.getElementById('ra-lb-form-select').addEventListener('change', function () {

@@ -18,3 +18,4 @@ customization/services/*/config.env
 
 # Non-code assets
 Training Materials/
+backup/

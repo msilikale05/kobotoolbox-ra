@@ -35,6 +35,23 @@
     '#' + NAV_ID + '.active { color: #54a8dc; border-left-color: #54a8dc; }',
     '#' + NAV_ID + ' svg { width: 26px; height: 26px; fill: currentColor; }',
 
+    /* Dashboard nav icon */
+    '#ra-dashadmin-nav {',
+    '  display: flex;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '  width: 100%;',
+    '  height: 46px;',
+    '  color: #8e9ba7;',
+    '  text-decoration: none;',
+    '  border-left: 3px solid transparent;',
+    '  transition: color 0.2s, border-color 0.2s;',
+    '  cursor: pointer;',
+    '}',
+    '#ra-dashadmin-nav:hover { color: #54a8dc; }',
+    '#ra-dashadmin-nav.active { color: #54a8dc; border-left-color: #54a8dc; }',
+    '#ra-dashadmin-nav svg { width: 26px; height: 26px; fill: currentColor; }',
+
     /* Page */
     '#' + PAGE_ID + ' {',
     '  position: absolute;',
@@ -59,12 +76,14 @@
 
     /* Sidebar submenu - matches KoboToolbox drawer sidebar */
     '.ra-st__sidebar {',
-    '  width: 210px;',
+    '  width: 212px;',
     '  flex-shrink: 0;',
     '  background: #fff;',
-    '  border-right: 1px solid #e8e8e8;',
+    '  box-shadow: 0 0 8px 0 rgba(51,56,71,0.06), 0 8px 8px 0 rgba(51,56,71,0.12);',
     '  padding-top: 10px;',
     '  overflow-y: auto;',
+    '  z-index: 2;',
+    '  position: relative;',
     '}',
     '.ra-st__sidebar-item {',
     '  display: flex;',
@@ -95,27 +114,34 @@
     '.ra-st__main {',
     '  flex: 1;',
     '  overflow-y: auto;',
-    '  background: #fff;',
+    '  background: #edeef2;',
     '}',
     '.ra-st__page-title {',
     '  font-size: 24px;',
     '  font-weight: 700;',
-    '  color: #29292a;',
-    '  padding: 20px 30px 0;',
-    '  margin: 0;',
+    '  color: #333847;',
+    '  padding: 30px 30px 0;',
+    '  margin: 0 0 15px;',
     '  font-family: Roboto, sans-serif;',
     '}',
     '.ra-st__content {',
-    '  padding: 20px 30px 60px;',
-    '  max-width: 700px;',
+    '  padding: 0 30px 60px;',
+    '  max-width: none;',
+    '}',
+
+    /* White card boxes for content sections */
+    '.ra-st__box {',
+    '  background: #fff; border: 1px solid #e1e3ea; border-radius: 4px;',
+    '  padding: 24px; margin-bottom: 20px;',
     '}',
     '.ra-st__section-title {',
-    '  font-size: 14px;',
-    '  font-weight: 600;',
-    '  color: #29292a;',
-    '  margin: 0 0 16px;',
-    '  padding-bottom: 8px;',
-    '  border-bottom: 1px solid #eee;',
+    '  font-size: 16px;',
+    '  font-weight: 700;',
+    '  color: #333847;',
+    '  margin: 0 0 6px;',
+    '}',
+    '.ra-st__section-desc {',
+    '  font-size: 13px; color: #64748b; margin: 0 0 20px;',
     '}',
     '.ra-st__card--open .ra-st__card-arrow { transform: rotate(90deg); }',
     '.ra-st__card-body {',
@@ -125,50 +151,52 @@
     '.ra-st__card--open .ra-st__card-body { display: block; }',
 
     /* Form fields */
-    '.ra-st__field { margin-bottom: 14px; }',
+    '.ra-st__field { margin-bottom: 16px; }',
     '.ra-st__field label {',
-    '  display: block; font-size: 12px; font-weight: 600;',
-    '  color: #666; margin-bottom: 5px;',
+    '  display: block; font-size: 13px; font-weight: 600;',
+    '  color: #333847; margin-bottom: 6px;',
     '}',
     '.ra-st__field input, .ra-st__field select {',
     '  width: 100%; padding: 10px 12px; font-size: 14px;',
-    '  border: 1px solid #d0d5dd; border-radius: 6px;',
-    '  box-sizing: border-box; background: #fff; color: #333;',
+    '  border: 1px solid #e1e3ea; border-radius: 4px;',
+    '  box-sizing: border-box; background: #fff; color: #333847;',
     '}',
     '.ra-st__field input:focus, .ra-st__field select:focus {',
-    '  outline: none; border-color: #54a8dc;',
-    '  box-shadow: 0 0 0 3px rgba(84,168,220,0.15);',
+    '  outline: none; border-color: #2095f3;',
+    '  box-shadow: 0 0 0 3px rgba(32,149,243,0.12);',
     '}',
-    '.ra-st__field small { color: #999; font-size: 11px; }',
-    '.ra-st__actions { display: flex; gap: 10px; margin-top: 16px; }',
+    '.ra-st__field small { color: #94a3b8; font-size: 12px; margin-top: 4px; display: block; }',
+    '.ra-st__actions { display: flex; gap: 10px; margin-top: 20px; }',
     '.ra-st__btn {',
-    '  padding: 10px 20px; border: none; border-radius: 6px;',
+    '  padding: 10px 20px; border: 1px solid transparent; border-radius: 4px;',
     '  font-size: 13px; font-weight: 600; cursor: pointer;',
+    '  transition: all 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.06);',
     '}',
-    '.ra-st__btn--primary { background: #54a8dc; color: #29292a; }',
-    '.ra-st__btn--primary:hover { background: #4090c0; }',
-    '.ra-st__btn--secondary { background: #e5e7eb; color: #333; }',
-    '.ra-st__btn--secondary:hover { background: #d0d5dd; }',
-    '.ra-st__btn--success { background: #2ecc71; color: #29292a; }',
-    '.ra-st__btn--success:hover { background: #27ae60; }',
+    '.ra-st__btn--primary { background: #2095f3; color: #fff; border-color: #2095f3; }',
+    '.ra-st__btn--primary:hover { background: #1977c2; border-color: #1977c2; }',
+    '.ra-st__btn--secondary { background: #fff; color: #333847; border-color: #e1e3ea; }',
+    '.ra-st__btn--secondary:hover { background: #f5f6f8; border-color: #c8cad0; }',
+    '.ra-st__btn--success { background: #10b981; color: #fff; border-color: #10b981; }',
+    '.ra-st__btn--success:hover { background: #059669; border-color: #059669; }',
 
     /* Status messages */
     '.ra-st__status {',
-    '  margin-top: 10px; padding: 10px 12px; border-radius: 6px;',
-    '  font-size: 13px; display: none;',
+    '  margin-top: 12px; padding: 10px 14px; border-radius: 4px;',
+    '  font-size: 13px; display: none; border: 1px solid transparent;',
     '}',
-    '.ra-st__status--ok { display: block; background: #e8f8f0; color: #27ae60; }',
-    '.ra-st__status--err { display: block; background: #fde8e8; color: #e74c3c; }',
-    '.ra-st__status--info { display: block; background: #e8f4fd; color: #2980b9; }',
+    '.ra-st__status--ok { display: block; background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }',
+    '.ra-st__status--err { display: block; background: #fef2f2; color: #991b1b; border-color: #fecaca; }',
+    '.ra-st__status--info { display: block; background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }',
 
     /* GeoNode connection list */
-    '.ra-st__gn-conn { display: flex; align-items: center; padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; }',
+    '.ra-st__gn-conn { display: flex; align-items: center; padding: 14px 16px; background: #fff; border: 1px solid #e1e3ea; border-radius: 4px; margin-bottom: 10px; }',
     '.ra-st__gn-conn-info { flex: 1; min-width: 0; }',
-    '.ra-st__gn-conn-name { font-weight: 600; font-size: 14px; }',
-    '.ra-st__gn-conn-url { font-size: 12px; color: #888; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }',
+    '.ra-st__gn-conn-name { font-weight: 600; font-size: 14px; color: #333847; }',
+    '.ra-st__gn-conn-url { font-size: 12px; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }',
     '.ra-st__gn-conn-actions { display: flex; gap: 6px; flex-shrink: 0; }',
-    '.ra-st__btn--small { padding: 4px 10px; font-size: 11px; }',
-    '.ra-st__btn--danger { color: #e74c3c; border-color: #e74c3c; }',
+    '.ra-st__btn--small { padding: 6px 12px; font-size: 12px; }',
+    '.ra-st__btn--danger { color: #dc2626; border-color: #fecaca; background: #fef2f2; }',
+    '.ra-st__btn--danger:hover { background: #fee2e2; border-color: #fca5a5; }',
 
     /* Popup modal overlay */
     '.ra-st__popup-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center; }',
@@ -258,22 +286,24 @@
   }
 
   // ── Settings sections (each is a submenu item) ──
+  // Working sections first, coming soon at the bottom
   var SECTIONS = [
-    { id: 'dashboard', label: 'Dashboard', icon: '<svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>' },
     { id: 'geonode', label: 'Data Sources', icon: '<svg viewBox="0 0 24 24"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zM7 19c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM7 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>' },
     { id: 'export', label: 'Batch Export', icon: '<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>' },
-    { id: 'map', label: 'Map Defaults', icon: '<svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>' },
-    { id: 'notifications', label: 'Notifications', icon: '<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>' },
-    { id: 'scheduler', label: 'Form Scheduler', icon: '<svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>' },
-    { id: 'tags', label: 'Project Tags', icon: '<svg viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>' },
-    { id: 'assignments', label: 'Assignments', icon: '<svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>' },
     { id: 'announcements', label: 'Announcements', icon: '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 9h-2V5h2v6zm0 4h-2v-2h2v2z"/></svg>' },
-    { id: 'teams', label: 'Teams', icon: '<svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>' }
+    { id: '_divider' },
+    { id: 'assignments', label: 'Assignments', icon: '<svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>', comingSoon: true },
+    { id: 'teams', label: 'Teams', icon: '<svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>', comingSoon: true },
+    { id: 'map', label: 'Map Defaults', icon: '<svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>', comingSoon: true },
+    { id: 'notifications', label: 'Notifications', icon: '<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>', comingSoon: true },
+    { id: 'scheduler', label: 'Form Scheduler', icon: '<svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>', comingSoon: true },
+    { id: 'tags', label: 'Project Tags', icon: '<svg viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>', comingSoon: true }
   ];
 
   // Restore active section from sessionStorage (survives refresh)
-  var activeSection = 'dashboard';
-  try { activeSection = sessionStorage.getItem('ra_settings_section') || 'dashboard'; } catch (e) {}
+  var activeSection = 'geonode';
+  try { activeSection = sessionStorage.getItem('ra_settings_section') || 'geonode'; } catch (e) {}
+  if (activeSection === 'dashboard') activeSection = 'geonode'; // migrated to standalone page
   var activeDashTab = 'users';
   try { activeDashTab = sessionStorage.getItem('ra_dash_tab') || 'users'; } catch (e) {}
 
@@ -286,9 +316,11 @@
 
     // Build sidebar submenu items
     var sidebarItems = SECTIONS.map(function (s) {
+      if (s.id === '_divider') return '<div style="border-top:1px solid #e1e3ea;margin:8px 16px;"></div>';
       var cls = s.id === activeSection ? ' active' : '';
-      return '<div class="ra-st__sidebar-item' + cls + '" data-section="' + s.id + '">' +
-        s.icon + '<span>' + s.label + '</span></div>';
+      var badge = s.comingSoon ? '<span style="font-size:9px;background:#e1e3ea;color:#94a3b8;padding:2px 6px;border-radius:3px;margin-left:auto;white-space:nowrap;">SOON</span>' : '';
+      return '<div class="ra-st__sidebar-item' + cls + '" data-section="' + s.id + '"' + (s.comingSoon ? ' style="opacity:0.6;"' : '') + '>' +
+        s.icon + '<span>' + s.label + '</span>' + badge + '</div>';
     }).join('');
 
     page.innerHTML =
@@ -317,8 +349,7 @@
     var main = document.getElementById('ra-st-main');
     if (!main) return;
 
-    if (sectionId === 'dashboard') renderDashboardSection(main);
-    else if (sectionId === 'geonode') renderGeoNodeSection(main);
+    if (sectionId === 'geonode') renderGeoNodeSection(main);
     else if (sectionId === 'export') renderExportSection(main);
     else if (sectionId === 'map') renderComingSoon(main, 'Map Defaults', 'Default map center, zoom level, and base layer settings.');
     else if (sectionId === 'notifications') renderComingSoon(main, 'Notifications', 'Configure submission alerts and notification preferences.');
@@ -331,8 +362,10 @@
 
   function renderComingSoon(main, title, desc) {
     main.innerHTML = '<h1 class="ra-st__page-title">' + title + '</h1>' +
-      '<div class="ra-st__content"><p style="color:#888;">' + desc + '</p>' +
-      '<p style="color:#bbb;font-style:italic;margin-top:24px;">Coming soon</p></div>';
+      '<div class="ra-st__content"><div class="ra-st__box" style="text-align:center;padding:48px 24px;">' +
+      '<svg viewBox="0 0 24 24" style="width:40px;height:40px;fill:#c8cad0;margin-bottom:12px;"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>' +
+      '<p style="color:#64748b;font-size:14px;margin:0 0 4px;">' + desc + '</p>' +
+      '<p style="color:#94a3b8;font-size:13px;font-style:italic;margin:0;">Coming soon</p></div></div>';
   }
 
   // ── Multi-Dashboard Management ──
@@ -442,7 +475,7 @@
   }
 
   function renderDashTabContent() {
-    var container = document.getElementById('ra-st-dash-content');
+    var container = document.getElementById('ra-da-content') || document.getElementById('ra-st-dash-content');
     if (!container) return;
 
     if (activeDashTab === 'users') renderDashUsersTab(container);
@@ -452,40 +485,45 @@
   // ── Users Tab ──
   function renderDashUsersTab(container) {
     container.innerHTML =
-      '<div class="ra-st__content">' +
-        '<p style="color:#666;margin:0 0 16px;font-size:14px;">' +
-          'Users listed here will <strong>only see their assigned dashboard</strong> when they log in. ' +
-          'They cannot access forms, data, or settings — only submission summaries and charts.' +
-        '</p>' +
-
-        '<div class="ra-st__field">' +
-          '<label>Add User to Dashboard</label>' +
-          '<div style="display:flex;gap:10px;">' +
-            '<select id="ra-st-du-select" style="flex:1;padding:10px 12px;font-size:14px;border:1px solid #d0d5dd;border-radius:6px;background:#fff;">' +
-              '<option value="">Loading users...</option>' +
-            '</select>' +
-            '<select id="ra-st-du-dash-select" style="width:200px;padding:10px 12px;font-size:14px;border:1px solid #d0d5dd;border-radius:6px;background:#fff;">' +
-              '<option value="">Loading...</option>' +
-            '</select>' +
-            '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-du-add">Add</button>' +
+      '<div class="ra-st__content" style="max-width:none;">' +
+        // Assign user box
+        '<div class="ra-st__box">' +
+          '<div class="ra-st__section-title">Assign User to Dashboard</div>' +
+          '<p class="ra-st__section-desc">' +
+            'Users added here will <strong>only see their assigned dashboard</strong> when they log in. ' +
+            'They cannot access forms, data, or settings.' +
+          '</p>' +
+          '<div class="ra-st__field">' +
+            '<label>User</label>' +
+            '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+              '<select id="ra-st-du-select" class="ra-st__field" style="flex:1;min-width:200px;padding:10px 12px;font-size:14px;border:1px solid #e1e3ea;border-radius:4px;background:#fff;margin:0;">' +
+                '<option value="">Loading users...</option>' +
+              '</select>' +
+              '<select id="ra-st-du-dash-select" class="ra-st__field" style="width:220px;padding:10px 12px;font-size:14px;border:1px solid #e1e3ea;border-radius:4px;background:#fff;margin:0;">' +
+                '<option value="">Loading...</option>' +
+              '</select>' +
+              '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-du-add">Add</button>' +
+            '</div>' +
+            '<small>Select a user and the dashboard to assign them to</small>' +
           '</div>' +
-          '<small>Select a user and the dashboard to assign them to</small>' +
+          '<div class="ra-st__status" id="ra-st-du-status"></div>' +
         '</div>' +
 
-        '<div class="ra-st__status" id="ra-st-du-status"></div>' +
-
-        '<div style="margin-top:8px;">' +
-          '<label style="display:block;font-size:12px;font-weight:600;color:#666;margin-bottom:8px;">Current Dashboard Users</label>' +
-          '<div id="ra-st-du-list" style="border:1px solid #eee;border-radius:6px;">' +
-            '<div style="padding:16px;text-align:center;color:#999;">Loading...</div>' +
+        // Current users box
+        '<div class="ra-st__box">' +
+          '<div class="ra-st__section-title">Current Dashboard Users</div>' +
+          '<p class="ra-st__section-desc">Users currently assigned to dashboards. Remove a user to give them full KoboToolbox access.</p>' +
+          '<div id="ra-st-du-list">' +
+            '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">Loading...</div>' +
           '</div>' +
         '</div>' +
 
-        '<div style="margin-top:16px;padding:14px;background:#f0f8ff;border-radius:6px;border:1px solid #d0e8f5;">' +
-          '<p style="margin:0;font-size:13px;color:#2980b9;">' +
+        // Info box
+        '<div style="padding:16px 20px;background:#eff6ff;border-radius:4px;border:1px solid #bfdbfe;">' +
+          '<p style="margin:0;font-size:13px;color:#1e40af;">' +
             '<strong>How it works:</strong> Create users via normal KoboToolbox registration, ' +
             'then add them here and assign a dashboard. They will only see their assigned dashboard. ' +
-            'Use the <strong>Layout</strong> tab to create and customize dashboards.' +
+            'Use the <strong>Dashboards</strong> tab to create and customize dashboards.' +
           '</p>' +
         '</div>' +
       '</div>';
@@ -703,14 +741,11 @@
   // ── Dashboard List View ──
   function renderDashboardList(container) {
     container.innerHTML =
-      '<div class="ra-st__content" style="max-width:900px;">' +
-        '<p style="color:#666;margin:0 0 16px;font-size:14px;">' +
+      '<div class="ra-st__content" style="max-width:none;">' +
+        '<p style="color:#64748b;margin:0 0 16px;font-size:13px;">' +
           'Create and manage dashboards. Each dashboard has its own widget layout. ' +
           'Assign users to dashboards in the <strong>Users</strong> tab.' +
         '</p>' +
-        '<div style="margin-bottom:20px;">' +
-          '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-dl-new-dash">+ New Dashboard</button>' +
-        '</div>' +
         '<div class="ra-st__status" id="ra-st-dl-status"></div>' +
         '<div id="ra-st-dl-dash-list"></div>' +
       '</div>';
@@ -723,8 +758,6 @@
         .then(function (data) { _layoutForms = (data.results || []).filter(function (f) { return f.deployment_status === 'deployed'; }); })
         .catch(function () { _layoutForms = []; });
     });
-
-    document.getElementById('ra-st-dl-new-dash').addEventListener('click', function () { showNewDashboardModal(); });
   }
 
   function renderDashCards() {
@@ -878,8 +911,16 @@
       '</div>';
 
     document.body.appendChild(modal);
+    document.getElementById('ra-dl-nd-name').focus();
     document.getElementById('ra-dl-nd-close').addEventListener('click', function () { modal.remove(); });
     document.getElementById('ra-dl-nd-cancel').addEventListener('click', function () { modal.remove(); });
+    // Click outside modal to close
+    modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+    // Escape key to close
+    document.getElementById('ra-dl-nd-name').addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') modal.remove();
+      if (e.key === 'Enter') document.getElementById('ra-dl-nd-create').click();
+    });
     document.getElementById('ra-dl-nd-create').addEventListener('click', function () {
       var nameVal = (document.getElementById('ra-dl-nd-name').value || '').trim();
       if (!nameVal) { alert('Dashboard name is required'); return; }
@@ -909,27 +950,51 @@
     if (!dash) { _editingDashboardId = null; try { sessionStorage.removeItem("ra_editing_dashboard"); } catch (e) {} renderDashboardList(container); return; }
 
     container.innerHTML =
-      '<div class="ra-st__content" style="max-width:900px;">' +
-        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">' +
-          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-dl-back" style="padding:6px 12px;">&larr; Back</button>' +
-          '<h2 style="margin:0;font-size:18px;font-weight:600;color:#1e293b;display:flex;align-items:center;gap:8px;">' +
-            '<span id="ra-dl-editor-name">' + escapeHtml(dash.name) + '</span>' +
-            '<button id="ra-dl-editor-rename" style="background:none;border:none;cursor:pointer;font-size:14px;color:#94a3b8;padding:2px;" title="Rename dashboard">&#9998;</button>' +
-          '</h2>' +
+      '<div style="max-width:none;">' +
+        // Header row — back button + title + rename
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">' +
+          '<button id="ra-dl-back" style="background:none;border:1px solid #e1e3ea;border-radius:4px;padding:6px 10px;cursor:pointer;color:#64748b;font-size:13px;display:flex;align-items:center;gap:4px;" title="Back to dashboard list">' +
+            '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>' +
+            'Back' +
+          '</button>' +
         '</div>' +
+        '<div style="font-size:24px;font-weight:700;color:#333847;margin:0 0 6px;display:flex;align-items:center;gap:10px;">' +
+          '<span id="ra-dl-editor-name">' + escapeHtml(dash.name) + '</span>' +
+          '<button id="ra-dl-editor-rename" style="background:none;border:none;cursor:pointer;font-size:16px;color:#94a3b8;padding:2px;" title="Rename dashboard">&#9998;</button>' +
+        '</div>' +
+        '<div style="font-size:12px;color:#94a3b8;margin-bottom:24px;">' + escapeHtml(dashId) + '</div>' +
         '<div class="ra-st__status" id="ra-st-dl-status"></div>' +
-        '<div id="ra-st-dl-widgets" style="margin:16px 0;min-height:80px;"></div>' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">' +
-          '<div style="display:flex;gap:10px;">' +
-            '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-dl-add">+ Add Widget</button>' +
-            '<button class="ra-st__btn ra-st__btn--success" id="ra-st-dl-save">Save Dashboard</button>' +
+        // Action bar — matches form summary top toolbar style
+        '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:12px 16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">' +
+          '<div style="display:flex;gap:8px;">' +
+            '<button class="ra-de__btn ra-de__btn--primary" id="ra-st-dl-add" title="Add a new widget">' +
+              '<svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:#fff;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>' +
+              'Add Widget' +
+            '</button>' +
+            '<button class="ra-de__btn ra-de__btn--outline" id="ra-st-dl-preview" title="Preview this dashboard">' +
+              '<svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:currentColor;"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>' +
+              'Preview' +
+            '</button>' +
+            '<button class="ra-de__btn ra-de__btn--outline" id="ra-st-dl-save" title="Save dashboard">' +
+              '<svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:currentColor;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
+              'Save' +
+            '</button>' +
           '</div>' +
-          '<div style="display:flex;gap:10px;">' +
-            '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-dl-preview">Preview</button>' +
-            '<button class="ra-st__btn ra-st__btn--secondary" id="ra-st-dl-reset">Clear All Widgets</button>' +
-          '</div>' +
+          '<button class="ra-de__btn ra-de__btn--ghost" id="ra-st-dl-reset" title="Remove all widgets from this dashboard">Clear All</button>' +
         '</div>' +
-      '</div>';
+        // Widget grid
+        '<div id="ra-st-dl-widgets" style="min-height:80px;"></div>' +
+      '</div>' +
+      // Editor button styles
+      '<style>' +
+        '.ra-de__btn { display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:4px;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;border:1px solid transparent; }' +
+        '.ra-de__btn--primary { background:#2095f3;color:#fff;border-color:#2095f3;box-shadow:0 1px 3px rgba(0,0,0,0.12); }' +
+        '.ra-de__btn--primary:hover { background:#1977c2;border-color:#1977c2; }' +
+        '.ra-de__btn--outline { background:#fff;color:#333847;border-color:#e1e3ea; }' +
+        '.ra-de__btn--outline:hover { background:#f5f6f8;border-color:#c8cad0; }' +
+        '.ra-de__btn--ghost { background:none;color:#94a3b8;border:none;font-size:12px; }' +
+        '.ra-de__btn--ghost:hover { color:#e74c3c; }' +
+      '</style>';
 
     _selectedDashboardId = dashId;
     renderWidgetList();
@@ -998,103 +1063,159 @@
       return;
     }
 
-    // Use CSS grid matching actual dashboard layout: 2 columns, half/full width
     container.style.display = 'grid';
-    container.style.gridTemplateColumns = 'repeat(2, 1fr)';
-    container.style.gap = '12px';
+    container.style.gridTemplateColumns = 'repeat(4, 1fr)';
+    container.style.gap = '10px';
+    container.style.alignItems = 'start';
 
-    container.innerHTML = widgets.map(function (w, idx) {
+    var spanMap = { full: 4, half: 2, 'three-quarter': 3, quarter: 1 };
+    var widthLabel = { full: 'Full (4)', half: 'Half (2)', 'three-quarter': '3/4 (3)', quarter: '1/4 (1)' };
+
+    // Build widget cards + drop zone placeholders
+    var html = '';
+    widgets.forEach(function (w, idx) {
       var typeDef = null;
-      for (var t = 0; t < WIDGET_TYPES.length; t++) {
-        if (WIDGET_TYPES[t].id === w.type) { typeDef = WIDGET_TYPES[t]; break; }
-      }
-      if (!typeDef) typeDef = { label: w.type, desc: '' };
-      var formNames = getWidgetFormNames(w);
-      var configSummary = getWidgetConfigSummary(w);
-      var isFull = w.width === 'full';
+      for (var t = 0; t < WIDGET_TYPES.length; t++) { if (WIDGET_TYPES[t].id === w.type) { typeDef = WIDGET_TYPES[t]; break; } }
+      if (!typeDef) typeDef = { label: w.type };
+      var span = spanMap[w.width] || 1;
 
-      var wCfg = w.config || {};
-      var hasColor = wCfg.bgColor || wCfg.textColor || wCfg.headerColor;
-      var stripColor = wCfg.bgColor || wCfg.headerColor || wCfg.textColor || '';
-
-      return '<div class="ra-dl-widget-item" draggable="true" data-idx="' + idx + '" style="' +
-        (isFull ? 'grid-column:1/-1;' : '') +
-        'border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:grab;transition:opacity 0.2s,border-color 0.2s,box-shadow 0.2s;overflow:hidden;">' +
-        '<div style="background:#f8fafc;padding:10px 14px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">' +
-          '<div style="display:flex;align-items:center;gap:8px;min-width:0;">' +
-            '<span style="color:#cbd5e1;font-size:16px;cursor:grab;flex-shrink:0;" title="Drag to reorder">&#9776;</span>' +
-            '<span style="font-weight:600;color:#1e293b;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(w.title || typeDef.label) + '</span>' +
+      html += '<div class="ra-dl-widget-item" draggable="true" data-idx="' + idx + '" style="' +
+        'grid-column:span ' + span + ';' +
+        'border:2px solid #e2e8f0;border-radius:8px;background:#fff;cursor:grab;transition:all 0.15s;overflow:hidden;">' +
+        '<div style="background:#f8fafc;padding:8px 12px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">' +
+          '<div style="display:flex;align-items:center;gap:6px;min-width:0;">' +
+            '<span style="color:#cbd5e1;font-size:14px;cursor:grab;flex-shrink:0;">&#9776;</span>' +
+            '<span style="font-weight:600;color:#1e293b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(w.title || typeDef.label) + '</span>' +
           '</div>' +
-          '<div style="display:flex;gap:4px;flex-shrink:0;">' +
-            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-edit" data-idx="' + idx + '" style="padding:3px 8px;font-size:11px;" title="Edit widget">Edit</button>' +
-            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-remove" data-idx="' + idx + '" style="padding:3px 8px;font-size:11px;color:#e74c3c;" title="Remove widget">&#10005;</button>' +
+          '<div style="display:flex;gap:3px;flex-shrink:0;">' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-edit" data-idx="' + idx + '" style="padding:2px 6px;font-size:10px;">Edit</button>' +
+            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-remove" data-idx="' + idx + '" style="padding:2px 6px;font-size:10px;color:#e74c3c;">&#10005;</button>' +
           '</div>' +
         '</div>' +
-        '<div style="padding:16px;min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;">' +
-          '<div style="font-size:24px;margin-bottom:6px;">' + getWidgetIcon(w.type) + '</div>' +
-          '<div style="font-size:12px;font-weight:600;color:#64748b;">' + escapeHtml(typeDef.label) + '</div>' +
-          '<div style="font-size:11px;color:#94a3b8;margin-top:2px;">' + escapeHtml(isFull ? 'Full width' : 'Half width') +
-            (formNames ? ' &middot; ' + escapeHtml(formNames) : '') +
-          '</div>' +
-          (configSummary ? '<div style="font-size:10px;color:#cbd5e1;margin-top:2px;">' + escapeHtml(configSummary) + '</div>' : '') +
+        '<div style="padding:12px;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;">' +
+          '<div style="font-size:20px;margin-bottom:4px;">' + getWidgetIcon(w.type) + '</div>' +
+          '<div style="font-size:11px;font-weight:600;color:#64748b;">' + escapeHtml(typeDef.label) + '</div>' +
+          '<div style="font-size:10px;color:#b0b8c4;margin-top:2px;">' + (widthLabel[w.width] || w.width) + '</div>' +
         '</div>' +
-        '<div style="height:4px;background:' + (hasColor ? stripColor : '#e2e8f0') + ';"></div>' +
       '</div>';
-    }).join('');
+    });
 
-    // Drag and Drop — swap positions in grid (half↔half, half↔full, etc.)
+    container.innerHTML = html;
+
+    // ── Drag and Drop with insert-before logic ──
     var dragSrcIdx = null;
-    var allItems = container.querySelectorAll('.ra-dl-widget-item');
 
-    function clearDragHighlights() {
-      allItems.forEach(function (el) {
+    function clearHighlights() {
+      container.querySelectorAll('.ra-dl-widget-item').forEach(function (el) {
         el.style.borderColor = '#e2e8f0';
         el.style.boxShadow = 'none';
       });
+      // Remove drop indicators
+      container.querySelectorAll('.ra-dl-drop-indicator').forEach(function (el) { el.remove(); });
     }
 
-    allItems.forEach(function (item) {
+    container.querySelectorAll('.ra-dl-widget-item').forEach(function (item) {
       item.addEventListener('dragstart', function (e) {
         dragSrcIdx = parseInt(this.getAttribute('data-idx'));
         this.style.opacity = '0.3';
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', String(dragSrcIdx));
       });
+
       item.addEventListener('dragend', function () {
         this.style.opacity = '1';
-        clearDragHighlights();
+        clearHighlights();
+        dragSrcIdx = null;
       });
+
       item.addEventListener('dragover', function (e) {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        clearDragHighlights();
+        clearHighlights();
         var idx = parseInt(this.getAttribute('data-idx'));
         if (idx !== dragSrcIdx) {
-          this.style.borderColor = '#54a8dc';
-          this.style.boxShadow = '0 0 0 2px rgba(84,168,220,0.3)';
+          // Show drop indicator — blue left border
+          var rect = this.getBoundingClientRect();
+          var mouseX = e.clientX;
+          var midX = rect.left + rect.width / 2;
+          if (mouseX < midX) {
+            this.style.borderLeftColor = '#54a8dc';
+            this.style.borderLeftWidth = '4px';
+          } else {
+            this.style.borderRightColor = '#54a8dc';
+            this.style.borderRightWidth = '4px';
+          }
+          this.style.boxShadow = '0 0 0 1px rgba(84,168,220,0.2)';
         }
       });
+
       item.addEventListener('dragleave', function () {
         this.style.borderColor = '#e2e8f0';
+        this.style.borderWidth = '2px';
         this.style.boxShadow = 'none';
       });
+
       item.addEventListener('drop', function (e) {
         e.preventDefault();
         e.stopPropagation();
         var dropIdx = parseInt(this.getAttribute('data-idx'));
         if (dragSrcIdx === null || dragSrcIdx === dropIdx) return;
+
         var d = getCurrentDashboard();
         if (d && d.widgets) {
-          // True swap — so half widgets exchange left/right positions
-          var temp = d.widgets[dragSrcIdx];
-          d.widgets[dragSrcIdx] = d.widgets[dropIdx];
-          d.widgets[dropIdx] = temp;
+          // Move widget from dragSrcIdx to dropIdx position
+          var widget = d.widgets.splice(dragSrcIdx, 1)[0];
+          var insertAt = dropIdx > dragSrcIdx ? dropIdx : dropIdx;
+          d.widgets.splice(insertAt, 0, widget);
           renderWidgetList();
           autoSaveDashConfig();
         }
         dragSrcIdx = null;
       });
     });
+
+    // Also allow dropping on the container itself (empty space)
+    container.addEventListener('dragover', function (e) {
+      if (e.target === container) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        // Show a dashed outline at the end
+        if (!container.querySelector('.ra-dl-drop-end')) {
+          var indicator = document.createElement('div');
+          indicator.className = 'ra-dl-drop-end';
+          indicator.style.cssText = 'grid-column:span 1;border:2px dashed #54a8dc;border-radius:8px;min-height:80px;display:flex;align-items:center;justify-content:center;color:#54a8dc;font-size:12px;';
+          indicator.textContent = 'Drop here';
+          container.appendChild(indicator);
+        }
+      }
+    });
+
+    container.addEventListener('dragleave', function (e) {
+      if (e.target === container) {
+        var endIndicator = container.querySelector('.ra-dl-drop-end');
+        if (endIndicator) endIndicator.remove();
+      }
+    });
+
+    container.addEventListener('drop', function (e) {
+      if (e.target === container || e.target.classList.contains('ra-dl-drop-end')) {
+        e.preventDefault();
+        var endIndicator = container.querySelector('.ra-dl-drop-end');
+        if (endIndicator) endIndicator.remove();
+
+        if (dragSrcIdx === null) return;
+        var d = getCurrentDashboard();
+        if (d && d.widgets) {
+          // Move to end
+          var widget = d.widgets.splice(dragSrcIdx, 1)[0];
+          d.widgets.push(widget);
+          renderWidgetList();
+          autoSaveDashConfig();
+        }
+        dragSrcIdx = null;
+      }
+    });
+
     container.querySelectorAll('.ra-dl-remove').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var d = getCurrentDashboard();
@@ -1216,7 +1337,7 @@
           '<div class="ra-st__field"><label>Widget Title <span style="font-weight:400;color:#94a3b8;">(shown on dashboard)</span></label><input type="text" id="ra-dl-title" value="' + escapeHtml(w.title || '') + '" placeholder="Leave empty for default title"><small>This is the heading users see on the dashboard. Leave blank to use the widget type name.</small></div>' +
           '<div class="ra-st__field"><label>Widget Type</label><select id="ra-dl-type">' + typeOptions + '</select></div>' +
           '<div style="display:flex;gap:12px;">' +
-            '<div class="ra-st__field" style="flex:1;"><label>Width</label><select id="ra-dl-width"><option value="full"' + (w.width === 'full' ? ' selected' : '') + '>Full width</option><option value="half"' + (w.width !== 'full' ? ' selected' : '') + '>Half width</option></select></div>' +
+            '<div class="ra-st__field" style="flex:1;"><label>Width</label><select id="ra-dl-width"><option value="quarter"' + (w.width === "quarter" ? " selected" : "") + '>Quarter (1 col)</option><option value="half"' + (w.width === "half" ? " selected" : "") + '>Half (2 cols)</option><option value="three-quarter"' + (w.width === "three-quarter" ? " selected" : "") + '>Three Quarter (3 cols)</option><option value="full"' + (w.width === "full" ? " selected" : "") + '>Full (4 cols)</option></select></div>' +
           '</div>' +
           '<div class="ra-st__field"><label>Data Source (forms)</label><select id="ra-dl-forms" multiple style="height:120px;">' + formOptions + '</select><small>Hold Ctrl/Cmd to select multiple. "All forms" overrides individual selections.</small></div>' +
           '<div id="ra-dl-extra-config">' +
@@ -1722,11 +1843,14 @@
     main.innerHTML =
       '<h1 class="ra-st__page-title">Data Sources</h1>' +
       '<div class="ra-st__content">' +
-        '<p style="color:#888;margin:0 0 12px;font-size:13px;">Connect to GeoNode, WMS/WFS services, XYZ tiles, Google Maps, or Esri basemaps.</p>' +
-        '<div id="ra-st-gn-list">' + listHtml + '</div>' +
-        '<div class="ra-st__status" id="ra-st-gn-status"></div>' +
-        '<div style="margin-top:12px;">' +
-          '<button class="ra-st__btn ra-st__btn--secondary" id="ra-st-gn-add">+ Add Data Source</button>' +
+        '<div class="ra-st__box">' +
+          '<div class="ra-st__section-title">Connected Sources</div>' +
+          '<p class="ra-st__section-desc">Connect to GeoNode, WMS/WFS services, XYZ tiles, Google Maps, or Esri basemaps.</p>' +
+          '<div id="ra-st-gn-list">' + listHtml + '</div>' +
+          '<div class="ra-st__status" id="ra-st-gn-status"></div>' +
+          '<div style="margin-top:16px;">' +
+            '<button class="ra-st__btn ra-st__btn--primary" id="ra-st-gn-add">+ Add Data Source</button>' +
+          '</div>' +
         '</div>' +
       '</div>';
 
@@ -1938,11 +2062,11 @@
           '</div>' +
           '<div style="min-width:120px;">' +
             '<label style="font-size:10px;font-weight:600;color:#888;display:block;margin-bottom:3px;">From date</label>' +
-            '<input type="date" id="ra-img-date-from" style="width:100%;padding:8px;font-size:12px;border:1px solid #d0d5dd;border-radius:4px;box-sizing:border-box;">' +
+            '<input type="date" id="ra-img-date-from" onclick="this.showPicker&&this.showPicker()" style="width:100%;padding:8px 10px;font-size:13px;cursor:pointer;border:1px solid #d0d5dd;border-radius:4px;box-sizing:border-box;">' +
           '</div>' +
           '<div style="min-width:120px;">' +
             '<label style="font-size:10px;font-weight:600;color:#888;display:block;margin-bottom:3px;">To date</label>' +
-            '<input type="date" id="ra-img-date-to" style="width:100%;padding:8px;font-size:12px;border:1px solid #d0d5dd;border-radius:4px;box-sizing:border-box;">' +
+            '<input type="date" id="ra-img-date-to" onclick="this.showPicker&&this.showPicker()" style="width:100%;padding:8px 10px;font-size:13px;cursor:pointer;border:1px solid #d0d5dd;border-radius:4px;box-sizing:border-box;">' +
           '</div>' +
           '<button class="ra-st__btn ra-st__btn--secondary" id="ra-img-filter-clear" style="font-size:12px;padding:8px 12px;height:36px;">Clear</button>' +
         '</div>' +
@@ -1956,7 +2080,7 @@
         '</div>' +
 
         // Image grid
-        '<div id="ra-img-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;max-height:500px;overflow-y:auto;border:1px solid #eee;border-radius:6px;padding:8px;min-height:150px;"></div>' +
+        '<div id="ra-img-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;border:1px solid #eee;border-radius:6px;padding:8px;min-height:150px;"></div>' +
 
         // Naming config
         '<div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-top:16px;">' +
@@ -2083,12 +2207,26 @@
 
     var filtered = _imgData;
     if (filter) {
-      var search = (filter.search || '').toLowerCase();
+      var fField = filter.filterField || '';
+      var fValue = filter.filterValue || '';
       var dateFrom = filter.dateFrom ? new Date(filter.dateFrom + 'T00:00:00') : null;
       var dateTo = filter.dateTo ? new Date(filter.dateTo + 'T23:59:59') : null;
 
-      filtered = _imgData.filter(function (m, i) {
-        if (search && m.filename.toLowerCase().indexOf(search) === -1 && m.submittedBy.toLowerCase().indexOf(search) === -1) return false;
+      filtered = _imgData.filter(function (m) {
+        // Field/value filter
+        if (fField && fValue) {
+          var val = '';
+          if (fField === '_submitted_by') val = m.submittedBy;
+          else if (fField === '_submission_time') val = (m.time || '').split('T')[0];
+          else {
+            val = m.sub[fField];
+            if (val === undefined) {
+              for (var k in m.sub) { if (k.endsWith('/' + fField)) { val = m.sub[k]; break; } }
+            }
+          }
+          if (String(val || '') !== fValue) return false;
+        }
+        // Date filter
         if (dateFrom && m.time && new Date(m.time) < dateFrom) return false;
         if (dateTo && m.time && new Date(m.time) > dateTo) return false;
         return true;
@@ -2128,11 +2266,12 @@
   }
 
   function getCurrentImageFilter() {
-    var search = (document.getElementById('ra-img-search') || {}).value || '';
+    var filterField = (document.getElementById('ra-img-filter-field') || {}).value || '';
+    var filterValue = (document.getElementById('ra-img-filter-value') || {}).value || '';
     var dateFrom = (document.getElementById('ra-img-date-from') || {}).value || '';
     var dateTo = (document.getElementById('ra-img-date-to') || {}).value || '';
-    if (!search && !dateFrom && !dateTo) return null;
-    return { search: search, dateFrom: dateFrom, dateTo: dateTo };
+    if (!filterField && !filterValue && !dateFrom && !dateTo) return null;
+    return { filterField: filterField, filterValue: filterValue, dateFrom: dateFrom, dateTo: dateTo };
   }
 
   function updateImageStats() {
@@ -2146,17 +2285,35 @@
   }
 
   function setupImageFilters() {
-    var debounce = null;
-    ['ra-img-search', 'ra-img-date-from', 'ra-img-date-to'].forEach(function (id) {
-      var el = document.getElementById(id);
-      if (el) el.addEventListener('input', function () {
-        clearTimeout(debounce);
-        debounce = setTimeout(function () { renderImageGrid(getCurrentImageFilter()); }, 300);
+    // Field-based filter: when field changes, populate value dropdown
+    var fieldSel = document.getElementById('ra-img-filter-field');
+    var valueSel = document.getElementById('ra-img-filter-value');
+
+    if (fieldSel) {
+      fieldSel.addEventListener('change', function () {
+        populateFilterValues(this.value);
+        // Reset value selection when field changes
+        var vs = document.getElementById('ra-img-filter-value');
+        if (vs) vs.value = '';
+        applyImageFilter();
       });
+    }
+    // Use delegated event on the parent since innerHTML replaces the select options
+    var filterWrap = document.getElementById('ra-img-filters');
+    if (filterWrap) {
+      filterWrap.addEventListener('change', function (e) {
+        if (e.target.id === 'ra-img-filter-value') applyImageFilter();
+      });
+    }
+
+    ['ra-img-date-from', 'ra-img-date-to'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('change', applyImageFilter);
     });
 
     document.getElementById('ra-img-filter-clear')?.addEventListener('click', function () {
-      document.getElementById('ra-img-search').value = '';
+      if (fieldSel) fieldSel.value = '';
+      if (valueSel) valueSel.innerHTML = '<option value="">All</option>';
       document.getElementById('ra-img-date-from').value = '';
       document.getElementById('ra-img-date-to').value = '';
       renderImageGrid();
@@ -2177,6 +2334,46 @@
     document.getElementById('ra-img-prefix')?.addEventListener('input', updateImagePreview);
     document.getElementById('ra-img-namefield')?.addEventListener('change', updateImagePreview);
     document.getElementById('ra-img-seq')?.addEventListener('change', updateImagePreview);
+  }
+
+  function populateFilterValues(fieldName) {
+    var valueSel = document.getElementById('ra-img-filter-value');
+    if (!valueSel) return;
+    valueSel.innerHTML = '<option value="">All</option>';
+    if (!fieldName) return;
+
+    var values = {};
+    _imgData.forEach(function (m) {
+      var val = '';
+      if (fieldName === '_submitted_by') val = m.submittedBy;
+      else if (fieldName === '_submission_time') val = (m.time || '').split('T')[0];
+      else {
+        val = m.sub[fieldName];
+        if (val === undefined) {
+          for (var k in m.sub) { if (k.endsWith('/' + fieldName)) { val = m.sub[k]; break; } }
+        }
+      }
+      val = String(val || '');
+      if (val) values[val] = (values[val] || 0) + 1;
+    });
+
+    Object.keys(values).sort().forEach(function (v) {
+      valueSel.innerHTML += '<option value="' + escapeHtml(v) + '">' + escapeHtml(v) + ' (' + values[v] + ')</option>';
+    });
+  }
+
+  function applyImageFilter() {
+    renderImageGrid(getCurrentImageFilter());
+  }
+
+  // Update filter field dropdown when form fields load
+  function updateFilterFieldOptions() {
+    var fieldSel = document.getElementById('ra-img-filter-field');
+    if (!fieldSel) return;
+    fieldSel.innerHTML = '<option value="">No filter</option><option value="_submitted_by">Submitted By</option>';
+    Object.keys(_imgFormFields).forEach(function (name) {
+      fieldSel.innerHTML += '<option value="' + escapeHtml(name) + '">' + escapeHtml(_imgFormFields[name]) + '</option>';
+    });
   }
 
   function generateImageName(m, idx) {
@@ -2209,52 +2406,181 @@
   }
 
   function setupImageExport() {
+    // Download as ZIP
+    document.getElementById('ra-img-export-zip')?.addEventListener('click', function () {
+      var selected = Array.from(_imgSelected).sort();
+      if (!selected.length) { alert('Select at least one image'); return; }
+      downloadImagesAsZip(selected);
+    });
+
+    // Download individual images (one by one with custom names)
+    document.getElementById('ra-img-export-single')?.addEventListener('click', function () {
+      var selected = Array.from(_imgSelected).sort();
+      if (!selected.length) { alert('Select at least one image'); return; }
+      if (selected.length === 1) {
+        // Single image — direct download
+        downloadSingleImage(selected[0]);
+      } else {
+        // Multiple — download one by one with small delay
+        downloadImagesSequentially(selected);
+      }
+    });
+
+    // CSV list (keep as secondary option)
     document.getElementById('ra-img-export-csv')?.addEventListener('click', function () {
       var selected = Array.from(_imgSelected).sort();
       if (!selected.length) { alert('Select at least one image'); return; }
-      var lines = ['custom_name,original_filename,download_url,submitted_by,date,submission_id'];
+      var lines = ['custom_name,original_filename,download_url,submitted_by,date'];
       selected.forEach(function (idx) {
         var m = _imgData[idx];
-        lines.push([
-          '"' + generateImageName(m, idx) + '"',
-          '"' + m.filename.replace(/"/g, '""') + '"',
-          '"' + m.url + '"',
-          '"' + m.submittedBy + '"',
-          '"' + (m.time || '').split('T')[0] + '"',
-          '"' + m.subId + '"'
-        ].join(','));
+        lines.push('"' + generateImageName(m, idx) + '","' + m.filename.replace(/"/g, '""') + '","' + m.url + '","' + m.submittedBy + '","' + (m.time || '').split('T')[0] + '"');
       });
       var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'images_export_' + selected.length + '.csv';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      showStatus(document.getElementById('ra-img-status'), 'ok', 'Exported ' + selected.length + ' image records to CSV');
-    });
-
-    document.getElementById('ra-img-export-links')?.addEventListener('click', function () {
-      var selected = Array.from(_imgSelected).sort();
-      if (!selected.length) { alert('Select at least one image'); return; }
-      var html = '<!DOCTYPE html><html><head><title>Image Downloads</title><style>body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:20px}' +
-        '.card{display:inline-block;width:180px;margin:8px;border:1px solid #eee;border-radius:8px;overflow:hidden;vertical-align:top}' +
-        '.card img{width:100%;height:140px;object-fit:cover}.card .info{padding:8px;font-size:12px}' +
-        '.card a{color:#54a8dc;word-break:break-all}</style></head><body>' +
-        '<h1>Image Downloads (' + selected.length + ')</h1><p>Right-click images and "Save image as..." with the suggested name.</p>';
-      selected.forEach(function (idx) {
-        var m = _imgData[idx];
-        var name = generateImageName(m, idx);
-        html += '<div class="card"><a href="' + m.url + '" download="' + escapeHtml(name) + '"><img src="' + m.url + '" loading="lazy"></a>' +
-          '<div class="info"><strong>' + escapeHtml(name) + '</strong><br>' + escapeHtml(m.submittedBy) + '</div></div>';
-      });
-      html += '</body></html>';
-      var blob = new Blob([html], { type: 'text/html' });
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'image_downloads.html';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      showStatus(document.getElementById('ra-img-status'), 'ok', 'Generated download page with ' + selected.length + ' images');
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'images_export.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      showStatus(document.getElementById('ra-img-status'), 'ok', 'Exported CSV with ' + selected.length + ' image records');
     });
   }
+
+  // ── Image Download Functions ──
+  function showImageProgress(pct, text) {
+    var wrap = document.getElementById('ra-img-progress');
+    var bar = document.getElementById('ra-img-progress-bar');
+    var txt = document.getElementById('ra-img-progress-text');
+    if (wrap) wrap.style.display = 'block';
+    if (bar) bar.style.width = pct + '%';
+    if (txt) txt.textContent = text;
+  }
+
+  function hideImageProgress() {
+    var wrap = document.getElementById('ra-img-progress');
+    if (wrap) wrap.style.display = 'none';
+  }
+
+  function downloadSingleImage(idx) {
+    var m = _imgData[idx];
+    var customName = generateImageName(m, idx);
+    showImageProgress(50, 'Downloading ' + customName + '...');
+    fetch(m.url, { credentials: 'same-origin' })
+      .then(function (r) { return r.blob(); })
+      .then(function (blob) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = customName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+        showImageProgress(100, 'Downloaded!');
+        setTimeout(hideImageProgress, 2000);
+      })
+      .catch(function (err) {
+        showImageProgress(0, 'Error: ' + err.message);
+      });
+  }
+
+  function downloadImagesSequentially(indices) {
+    var total = indices.length;
+    var current = 0;
+    showImageProgress(0, 'Downloading 0 of ' + total + '...');
+
+    function next() {
+      if (current >= total) {
+        showImageProgress(100, 'Downloaded ' + total + ' images!');
+        setTimeout(hideImageProgress, 3000);
+        return;
+      }
+      var idx = indices[current];
+      var m = _imgData[idx];
+      var customName = generateImageName(m, idx);
+      var pct = Math.round((current / total) * 100);
+      showImageProgress(pct, 'Downloading ' + (current + 1) + ' of ' + total + ': ' + customName);
+
+      fetch(m.url, { credentials: 'same-origin' })
+        .then(function (r) { return r.blob(); })
+        .then(function (blob) {
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = customName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(a.href);
+          current++;
+          setTimeout(next, 500); // Small delay between downloads
+        })
+        .catch(function () {
+          current++;
+          setTimeout(next, 200);
+        });
+    }
+    next();
+  }
+
+  function downloadImagesAsZip(indices) {
+    // Load JSZip from CDN
+    if (!window.JSZip) {
+      showImageProgress(0, 'Loading ZIP library...');
+      var script = document.createElement('script');
+      script.src = 'https://unpkg.com/jszip@3.10.1/dist/jszip.min.js';
+      script.onload = function () { buildZip(indices); };
+      script.onerror = function () {
+        showImageProgress(0, 'Failed to load ZIP library. Try "Download Selected Images" instead.');
+      };
+      document.head.appendChild(script);
+    } else {
+      buildZip(indices);
+    }
+  }
+
+  function buildZip(indices) {
+    var zip = new JSZip();
+    var total = indices.length;
+    var loaded = 0;
+    showImageProgress(0, 'Fetching images 0 of ' + total + '...');
+
+    var fetchPromises = indices.map(function (idx) {
+      var m = _imgData[idx];
+      var customName = generateImageName(m, idx);
+      return fetch(m.url, { credentials: 'same-origin' })
+        .then(function (r) { return r.blob(); })
+        .then(function (blob) {
+          zip.file(customName, blob);
+          loaded++;
+          showImageProgress(Math.round((loaded / total) * 80), 'Fetching images ' + loaded + ' of ' + total + '...');
+        })
+        .catch(function () { loaded++; }); // skip failed images
+    });
+
+    Promise.all(fetchPromises).then(function () {
+      showImageProgress(85, 'Creating ZIP file...');
+      return zip.generateAsync({ type: 'blob' }, function (meta) {
+        showImageProgress(85 + Math.round(meta.percent * 0.15), 'Compressing... ' + Math.round(meta.percent) + '%');
+      });
+    }).then(function (blob) {
+      showImageProgress(100, 'ZIP ready! Downloading...');
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'images_export_' + total + '.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      setTimeout(function () {
+        showImageProgress(100, 'Done! Downloaded ' + total + ' images as ZIP.');
+        setTimeout(hideImageProgress, 3000);
+      }, 500);
+    }).catch(function (err) {
+      showImageProgress(0, 'ZIP error: ' + err.message);
+    });
+  }
+
+  // Also call updateFilterFieldOptions when form images load
+  var _origLoadImagesForForm = loadImagesForForm;
+  loadImagesForForm = function (uid) {
+    _origLoadImagesForForm(uid);
+    setTimeout(updateFilterFieldOptions, 500);
+  };
 
   // ── Data Tab (simplified from old export) ──
   function renderDataTab(container) {
@@ -3485,12 +3811,157 @@
     if (nav) nav.classList.remove('active');
   }
 
+  var DASH_ADMIN_PAGE_ID = 'ra-dashadmin-page';
+  var DASH_ADMIN_HASH = '#/dashboard-admin';
+
+  function createDashAdminPage() {
+    if (document.getElementById(DASH_ADMIN_PAGE_ID)) return;
+
+    var page = document.createElement('div');
+    page.id = DASH_ADMIN_PAGE_ID;
+    page.style.cssText = 'display:none;position:absolute;top:64px;left:58px;right:0;bottom:0;z-index:1001;';
+
+    var daActiveDashTab = 'layout';
+    try { daActiveDashTab = sessionStorage.getItem('ra_dash_tab') || 'layout'; } catch (e) {}
+
+    page.innerHTML =
+      // Left sidebar — matches KoboToolbox form-sidebar pattern
+      '<div class="ra-da__sidebar">' +
+        '<div class="ra-da__sidebar-new">' +
+          '<button id="ra-da-new-btn" class="ra-da__new-btn" title="Create a new dashboard">' +
+            '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#fff;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>' +
+            'NEW' +
+          '</button>' +
+        '</div>' +
+        '<div class="ra-da__sidebar-nav">' +
+          '<div class="ra-da__nav-item' + (daActiveDashTab === 'layout' ? ' ra-da__nav-item--active' : '') + '" data-tab="layout">' +
+            '<svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>' +
+            '<span>Dashboards</span>' +
+          '</div>' +
+          '<div class="ra-da__nav-item' + (daActiveDashTab === 'users' ? ' ra-da__nav-item--active' : '') + '" data-tab="users">' +
+            '<svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>' +
+            '<span>Users</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      // Main content area
+      '<div class="ra-da__main" id="ra-da-content"></div>';
+
+    // Styles
+    var daStyle = document.createElement('style');
+    daStyle.textContent = [
+      '.ra-da__sidebar {',
+      '  width: 212px; background: #fff;',
+      '  box-shadow: 0 0 8px 0 rgba(51,56,71,0.06), 0 8px 8px 0 rgba(51,56,71,0.12);',
+      '  height: 100%; display: flex; flex-direction: column; position: absolute;',
+      '  left: 0; top: 0; bottom: 0; overflow-y: auto; z-index: 2;',
+      '}',
+      '.ra-da__sidebar-new { padding: 20px 14px 12px; }',
+      '.ra-da__new-btn {',
+      '  display: flex; align-items: center; justify-content: center; gap: 8px;',
+      '  width: 100%; padding: 10px 16px; background: #2095f3; color: #fff;',
+      '  border: none; border-radius: 6px; font-size: 14px; font-weight: 600;',
+      '  cursor: pointer; transition: background 0.15s;',
+      '  box-shadow: 0 2px 4px 0 rgba(0,0,0,0.25);',
+      '}',
+      '.ra-da__new-btn:hover { background: #1977c2; }',
+      '.ra-da__sidebar-nav { padding: 8px 0; }',
+      '.ra-da__nav-item {',
+      '  display: flex; align-items: center; gap: 12px; padding: 10px 20px;',
+      '  font-size: 14px; color: #64748b; cursor: pointer;',
+      '  border-left: 3px solid transparent; transition: all 0.15s;',
+      '}',
+      '.ra-da__nav-item svg { width: 20px; height: 20px; fill: currentColor; flex-shrink: 0; }',
+      '.ra-da__nav-item:hover { color: #1e293b; background: #f8fafc; }',
+      '.ra-da__nav-item--active {',
+      '  color: #1e293b; font-weight: 600; border-left-color: #54a8dc;',
+      '  background: #f0f9ff;',
+      '}',
+      '.ra-da__main {',
+      '  position: absolute; left: 212px; top: 0; right: 0; bottom: 0;',
+      '  overflow-y: auto; background: #edeef2; padding: 30px 30px 40px;',
+      '}',
+      '@media (max-width: 768px) {',
+      '  .ra-da__sidebar { width: 180px; }',
+      '  .ra-da__main { left: 180px; padding: 16px; }',
+      '}',
+      '@media (max-width: 600px) {',
+      '  .ra-da__sidebar { width: 56px; overflow: hidden; }',
+      '  .ra-da__sidebar-new { padding: 12px 8px 8px; }',
+      '  .ra-da__new-btn { padding: 8px; font-size: 0; gap: 0; }',
+      '  .ra-da__new-btn svg { width: 22px; height: 22px; }',
+      '  .ra-da__nav-item { padding: 12px 0; justify-content: center; }',
+      '  .ra-da__nav-item span { display: none; }',
+      '  .ra-da__nav-item svg { width: 24px; height: 24px; }',
+      '  .ra-da__main { left: 56px; padding: 12px; }',
+      '}'
+    ].join('\n');
+    page.appendChild(daStyle);
+
+    document.body.appendChild(page);
+
+    // Nav item click handlers
+    page.querySelectorAll('.ra-da__nav-item').forEach(function (item) {
+      item.addEventListener('click', function () {
+        daActiveDashTab = this.getAttribute('data-tab');
+        activeDashTab = daActiveDashTab;
+        try { sessionStorage.setItem('ra_dash_tab', daActiveDashTab); } catch (e) {}
+        page.querySelectorAll('.ra-da__nav-item').forEach(function (t) { t.classList.remove('ra-da__nav-item--active'); });
+        this.classList.add('ra-da__nav-item--active');
+        renderDaContent();
+      });
+    });
+
+    // NEW button → open new dashboard modal
+    document.getElementById('ra-da-new-btn').addEventListener('click', function () {
+      showNewDashboardModal();
+    });
+
+    function renderDaContent() {
+      var container = document.getElementById('ra-da-content');
+      if (!container) return;
+      activeDashTab = daActiveDashTab;
+      if (daActiveDashTab === 'users') renderDashUsersTab(container);
+      else if (daActiveDashTab === 'layout') renderDashLayoutTab(container);
+    }
+
+    renderDaContent();
+  }
+
+  function showDashAdminPage() {
+    createDashAdminPage();
+    var page = document.getElementById(DASH_ADMIN_PAGE_ID);
+    if (page) page.style.display = 'block';
+    document.body.classList.add('ra-st-active');
+    document.title = 'Dashboard | ' + BRAND_NAME;
+    var nav = document.getElementById('ra-dashadmin-nav');
+    if (nav) nav.classList.add('active');
+    // Deactivate other nav items
+    document.querySelectorAll('.k-drawer__link, [class*="drawer__link"]').forEach(function (link) {
+      if (link.id !== 'ra-dashadmin-nav') link.classList.remove('active');
+    });
+    var settingsNav = document.getElementById(NAV_ID);
+    if (settingsNav) settingsNav.classList.remove('active');
+  }
+
+  function hideDashAdminPage() {
+    var page = document.getElementById(DASH_ADMIN_PAGE_ID);
+    if (page) page.style.display = 'none';
+    var nav = document.getElementById('ra-dashadmin-nav');
+    if (nav) nav.classList.remove('active');
+  }
+
   function handleNavigation() {
     if (window.location.hash === HASH) {
+      hideDashAdminPage();
       createPage();
       showPage();
+    } else if (window.location.hash === DASH_ADMIN_HASH) {
+      hidePage();
+      showDashAdminPage();
     } else {
       hidePage();
+      hideDashAdminPage();
     }
   }
 
@@ -3521,6 +3992,31 @@
     });
 
     primaryNav.appendChild(navLink);
+
+    // Also inject Dashboard nav icon — positioned after Library (2nd native link)
+    if (!document.getElementById('ra-dashadmin-nav')) {
+      var dashNav = document.createElement('a');
+      dashNav.id = 'ra-dashadmin-nav';
+      dashNav.href = '#/dashboard-admin';
+      dashNav.setAttribute('data-tip', 'Dashboard');
+      dashNav.title = 'Dashboard';
+      dashNav.innerHTML = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>';
+      dashNav.addEventListener('click', function (e) {
+        e.preventDefault();
+        window.location.hash = '#/dashboard-admin';
+      });
+      // Find the Library link (2nd native nav link) and insert after it
+      var navLinks = primaryNav.querySelectorAll('a');
+      var libraryLink = navLinks.length >= 2 ? navLinks[1] : null;
+      if (libraryLink && libraryLink.nextSibling) {
+        primaryNav.insertBefore(dashNav, libraryLink.nextSibling);
+      } else if (libraryLink) {
+        primaryNav.appendChild(dashNav);
+      } else {
+        primaryNav.insertBefore(dashNav, navLink);
+      }
+    }
+
     return true;
   }
 

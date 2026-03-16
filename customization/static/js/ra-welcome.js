@@ -383,6 +383,29 @@
   // Poll for access-denied page (React renders async)
   setInterval(customizeAccessDenied, 1000);
 
+  // ── Remove help/support elements from DOM (not just hidden) ──
+  function removeHelpElements() {
+    var selectors = [
+      '.intercom-lightweight-app',
+      '.intercom-lightweight-app-launcher',
+      '[class*="intercom"]',
+      '[class*="help-bubble"]',
+      '[class*="helpBubble"]',
+      '.help-bubble',
+      '.kobo-help-icon',
+      '.main-header__help',
+      '[data-tip="Help"]',
+      'iframe[title*="Intercom"]',
+      'iframe[src*="intercom"]'
+    ];
+    selectors.forEach(function (sel) {
+      var els = document.querySelectorAll(sel);
+      els.forEach(function (el) { el.remove(); });
+    });
+  }
+  removeHelpElements();
+  setInterval(removeHelpElements, 2000);
+
   // ── Announcement Banner System ──
   (function announcementBanner() {
     // Skip login/signup pages

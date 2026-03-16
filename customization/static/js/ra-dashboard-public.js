@@ -102,7 +102,8 @@
     var grid = document.getElementById('ra-pub-grid');
 
     grid.innerHTML = widgets.map(function (w) {
-      var cls = w.width === 'full' ? ' ra-pub-widget--full' : '';
+      var wm = { 'full': '--full', 'half': '--half', 'three-quarter': '--three-quarter', 'quarter': '--quarter' };
+      var cls = wm[w.width] ? ' ra-pub-widget' + wm[w.width] : '';
       return '<div class="ra-pub-widget' + cls + '">' +
         '<div class="ra-pub-widget-header">' + esc(w.title || w.type) + '</div>' +
         '<div class="ra-pub-widget-body" id="ra-pub-w-' + esc(w.id) + '"></div></div>';

@@ -160,7 +160,7 @@
     '.ra-do__content { max-width: 1200px; margin: 0 auto; padding: 24px 24px 60px; flex: 1; width: 100%; box-sizing: border-box; }',
 
     '.ra-do__grid {',
-    '  display: grid; grid-template-columns: repeat(2, 1fr);',
+    '  display: grid; grid-template-columns: repeat(4, 1fr);',
     '  gap: 20px;',
     '}',
     '.ra-do__widget {',
@@ -168,6 +168,9 @@
     '  box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden;',
     '}',
     '.ra-do__widget--full { grid-column: 1 / -1; }',
+    '.ra-do__widget--half { grid-column: span 2; }',
+    '.ra-do__widget--three-quarter { grid-column: span 3; }',
+    '.ra-do__widget--quarter { grid-column: span 1; }',
     '.ra-do__widget-header {',
     '  padding: 14px 18px; border-bottom: 1px solid #f1f5f9;',
     '  font-size: 14px; font-weight: 600; color: #1e293b;',
@@ -204,7 +207,7 @@
 
     /* Tablet */
     '@media (max-width: 900px) {',
-    '  .ra-do__grid { gap: 14px; }',
+    '  .ra-do__grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }',
     '  .ra-do__widget-header { padding: 12px 14px; font-size: 13px; }',
     '  .ra-do__widget-body { padding: 14px; }',
     '  .ra-do__content { padding: 20px 16px 40px; }',
@@ -223,7 +226,7 @@
     '  .ra-do__widget-body { padding: 12px; }',
     '  .ra-do__stat-value { font-size: 22px; }',
     '  .ra-do__stat-label { font-size: 11px; }',
-    '  .ra-do__stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }',
+    '  .ra-do__stats { grid-template-columns: repeat(4, 1fr); gap: 8px; }',
     '  .ra-do__stat { padding: 8px; }',
     '  .ra-do__feed-item { gap: 8px; padding: 8px 0; }',
     '  .ra-do__feed-avatar { width: 28px; height: 28px; font-size: 12px; }',
@@ -702,12 +705,13 @@
     return [
       { id: 'd1', type: 'stat-cards', title: 'Overview', width: 'full', forms: ['__all__'] },
       { id: 'd2', type: 'submissions-period', title: 'Submissions', width: 'full', forms: ['__all__'] },
-      { id: 'd3', type: 'form-status', title: 'Form Status', width: 'half', forms: ['__all__'] },
-      { id: 'd4', type: 'top-contributors', title: 'Top Contributors', width: 'half', forms: ['__all__'], config: { limit: 10 } },
-      { id: 'd5', type: 'submissions-by-form', title: 'Submissions by Form', width: 'half', forms: ['__all__'] },
-      { id: 'd6', type: 'submissions-by-day', title: 'Submissions by Day', width: 'half', forms: ['__all__'] },
-      { id: 'd7', type: 'recent-feed', title: 'Recent Submissions', width: 'half', forms: ['__all__'], config: { limit: 10 } },
-      { id: 'd8', type: 'geo-coverage', title: 'Geographic Coverage', width: 'half', forms: ['__all__'] }
+      { id: 'd3', type: 'form-status', title: 'Form Status', width: 'quarter', forms: ['__all__'] },
+      { id: 'd4', type: 'avg-per-day', title: 'Daily Average', width: 'quarter', forms: ['__all__'] },
+      { id: 'd5', type: 'submissions-by-day', title: 'By Day of Week', width: 'half', forms: ['__all__'] },
+      { id: 'd6', type: 'top-contributors', title: 'Top Contributors', width: 'half', forms: ['__all__'], config: { limit: 10 } },
+      { id: 'd7', type: 'submissions-by-form', title: 'Submissions by Form', width: 'half', forms: ['__all__'] },
+      { id: 'd8', type: 'recent-feed', title: 'Recent Submissions', width: 'half', forms: ['__all__'], config: { limit: 10 } },
+      { id: 'd9', type: 'geo-coverage', title: 'Geographic Coverage', width: 'half', forms: ['__all__'] }
     ];
   }
 
@@ -730,15 +734,22 @@
     };
 
     grid.innerHTML = widgets.map(function (w) {
-      var cls = w.width === 'full' ? ' ra-do__widget--full' : '';
+      var widthMap = { 'full': '--full', 'half': '--half', 'three-quarter': '--three-quarter', 'quarter': '--quarter' };
+      var cls = widthMap[w.width] ? ' ra-do__widget' + widthMap[w.width] : '';
       var displayTitle = w.title || WIDGET_LABELS[w.type] || w.type;
       var cfg = w.config || {};
       var wStyle = cfg.bgColor ? 'background-color:' + cfg.bgColor + ';' : '';
-      var bodyStyle = cfg.textColor ? 'color:' + cfg.textColor + ';' : '';
-      var headerStyle = cfg.headerColor ? 'color:' + cfg.headerColor + ';' : '';
+      var hParts = [];
+      if (cfg.headerColor) hParts.push('color:' + cfg.headerColor);
+      if (cfg.bgColor) { hParts.push('background-color:' + cfg.bgColor); hParts.push('border-bottom-color:rgba(0,0,0,0.1)'); }
+      var headerStyle = hParts.length ? ' style="' + hParts.join(';') + ';"' : '';
+      var bParts = [];
+      if (cfg.textColor) bParts.push('color:' + cfg.textColor);
+      if (cfg.bgColor) bParts.push('background-color:' + cfg.bgColor);
+      var bodyStyle = bParts.length ? ' style="' + bParts.join(';') + ';"' : '';
       return '<div class="ra-do__widget' + cls + '" data-wid="' + esc(w.id) + '"' + (wStyle ? ' style="' + wStyle + '"' : '') + '>' +
-        '<div class="ra-do__widget-header"' + (headerStyle ? ' style="' + headerStyle + '"' : '') + '>' + esc(displayTitle) + '</div>' +
-        '<div class="ra-do__widget-body" id="ra-do-wb-' + esc(w.id) + '"' + (bodyStyle ? ' style="' + bodyStyle + '"' : '') + '></div>' +
+        '<div class="ra-do__widget-header"' + headerStyle + '>' + esc(displayTitle) + '</div>' +
+        '<div class="ra-do__widget-body" id="ra-do-wb-' + esc(w.id) + '"' + bodyStyle + '></div>' +
       '</div>';
     }).join('');
 
@@ -771,6 +782,21 @@
         case 'subscribe': renderSubscribeWidget(el, w); break;
         case 'embed': renderEmbedWidget(el, w); break;
         default: el.innerHTML = '<p style="color:#999;">Unknown widget type: ' + esc(w.type) + '</p>';
+      }
+
+      // Apply custom text color to ALL child elements after rendering
+      // This overrides hardcoded inline colors inside each widget
+      var cfg = w.config || {};
+      if (cfg.textColor) {
+        el.querySelectorAll('*').forEach(function (node) {
+          // Skip elements that are part of interactive controls (selects, inputs)
+          if (node.tagName === 'SELECT' || node.tagName === 'INPUT' || node.tagName === 'OPTION') return;
+          // Skip SVG chart elements (they use fill, not color)
+          if (node.closest('svg')) return;
+          // Skip the geo map container
+          if (node.closest('[id^="ra-geo-map"]')) return;
+          node.style.color = cfg.textColor;
+        });
       }
     });
   }
