@@ -396,12 +396,26 @@ def run_health_server():
                                 if len(coords) >= 4:
                                     bbox = {'x0': coords[0], 'y0': coords[1], 'x1': coords[2], 'y1': coords[3]}
 
+                            # Infer geometry type from layer name
+                            name_lower = (item.get('alternate', '') + ' ' + item.get('name', '') + ' ' + item.get('title', '')).lower()
+                            if 'point' in name_lower or 'location' in name_lower:
+                                geom_type = 'point'
+                            elif 'line' in name_lower or 'trace' in name_lower or 'road' in name_lower or 'route' in name_lower or 'network' in name_lower:
+                                geom_type = 'line'
+                            elif 'polygon' in name_lower or 'area' in name_lower or 'boundary' in name_lower or 'zone' in name_lower or 'region' in name_lower:
+                                geom_type = 'polygon'
+                            elif item.get('subtype') == 'raster':
+                                geom_type = 'raster'
+                            else:
+                                geom_type = 'vector'
+
                             datasets.append({
                                 'id': item.get('pk', item.get('id')),
                                 'name': item.get('name', ''),
                                 'title': item.get('title', item.get('name', 'Untitled')),
                                 'abstract': item.get('raw_abstract', item.get('abstract', ''))[:200],
                                 'subtype': item.get('subtype', item.get('storeType', '')),
+                                'geom_type': geom_type,
                                 'alternate': item.get('alternate', item.get('typename', item.get('name', ''))),
                                 'bbox': bbox,
                                 'srid': item.get('srid', 'EPSG:4326'),

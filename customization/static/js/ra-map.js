@@ -380,6 +380,8 @@
     '.ra-gn__item-info { flex: 1; min-width: 0; }',
     '.ra-gn__item-name { font-size: 13px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
     '.ra-gn__item-desc { font-size: 11px; color: #888; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+    '.ra-gn__item-icon { width: 32px; height: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #f0f4f8; border-radius: 6px; }',
+    '.ra-gn__item-icon svg { width: 20px; height: 20px; }',
     '.ra-gn__item-type { font-size: 10px; color: #54a8dc; background: #eef6fc; padding: 2px 6px; border-radius: 3px; flex-shrink: 0; }',
     '.ra-gn__add-btn { background: #54a8dc; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; flex-shrink: 0; }',
     '.ra-gn__add-btn:hover { background: #3d8abf; }',
@@ -692,12 +694,17 @@
       var isAdded = addedIds.indexOf(dsId) !== -1;
       var item = document.createElement('div');
       item.className = 'ra-gn__item';
+      var geomType = ds.geom_type || ds.subtype || 'vector';
+      var geomIcon = gnGeomIcon(geomType);
+      var geomLabel = geomType === 'point' ? 'Point' : geomType === 'line' ? 'Line' : geomType === 'polygon' ? 'Polygon' : geomType === 'raster' ? 'Raster' : 'Vector';
+
       item.innerHTML =
+        '<span class="ra-gn__item-icon">' + geomIcon + '</span>' +
         '<div class="ra-gn__item-info">' +
           '<div class="ra-gn__item-name">' + escapeHtml(ds.title || ds.name || 'Untitled') + '</div>' +
           '<div class="ra-gn__item-desc">' + escapeHtml((ds.abstract || ds.raw_abstract || '').substring(0, 100)) + '</div>' +
         '</div>' +
-        (ds.subtype ? '<span class="ra-gn__item-type">' + escapeHtml(ds.subtype) + '</span>' : '') +
+        '<span class="ra-gn__item-type">' + geomLabel + '</span>' +
         '<button class="ra-gn__add-btn"' + (isAdded ? ' disabled' : '') + '>' +
           (isAdded ? 'Added' : 'Add') +
         '</button>';
@@ -763,6 +770,7 @@
     if (dataset.bbox && dataset.bbox.x0 != null) {
         bounds = [[dataset.bbox.y0, dataset.bbox.x0], [dataset.bbox.y1, dataset.bbox.x1]];
     }
+    var geomType = dataset.geom_type || 'vector';
     geonodeLayers[gnId] = {
       layer: wmsLayer,
       name: displayName,
@@ -772,6 +780,7 @@
       wmsUrl: wmsUrl,
       layerName: layerName,
       bounds: bounds,
+      geomType: geomType,
       sourceId: gs ? (gs.id || '') : '',
       sourceName: gs ? (gs.name || 'GeoNode') : 'GeoNode'
     };
@@ -787,6 +796,7 @@
       layerName: layerName,
       wmsUrl: wmsUrl,
       bounds: bounds,
+      geomType: geomType,
       sourceId: gs ? (gs.id || '') : '',
       sourceName: gs ? (gs.name || 'GeoNode') : 'GeoNode'
     });
@@ -835,6 +845,7 @@
         wmsUrl: sl.wmsUrl,
         layerName: sl.layerName,
         bounds: sl.bounds || null,
+        geomType: sl.geomType || 'vector',
         sourceId: sl.sourceId || '',
         sourceName: sl.sourceName || 'GeoNode'
       };
@@ -1118,7 +1129,10 @@
         var g = groups[gnId];
         var visible = map.hasLayer(g.layer);
         var hiddenClass = visible ? '' : ' ra-map__legend-item--hidden';
-        var gnIcon = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="#54a8dc"/></svg>';
+        // Use geometry-type icon if available, else globe
+        var gnData = geonodeLayers[gnId];
+        var geomType = (gnData && gnData.geomType) || 'vector';
+        var gnIcon = gnGeomIcon(geomType, g.color || '#54a8dc');
 
         html += '<div class="ra-map__legend-item' + hiddenClass + '" data-uid="' + gnId + '" style="position:relative;">' +
           '<input type="checkbox"' + (visible ? ' checked' : '') + ' style="margin:0;cursor:pointer;flex-shrink:0;"> ' +
@@ -1797,6 +1811,24 @@
     }).catch(function () {
       // Silent fail on refresh
     });
+  }
+
+  function gnGeomIcon(geomType, color) {
+    color = color || '#54a8dc';
+    if (geomType === 'point') {
+      return '<svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="6" fill="' + color + '" stroke="#fff" stroke-width="2"/><path d="M12 16l-1 4h2l-1-4z" fill="' + color + '"/></svg>';
+    }
+    if (geomType === 'line') {
+      return '<svg viewBox="0 0 24 24"><path d="M3 17l4-4 4 4 4-4 4 4" fill="none" stroke="' + color + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }
+    if (geomType === 'polygon') {
+      return '<svg viewBox="0 0 24 24"><polygon points="12,3 21,10 18,20 6,20 3,10" fill="' + color + '" fill-opacity="0.3" stroke="' + color + '" stroke-width="2" stroke-linejoin="round"/></svg>';
+    }
+    if (geomType === 'raster') {
+      return '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="' + color + '" fill-opacity="0.2" stroke="' + color + '" stroke-width="2"/><line x1="3" y1="12" x2="21" y2="12" stroke="' + color + '" stroke-width="1" opacity="0.4"/><line x1="12" y1="3" x2="12" y2="21" stroke="' + color + '" stroke-width="1" opacity="0.4"/></svg>';
+    }
+    // Default: globe icon for unknown vector type
+    return '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="' + color + '"/></svg>';
   }
 
   function geoTypeIcon(type, color) {
