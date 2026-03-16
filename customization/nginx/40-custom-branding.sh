@@ -108,4 +108,21 @@ else
     echo "Note: No ENKETO_FORMLIST_TOKEN or $TOKEN_FILE - formList auth not injected."
 fi
 
+# GeoNode test connection proxy — routes /geonode-proxy/ requests to
+# the geonode_sync service which tests the connection server-side,
+# avoiding browser CORS restrictions.
+GEONODE_PROXY_CONF="/etc/nginx/includes/geonode_proxy.conf"
+cat > "$GEONODE_PROXY_CONF" << 'NGINX_GN'
+location /geonode-proxy/ {
+    resolver 127.0.0.11 valid=1s;
+    set $geonode_sync "geonode_sync:8080";
+    proxy_pass http://$geonode_sync/test-connection$is_args$args;
+    proxy_set_header Host $host;
+}
+NGINX_GN
+sed -i '/server_name.*kf\./,/^}/{
+    /location \/static {/i\    include /etc/nginx/includes/geonode_proxy.conf;
+}' "$NGINX_CONF"
+echo "GeoNode proxy endpoint configured."
+
 echo "Custom branding applied successfully."

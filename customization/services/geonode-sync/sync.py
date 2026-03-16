@@ -259,14 +259,17 @@ def sync_all():
     log.info(f"Sync cycle complete. {total_synced} features synced.")
 
 
-# Simple HTTP health check server
+# Simple HTTP health check and test connection server
 def run_health_server():
-    """Run a minimal health check endpoint on port 8080."""
+    """Run health check and GeoNode test-connection endpoints on port 8080."""
     from http.server import HTTPServer, BaseHTTPRequestHandler
+    from urllib.parse import urlparse, parse_qs
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            if self.path == '/health':
+            parsed = urlparse(self.path)
+
+            if parsed.path == '/health':
                 body = json.dumps({
                     'status': 'healthy',
                     'last_sync': last_sync_status,
@@ -275,11 +278,61 @@ def run_health_server():
                 }).encode()
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(body)
+
+            elif parsed.path == '/test-connection':
+                params = parse_qs(parsed.query)
+                url = params.get('url', [''])[0]
+                token = params.get('token', [''])[0]
+                username = params.get('username', [''])[0]
+                password = params.get('password', [''])[0]
+
+                result = self._test_geonode(url, token, username, password)
+                body = json.dumps(result).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(body)
             else:
                 self.send_response(404)
                 self.end_headers()
+
+        def _test_geonode(self, url, token, username, password):
+            """Test GeoNode connection server-side (no CORS issues)."""
+            if not url:
+                return {'ok': False, 'error': 'No GeoNode URL provided'}
+
+            url = url.rstrip('/')
+            headers = {'Accept': 'application/json'}
+            auth = None
+
+            if token:
+                tok = token if ' ' in token else f'Bearer {token}'
+                headers['Authorization'] = tok
+            elif username and password:
+                auth = (username, password)
+
+            try:
+                resp = requests.get(
+                    f'{url}/api/v2/layers/?page_size=1',
+                    headers=headers,
+                    auth=auth,
+                    timeout=15,
+                )
+                if resp.status_code != 200:
+                    return {'ok': False, 'error': f'HTTP {resp.status_code}'}
+                data = resp.json()
+                count = data.get('total', len(data.get('layers', data.get('results', []))))
+                return {'ok': True, 'count': count}
+            except requests.ConnectionError:
+                return {'ok': False, 'error': 'Could not connect to GeoNode server'}
+            except requests.Timeout:
+                return {'ok': False, 'error': 'Connection timed out'}
+            except Exception as e:
+                return {'ok': False, 'error': str(e)}
 
         def log_message(self, format, *args):
             pass  # Suppress access logs

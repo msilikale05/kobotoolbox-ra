@@ -779,14 +779,21 @@
 
   function testGeoNodeConnection(settings) {
     var baseUrl = (settings.url || DEFAULT_GEONODE_URL).replace(/\/+$/, '');
-    var headers = { 'Accept': 'application/json' };
+    var auth = '';
     if (settings.token) {
-      headers['Authorization'] = settings.token.indexOf(' ') !== -1 ? settings.token : 'Bearer ' + settings.token;
+      auth = settings.token.indexOf(' ') !== -1 ? settings.token : 'Bearer ' + settings.token;
     } else if (settings.username && settings.password) {
-      headers['Authorization'] = 'Basic ' + btoa(settings.username + ':' + settings.password);
+      auth = 'Basic ' + btoa(settings.username + ':' + settings.password);
     }
 
-    return fetch(baseUrl + '/api/v2/layers/?page_size=1', { headers: headers })
+    // Use server-side proxy (geonode-sync service) to avoid CORS issues
+    var params = 'url=' + encodeURIComponent(baseUrl);
+    if (settings.token) params += '&token=' + encodeURIComponent(settings.token);
+    if (settings.username) params += '&username=' + encodeURIComponent(settings.username);
+    if (settings.password) params += '&password=' + encodeURIComponent(settings.password);
+    var proxyUrl = '/geonode-proxy/?' + params;
+
+    return fetch(proxyUrl)
       .then(function (r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
