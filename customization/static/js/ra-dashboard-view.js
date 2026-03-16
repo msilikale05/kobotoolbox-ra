@@ -525,6 +525,13 @@
     popup.querySelector('.ra-do__subscribe-close').addEventListener('click', function () {
       popup.classList.remove('ra-do__subscribe-popup--open');
     });
+
+    // Close on click outside
+    document.addEventListener('click', function (e) {
+      if (!popup.classList.contains('ra-do__subscribe-popup--open')) return;
+      if (popup.contains(e.target) || btn.contains(e.target)) return;
+      popup.classList.remove('ra-do__subscribe-popup--open');
+    });
   }
 
   function getCsrf() {
