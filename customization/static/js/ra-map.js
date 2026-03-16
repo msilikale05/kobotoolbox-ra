@@ -984,10 +984,18 @@
       connections.forEach(function (conn) {
         if (conn.type === 'xyz' || conn.type === 'google' || conn.type === 'esri') {
           baseMaps[conn.name] = L.tileLayer(conn.url, {
-            attribution: conn.name,
-            maxZoom: 20
+            attribution: conn.name || conn.type,
+            maxZoom: 20,
+            tileSize: 256,
+            zoomOffset: 0
           });
         }
+      });
+
+      // When basemap changes, maintain current view (don't reset zoom)
+      map.on('baselayerchange', function () {
+        // Leaflet handles this by default, but invalidate to fix any rendering
+        setTimeout(function () { map.invalidateSize(); }, 100);
       });
 
       var layerControl = L.control.layers(baseMaps, null, { position: 'topleft' });
@@ -1100,7 +1108,8 @@
         if (geoloc && Array.isArray(geoloc) && geoloc[0] !== null && geoloc[1] !== null) {
           var lat = parseFloat(geoloc[0]);
           var lon = parseFloat(geoloc[1]);
-          if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
+          // Validate: must be real coords, not 0,0, and within valid range
+          if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0 && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
             var marker = L.circleMarker([lat, lon], {
               radius: 7,
               fillColor: formData.color,
