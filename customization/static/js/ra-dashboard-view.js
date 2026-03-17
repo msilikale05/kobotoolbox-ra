@@ -1066,12 +1066,17 @@
   // ── Field Value Helper ──
   function getFieldValue(sub, field) {
     if (!field) return undefined;
-    // Direct match
     if (sub[field] !== undefined) return sub[field];
-    // Try nested path (group/field)
     var keys = Object.keys(sub);
     for (var i = 0; i < keys.length; i++) {
-      if (keys[i].indexOf('/' + field) === keys[i].length - field.length - 1) return sub[keys[i]];
+      var k = keys[i];
+      if (k.length > field.length && k.charAt(k.length - field.length - 1) === '/' && k.substring(k.length - field.length) === field) {
+        return sub[k];
+      }
+    }
+    for (var j = 0; j < keys.length; j++) {
+      var parts = keys[j].split('/');
+      if (parts[parts.length - 1] === field) return sub[keys[j]];
     }
     return undefined;
   }
