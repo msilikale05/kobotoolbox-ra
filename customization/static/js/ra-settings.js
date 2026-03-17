@@ -4496,6 +4496,7 @@
         '<th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Status</th>' +
         '<th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Joined</th>' +
         '<th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Last Login</th>' +
+        '<th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Dashboard</th>' +
         '<th style="text-align:right;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Submissions</th>' +
         '<th style="text-align:right;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Actions</th>' +
       '</tr></thead><tbody>';
@@ -4523,6 +4524,12 @@
         '<td style="padding:10px 14px;">' + getStatusBadge(u.is_active) + '</td>' +
         '<td style="padding:10px 14px;font-size:12px;color:#64748b;">' + formatDate(u.date_joined) + '</td>' +
         '<td style="padding:10px 14px;font-size:12px;color:#64748b;">' + formatLastLogin(u.last_login) + '</td>' +
+        '<td style="padding:10px 14px;font-size:12px;color:#64748b;">' + (function () {
+          var dashId = (_dashConfig && _dashConfig.users && _dashConfig.users[u.username]) ? _dashConfig.users[u.username] : '';
+          if (!dashId) return '<span style="color:#cbd5e1;">-</span>';
+          var dashName = (_dashConfig.dashboards && _dashConfig.dashboards[dashId] && _dashConfig.dashboards[dashId].name) ? _dashConfig.dashboards[dashId].name : dashId;
+          return '<span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;background:#dbeafe;color:#1e40af;">' + escapeHtml(dashName) + '</span>';
+        })() + '</td>' +
         '<td style="padding:10px 14px;text-align:right;font-size:12px;color:#64748b;">' + subCount + '</td>' +
         '<td style="padding:10px 14px;text-align:right;">' +
           '<button class="ra-um-action-btn" data-action="toggle" data-user="' + escapeHtml(u.username) + '" title="' + (u.is_active ? 'Deactivate' : 'Activate') + '" style="background:none;border:1px solid #e1e3ea;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:' + (u.is_active ? '#ef4444' : '#10b981') + ';margin-right:4px;">' +
@@ -4700,7 +4707,7 @@
       'th{background:#4472C4;color:#fff;font-weight:bold;}' +
       'tr:nth-child(even) td{background:#D9E2F3;}</style></head><body>' +
       '<table>' +
-      '<tr><th>Username</th><th>First Name</th><th>Last Name</th><th>Email</th><th>Organization</th><th>Role</th><th>Status</th><th>Date Joined</th><th>Last Login</th><th>Submissions</th><th>Notes</th></tr>';
+      '<tr><th>Username</th><th>First Name</th><th>Last Name</th><th>Email</th><th>Organization</th><th>Role</th><th>Dashboard</th><th>Status</th><th>Date Joined</th><th>Last Login</th><th>Submissions</th><th>Notes</th></tr>';
 
     users.forEach(function (u) {
       var role = getUserRole(u.username);
@@ -4714,6 +4721,11 @@
         '<td>' + escapeHtml(u.email || '') + '</td>' +
         '<td>' + escapeHtml(org) + '</td>' +
         '<td>' + escapeHtml(role) + '</td>' +
+        '<td>' + (function () {
+          var did = (_dashConfig && _dashConfig.users && _dashConfig.users[u.username]) ? _dashConfig.users[u.username] : '';
+          if (!did) return '-';
+          return (_dashConfig.dashboards && _dashConfig.dashboards[did] && _dashConfig.dashboards[did].name) ? escapeHtml(_dashConfig.dashboards[did].name) : did;
+        })() + '</td>' +
         '<td>' + (u.is_active ? 'Active' : 'Inactive') + '</td>' +
         '<td>' + escapeHtml(formatDate(u.date_joined)) + '</td>' +
         '<td>' + escapeHtml(u.last_login ? formatDate(u.last_login) : 'Never') + '</td>' +
@@ -4866,7 +4878,7 @@
         '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">' +
           '<button id="ra-um-modal-impersonate" style="padding:8px 14px;border:1px solid #dbeafe;background:#eff6ff;color:#1e40af;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;" title="Open this user\'s view in a new tab">Switch to User</button>' +
           (email ? '<a href="/accounts/password/reset/?email=' + encodeURIComponent(email) + '" target="_blank" style="display:flex;align-items:center;padding:8px 14px;border:1px solid #fef3c7;background:#fffbeb;color:#92400e;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap;">Password Reset</a>' : '') +
-          '<a href="/admin/auth/user/' + encodeURIComponent(username) + '/change/" target="_blank" style="display:flex;align-items:center;padding:8px 14px;border:1px solid #e1e3ea;background:#f9fafb;color:#64748b;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap;">Edit in Admin</a>' +
+          '<a href="/admin/auth/user/?q=' + encodeURIComponent(username) + '" target="_blank" style="display:flex;align-items:center;padding:8px 14px;border:1px solid #e1e3ea;background:#f9fafb;color:#64748b;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap;">Edit in Admin</a>' +
         '</div>';
     }
 

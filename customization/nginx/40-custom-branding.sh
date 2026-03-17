@@ -158,6 +158,13 @@ echo "Standalone dashboard page configured."
 ERROR_PAGES_CONF="/etc/nginx/includes/error_pages.conf"
 cat > "$ERROR_PAGES_CONF" << 'NGINX_ERR'
 error_page 404 /custom-static/error-pages/404.html;
+
+location /admin/ {
+    include /etc/nginx/includes/proxy_pass.conf;
+    uwsgi_hide_header X-Frame-Options;
+    uwsgi_intercept_errors on;
+    error_page 404 /custom-static/error-pages/404.html;
+}
 NGINX_ERR
 sed -i '/server_name.*kf\./,/^}/{
     /location \/static {/i\    include /etc/nginx/includes/error_pages.conf;
