@@ -727,8 +727,8 @@ def get_service_token():
     global SERVICE_TOKEN
     if SERVICE_TOKEN:
         return SERVICE_TOKEN
-    # Try environment variable first
-    SERVICE_TOKEN = os.getenv('KOBO_SERVICE_TOKEN', '')
+    # Try environment variables
+    SERVICE_TOKEN = os.getenv('KOBO_SERVICE_TOKEN', '') or os.getenv('DASHBOARD_SERVICE_TOKEN', '')
     if SERVICE_TOKEN:
         return SERVICE_TOKEN
     # Try file
@@ -823,7 +823,7 @@ def get_public_dashboard(token):
         return jsonify({'error': 'Service token not configured'}), 500
 
     # Need Host header so nginx routes to the KPI server block
-    kf_host = os.getenv('KF_HOST', 'kf.localhost')
+    kf_host = os.getenv('KF_HOST', '') or KPI_INTERNAL_HOST
     headers = {
         'Authorization': f'Token {svc_token}',
         'Accept': 'application/json',
