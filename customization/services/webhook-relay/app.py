@@ -140,11 +140,11 @@ def format_email_html(data, form_uid):
     from html import escape
     from datetime import datetime
 
-    submitted_by = data.get('_submitted_by', 'Anonymous')
-    submission_time_raw = data.get('_submission_time', '')
-    form_title = data.get('_xform_id_string', form_uid)
-    submission_id = data.get('_id', '')
-    version = data.get('__version__', '')
+    submitted_by = str(data.get('_submitted_by', '') or 'Anonymous')
+    submission_time_raw = str(data.get('_submission_time', '') or '')
+    form_title = str(data.get('_xform_id_string', '') or form_uid)
+    submission_id = str(data.get('_id', '') or '')
+    version = str(data.get('__version__', '') or '')
 
     # Format time nicely
     submission_time = submission_time_raw
