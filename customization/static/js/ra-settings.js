@@ -4848,8 +4848,14 @@
           infoRow('Last Login', u.last_login ? formatLastLogin(u.last_login) : 'Never') +
         '</div>' +
 
-        // Submissions per form
+        // Submissions per form (owned)
         perFormHtml +
+
+        // Forms shared with this user (loaded async)
+        '<div style="margin-bottom:14px;">' +
+          '<div style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Forms Shared With User</div>' +
+          '<div id="ra-um-shared-forms" style="background:#f8fafc;border-radius:6px;padding:8px 14px;max-height:180px;overflow-y:auto;font-size:12px;color:#94a3b8;">Loading...</div>' +
+        '</div>' +
 
         // Editable: Dashboard assignment
         '<div style="margin-bottom:14px;"><label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Dashboard Assignment</label>' +
@@ -5022,7 +5028,10 @@
     }
 
     // Load activity for existing users
-    if (!isNew) loadUserActivity(username);
+    if (!isNew) {
+      loadUserActivity(username);
+      loadUserSharedForms(username);
+    }
   }
 
   // ── Impersonate User ──
@@ -5068,6 +5077,116 @@
       .catch(function () {
         actEl.innerHTML = '<span style="font-style:italic;">Activity data not available</span>';
       });
+  }
+
+  // ── Load Forms Shared With User ──
+  function loadUserSharedForms(username) {
+    var container = document.getElementById('ra-um-shared-forms');
+    if (!container) return;
+
+    // Fetch all forms then check permissions for each that the user doesn't own
+    fetch('/api/v2/assets/?asset_type=survey&fields=["uid","name","owner__username","deployment_status"]&limit=200', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : { results: [] }; })
+      .then(function (data) {
+        var forms = data.results || [];
+        // Forms owned by this user
+        var ownedForms = forms.filter(function (f) { return f.owner__username === username; });
+        // Forms NOT owned by this user — need to check permissions
+        var otherForms = forms.filter(function (f) { return f.owner__username !== username; });
+
+        if (!otherForms.length && !ownedForms.length) {
+          container.innerHTML = '<span style="font-style:italic;">No forms found</span>';
+          return;
+        }
+
+        // Check permissions for other forms (batch — up to 20 at a time to avoid too many requests)
+        var formsToCheck = otherForms.slice(0, 20);
+        var sharedWithUser = [];
+        var pending = formsToCheck.length;
+
+        if (!pending) {
+          renderSharedForms(container, sharedWithUser, ownedForms);
+          return;
+        }
+
+        formsToCheck.forEach(function (f) {
+          fetch('/api/v2/assets/' + f.uid + '/permission-assignments/?format=json', { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (perms) {
+              var permList = Array.isArray(perms) ? perms : (perms.results || []);
+              var userPerms = permList.filter(function (p) {
+                // Match by username in the user URL
+                var userUrl = p.user || '';
+                return userUrl.indexOf('/' + username + '/') !== -1 || userUrl.endsWith('/' + username);
+              });
+              if (userPerms.length) {
+                var permNames = userPerms.map(function (p) {
+                  var code = (p.permission || '').split('/').pop().replace('.json', '').replace('_', ' ');
+                  // Clean up permission names
+                  if (code.indexOf('view_asset') !== -1) return 'View';
+                  if (code.indexOf('change_asset') !== -1) return 'Edit';
+                  if (code.indexOf('add_submissions') !== -1) return 'Submit';
+                  if (code.indexOf('view_submissions') !== -1) return 'View Data';
+                  if (code.indexOf('change_submissions') !== -1) return 'Edit Data';
+                  if (code.indexOf('delete_submissions') !== -1) return 'Delete Data';
+                  if (code.indexOf('manage_asset') !== -1) return 'Manage';
+                  return code;
+                });
+                sharedWithUser.push({
+                  name: f.name || f.uid,
+                  uid: f.uid,
+                  owner: f.owner__username,
+                  status: f.deployment_status,
+                  permissions: permNames
+                });
+              }
+            })
+            .catch(function () {})
+            .then(function () {
+              pending--;
+              if (pending <= 0) {
+                renderSharedForms(container, sharedWithUser, ownedForms);
+              }
+            });
+        });
+      })
+      .catch(function () {
+        container.innerHTML = '<span style="font-style:italic;">Could not load form data</span>';
+      });
+  }
+
+  function renderSharedForms(container, sharedForms, ownedForms) {
+    var html = '';
+
+    if (ownedForms.length) {
+      html += '<div style="font-size:11px;font-weight:600;color:#10b981;margin-bottom:4px;">Owns ' + ownedForms.length + ' form' + (ownedForms.length !== 1 ? 's' : '') + '</div>';
+      ownedForms.forEach(function (f) {
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f0f0f0;">' +
+          '<span style="color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">' + escapeHtml(f.name || f.uid) + '</span>' +
+          '<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600;background:#e8f8f0;color:#10b981;">Owner</span>' +
+        '</div>';
+      });
+    }
+
+    if (sharedForms.length) {
+      html += '<div style="font-size:11px;font-weight:600;color:#54a8dc;margin:' + (ownedForms.length ? '10px' : '0') + ' 0 4px;">Shared with: ' + sharedForms.length + ' form' + (sharedForms.length !== 1 ? 's' : '') + '</div>';
+      sharedForms.forEach(function (f) {
+        var permText = f.permissions.join(', ');
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f0f0f0;">' +
+          '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;">' +
+            '<span style="color:#1e293b;font-size:12px;">' + escapeHtml(f.name) + '</span>' +
+            '<span style="color:#94a3b8;font-size:10px;margin-left:4px;">by ' + escapeHtml(f.owner) + '</span>' +
+          '</div>' +
+          '<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600;background:#dbeafe;color:#1e40af;white-space:nowrap;">' + escapeHtml(permText) + '</span>' +
+        '</div>';
+      });
+    }
+
+    if (!ownedForms.length && !sharedForms.length) {
+      html = '<span style="font-style:italic;">No forms shared with this user</span>';
+    }
+
+    container.innerHTML = html;
   }
 
   // ── Toggle User Active ──
