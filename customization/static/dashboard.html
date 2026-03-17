@@ -1,248 +1,335 @@
-/**
- * Resilience Academy - Multi-Dashboard View
- * ============================================
- * Widget-based, admin-configurable dashboard for designated viewer users.
- * Supports multiple dashboards with per-user assignment.
- * Admin defines widgets (stat cards, charts, tables, feeds) via Settings page.
- * Dashboard users see only their assigned dashboard — nothing else.
- *
- * UPDATE-PROOF: Loaded via nginx sub_filter; does not modify core files.
- */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard | Ramani Yangu</title>
+<link rel="icon" href="/custom-static/images/favicon.png">
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f1f5f9;
+  color: #1e293b;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Loading Screen ── */
+#ra-loading {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: #ffffff; z-index: 99999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: opacity 0.4s;
+}
+#ra-loading img {
+  width: 180px; margin-bottom: 32px;
+  opacity: 0; animation: ra-fadein 0.6s ease forwards;
+}
+#ra-loading .ra-bar-wrap {
+  width: 120px; height: 2px; background: #f0f0f0; border-radius: 2px; overflow: hidden;
+}
+#ra-loading .ra-bar-inner {
+  height: 100%; background: #54a8dc; border-radius: 2px;
+  animation: ra-bar 2s ease-in-out infinite;
+}
+@keyframes ra-fadein { to { opacity: 1; } }
+@keyframes ra-bar { 0% { width: 0; margin-left: 0; } 50% { width: 100%; margin-left: 0; } 100% { width: 0; margin-left: 100%; } }
+
+/* ── Header ── */
+.ra-do__header {
+  background: linear-gradient(135deg, #1a2a3a 0%, #54a8dc 100%);
+  color: #fff; display: flex; flex-direction: column;
+  position: sticky; top: 0; z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.ra-do__header-top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 24px; min-height: 48px;
+}
+.ra-do__header-left { display: flex; align-items: center; gap: 14px; }
+.ra-do__header img { height: 28px; width: auto; }
+.ra-do__header-right { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.ra-do__header-title {
+  padding: 0 24px 10px; font-size: 16px; font-weight: 600; margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  opacity: 0.9; border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 8px; text-align: center;
+}
+.ra-do__username {
+  cursor: pointer; position: relative; color: #fff;
+  text-decoration: underline; text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+.ra-do__username:hover { color: #7dc0e8; }
+.ra-do__user-dropdown {
+  position: absolute; top: 100%; right: 0; margin-top: 8px;
+  background: #fff; border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+  min-width: 200px; z-index: 9999; padding: 6px 0; display: none;
+}
+.ra-do__user-dropdown--open { display: block; }
+.ra-do__user-dropdown-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; font-size: 13px; color: #333;
+  cursor: pointer; border: none; background: none;
+  width: 100%; text-align: left;
+}
+.ra-do__user-dropdown-item:hover { background: #f5f7fa; }
+.ra-do__user-dropdown-item svg { width: 16px; height: 16px; fill: #666; flex-shrink: 0; }
+
+/* ── Popup (Profile Edit) ── */
+.ra-do__popup-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5); z-index: 99999;
+  display: flex; align-items: center; justify-content: center;
+}
+.ra-do__popup {
+  background: #fff; border-radius: 12px; width: 440px;
+  max-height: 85vh; display: flex; flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+}
+.ra-do__popup-header {
+  padding: 16px 20px; border-bottom: 1px solid #eee;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ra-do__popup-header h3 { margin: 0; font-size: 16px; color: #1a2a3a; }
+.ra-do__popup-close {
+  background: none; border: none; font-size: 22px;
+  cursor: pointer; color: #999; padding: 4px 8px;
+}
+.ra-do__popup-close:hover { color: #333; }
+.ra-do__popup-body { padding: 16px 20px; overflow-y: auto; flex: 1; }
+.ra-do__popup-field { margin-bottom: 14px; }
+.ra-do__popup-field label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; }
+.ra-do__popup-field input, .ra-do__popup-field textarea {
+  width: 100%; padding: 8px 10px; font-size: 13px;
+  border: 1px solid #d0d5dd; border-radius: 6px;
+  box-sizing: border-box; font-family: inherit;
+}
+.ra-do__popup-field textarea { resize: vertical; min-height: 60px; }
+.ra-do__popup-field input:focus, .ra-do__popup-field textarea:focus { border-color: #54a8dc; outline: none; }
+.ra-do__popup-footer {
+  padding: 12px 20px; border-top: 1px solid #eee;
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.ra-do__popup-btn {
+  padding: 8px 16px; border-radius: 6px; font-size: 13px;
+  cursor: pointer; border: 1px solid #d0d5dd; background: #fff; color: #333;
+}
+.ra-do__popup-btn:hover { background: #f5f7fa; }
+.ra-do__popup-btn--primary { background: #54a8dc; color: #fff; border-color: #54a8dc; }
+.ra-do__popup-btn--primary:hover { background: #3d8abf; }
+.ra-do__popup-status { padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-top: 8px; display: none; }
+.ra-do__popup-status--ok { display: block; background: #e8f5e9; color: #2e7d32; }
+.ra-do__popup-status--err { display: block; background: #fbe9e7; color: #c62828; }
+
+/* ── Subscribe Button ── */
+.ra-do__subscribe-btn {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9998;
+  background: #54a8dc; color: #fff; border: none; border-radius: 50px;
+  padding: 12px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(84,168,220,0.4);
+  display: flex; align-items: center; gap: 8px;
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+}
+.ra-do__subscribe-btn:hover { background: #3d8abf; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(84,168,220,0.5); }
+.ra-do__subscribe-btn svg { width: 18px; height: 18px; fill: #fff; }
+.ra-do__subscribe-popup {
+  position: fixed; bottom: 80px; right: 24px; z-index: 9999;
+  background: #fff; border-radius: 12px; width: 380px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+  display: none; flex-direction: column;
+  animation: ra-slidein 0.25s ease;
+}
+.ra-do__subscribe-popup--open { display: flex; }
+@keyframes ra-slidein { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.ra-do__subscribe-header {
+  padding: 14px 18px; border-bottom: 1px solid #eee;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ra-do__subscribe-header h4 { margin: 0; font-size: 15px; color: #1a2a3a; }
+.ra-do__subscribe-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #999; padding: 2px 6px; }
+.ra-do__subscribe-close:hover { color: #333; }
+.ra-do__subscribe-body { padding: 16px 18px; min-height: 200px; }
+
+/* ── Logout ── */
+.ra-do__logout {
+  background: rgba(255,255,255,0.2); color: #fff; border: none;
+  padding: 7px 16px; border-radius: 5px; font-size: 13px; cursor: pointer;
+}
+.ra-do__logout:hover { background: rgba(255,255,255,0.3); }
+
+/* ── Content ── */
+.ra-do__content {
+  max-width: 1200px; margin: 0 auto; padding: 24px 24px 60px;
+  flex: 1; width: 100%; box-sizing: border-box;
+}
+
+/* ── Widget Grid ── */
+.ra-do__grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
+}
+.ra-do__widget {
+  background: #fff; border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden;
+}
+.ra-do__widget--full { grid-column: 1 / -1; }
+.ra-do__widget--half { grid-column: span 2; }
+.ra-do__widget--three-quarter { grid-column: span 3; }
+.ra-do__widget--quarter { grid-column: span 1; }
+.ra-do__widget-header {
+  padding: 14px 18px; border-bottom: 1px solid #f1f5f9;
+  font-size: 14px; font-weight: 600; color: #1e293b;
+}
+.ra-do__widget-body { padding: 18px; }
+
+/* ── Stats ── */
+.ra-do__stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+.ra-do__stat { text-align: center; padding: 12px; }
+.ra-do__stat-value { font-size: 28px; font-weight: 700; color: #1e293b; }
+.ra-do__stat-label { font-size: 12px; color: #64748b; margin-top: 4px; }
+
+/* ── Chart ── */
+.ra-do__bar { fill: #54a8dc; transition: fill 0.15s; }
+.ra-do__bar:hover { fill: #3b8abf; }
+.ra-do__chart-label { font-size: 10px; fill: #94a3b8; }
+.ra-do__chart-val { font-size: 10px; fill: #475569; text-anchor: middle; }
+
+/* ── Table ── */
+.ra-do__table { width: 100%; border-collapse: collapse; }
+.ra-do__table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; padding: 10px 12px; border-bottom: 2px solid #e2e8f0; font-weight: 600; }
+.ra-do__table td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #334155; }
+.ra-do__table tr:hover td { background: #f8fafc; }
+
+/* ── Feed ── */
+.ra-do__feed-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+.ra-do__feed-avatar { width: 34px; height: 34px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+.ra-do__feed-info { flex: 1; min-width: 0; }
+.ra-do__feed-user { font-weight: 600; color: #1e293b; font-size: 13px; }
+.ra-do__feed-form { color: #64748b; font-size: 12px; }
+.ra-do__feed-time { color: #94a3b8; font-size: 12px; white-space: nowrap; }
+
+/* ── Pie ── */
+.ra-do__pie-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.ra-do__pie-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; }
+.ra-do__pie-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Refresh ── */
+.ra-do__refresh { font-size: 11px; color: #94a3b8; text-align: right; margin-top: 12px; }
+
+/* ── Footer ── */
+.ra-do__footer {
+  background: #1a2a3a; border-top: 2px solid #54a8dc;
+  padding: 12px 24px; display: flex; align-items: center;
+  justify-content: space-between; flex-shrink: 0;
+}
+.ra-do__footer-left { display: flex; align-items: center; gap: 10px; }
+.ra-do__footer-left img { height: 24px; opacity: 0.9; }
+.ra-do__footer-left span { font-size: 11px; color: rgba(255,255,255,0.5); }
+.ra-do__footer-right { font-size: 11px; color: rgba(255,255,255,0.4); }
+
+/* ── Tablet ── */
+@media (max-width: 900px) {
+  .ra-do__grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .ra-do__widget-header { padding: 12px 14px; font-size: 13px; }
+  .ra-do__widget-body { padding: 14px; }
+  .ra-do__content { padding: 20px 16px 40px; }
+}
+
+/* ── Mobile ── */
+@media (max-width: 600px) {
+  .ra-do__header-top { padding: 8px 14px; min-height: 40px; }
+  .ra-do__header img { height: 24px; }
+  .ra-do__header-title { padding: 0 14px 8px; font-size: 13px; padding-top: 6px; }
+  .ra-do__header-right { gap: 6px; font-size: 11px; }
+  .ra-do__logout { padding: 5px 10px; font-size: 11px; }
+  .ra-do__grid { grid-template-columns: 1fr; gap: 12px; }
+  .ra-do__content { padding: 12px 10px 30px; }
+  .ra-do__widget-header { padding: 10px 12px; font-size: 12px; }
+  .ra-do__widget-body { padding: 12px; }
+  .ra-do__stat-value { font-size: 22px; }
+  .ra-do__stat-label { font-size: 11px; }
+  .ra-do__stats { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .ra-do__stat { padding: 8px; }
+  .ra-do__feed-item { gap: 8px; padding: 8px 0; }
+  .ra-do__feed-avatar { width: 28px; height: 28px; font-size: 12px; }
+  .ra-do__feed-user { font-size: 12px; }
+  .ra-do__feed-form { font-size: 11px; }
+  .ra-do__feed-time { font-size: 11px; }
+  .ra-do__table th { font-size: 10px; padding: 8px; }
+  .ra-do__table td { font-size: 12px; padding: 8px; }
+  .ra-do__pie-legend { font-size: 11px; }
+  .ra-do__popup { width: 95vw; max-height: 90vh; border-radius: 8px; }
+  .ra-do__user-dropdown { right: -40px; min-width: 170px; }
+  .ra-do__footer { padding: 10px 14px; flex-direction: column; gap: 6px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="ra-loading">
+  <img src="/custom-static/images/ra-logo-dark.png" alt="Resilience Academy">
+  <div class="ra-bar-wrap"><div class="ra-bar-inner"></div></div>
+</div>
+
+<!-- Main content (hidden until auth check passes) -->
+<div id="ra-dashboard-app" style="display:none;flex-direction:column;min-height:100vh;">
+  <div class="ra-do__header">
+    <div class="ra-do__header-top">
+      <div class="ra-do__header-left">
+        <img src="/custom-static/images/ra-logo.png" alt="Ramani Yangu">
+      </div>
+      <div class="ra-do__header-right">
+        <span>Welcome, <strong class="ra-do__username" id="ra-do-username" title="Click for account options">
+          <div class="ra-do__user-dropdown" id="ra-do-user-dropdown">
+            <button class="ra-do__user-dropdown-item" data-action="edit-profile" title="Edit your profile details">
+              <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+              Edit Profile
+            </button>
+          </div>
+        </strong></span>
+        <button class="ra-do__logout" id="ra-do-logout-btn" title="Sign out of your account">Logout</button>
+      </div>
+    </div>
+    <div class="ra-do__header-title" id="ra-do-dash-title">Data Collection Dashboard</div>
+  </div>
+  <div class="ra-do__content">
+    <div class="ra-do__grid" id="ra-do-grid"></div>
+    <div class="ra-do__refresh" id="ra-do-refresh"></div>
+  </div>
+  <div id="ra-do-footer"></div>
+</div>
+
+<script>
 (function () {
   'use strict';
 
   var CONFIG_URL = '/webhook-api/dashboard-config';
-  var CONFIG_URL_FALLBACK = 'http://localhost:5050/api/dashboard-config';
-  var PAGE_ID = 'ra-dashonly-page';
   var BRAND_NAME = 'Ramani Yangu';
   var REFRESH_INTERVAL = 30000;
+  var PIE_COLORS = ['#54a8dc', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#14b8a6', '#6366f1'];
+  var GEO_COLORS = ['#54a8dc', '#e67e22', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#14b8a6', '#6366f1'];
 
   var currentUser = null;
-  var isDashboardOnly = false;
-  var isPreviewMode = false;
-  var previewDashboardId = null;
-  var refreshTimer = null;
   var dashConfig = null;
   var activeDashboardId = null;
+  var refreshTimer = null;
   var formsCache = [];
   var subsCache = {};
+  var _geoMapInstances = {};
 
-  var PIE_COLORS = ['#54a8dc', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#14b8a6', '#6366f1'];
-
-  if (/\/accounts\/(login|signup|password)/.test(window.location.pathname)) return;
-  if (/^\/dashboard(\/|$)/.test(window.location.pathname)) return;
-
-  // ── INSTANT SCREEN COVER (replaces default KoboToolbox loading) ──
-  var screenCover = document.createElement('div');
-  screenCover.id = 'ra-do-screencover';
-  screenCover.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#ffffff;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.4s;';
-  screenCover.innerHTML =
-    '<img src="/custom-static/images/ra-logo-dark.png" alt="Resilience Academy" style="width:180px;margin-bottom:32px;opacity:0;animation:ra-cover-fadein 0.6s ease forwards;">' +
-    '<div style="width:120px;height:2px;background:#f0f0f0;border-radius:2px;overflow:hidden;"><div style="height:100%;background:#54a8dc;border-radius:2px;animation:ra-cover-bar 2s ease-in-out infinite;"></div></div>' +
-    '<style>' +
-      '@keyframes ra-cover-fadein{to{opacity:1}}' +
-      '@keyframes ra-cover-bar{0%{width:0;margin-left:0}50%{width:100%;margin-left:0}100%{width:0;margin-left:100%}}' +
-    '</style>';
-  document.documentElement.appendChild(screenCover);
-
-  function removeScreenCover() {
-    var c = document.getElementById('ra-do-screencover');
-    if (c) {
-      c.style.opacity = '0';
-      setTimeout(function () { if (c.parentNode) c.remove(); }, 400);
-    }
-  }
-
-  // ── Styles ──
-  var style = document.createElement('style');
-  style.textContent = [
-    '#' + PAGE_ID + ' {',
-    '  position: fixed; top: 0; left: 0; right: 0; bottom: 0;',
-    '  background: #f1f5f9; z-index: 99999; overflow-y: auto;',
-    '  display: none;',
-    '  flex-direction: column;',
-    '  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
-    '}',
-    '#' + PAGE_ID + '.ra-do--visible { display: flex; }',
-    'body.ra-do-active #kpi-app { display: none !important; }',
-    'body.ra-do-active header { display: none !important; }',
-    'body.ra-do-active nav { display: none !important; }',
-    'body.ra-do-active .k-drawer { display: none !important; }',
-    'body.ra-do-active [class*="drawer"] { display: none !important; }',
-    'body.ra-do-active #ra-welcome-panel { display: none !important; }',
-    'body.ra-do-active #ra-leaderboard-page { display: none !important; }',
-    'body.ra-do-active #ra-map-page { display: none !important; }',
-    'body.ra-do-active #ra-settings-page { display: none !important; }',
-
-    '.ra-do__header {',
-    '  background: linear-gradient(135deg, #1a2a3a 0%, #54a8dc 100%);',
-    '  color: #fff; padding: 0; display: flex; flex-direction: column;',
-    '  position: sticky; top: 0; z-index: 10;',
-    '  box-shadow: 0 2px 8px rgba(0,0,0,0.15);',
-    '}',
-    '.ra-do__header-top {',
-    '  display: flex; align-items: center; justify-content: space-between;',
-    '  padding: 10px 24px; min-height: 48px;',
-    '}',
-    '.ra-do__header-left { display: flex; align-items: center; gap: 14px; }',
-    '.ra-do__header img { height: 28px; width: auto; }',
-    '.ra-do__header-right { display: flex; align-items: center; gap: 12px; font-size: 13px; }',
-    '.ra-do__header-title {',
-    '  padding: 0 24px 10px; font-size: 16px; font-weight: 600; margin: 0;',
-    '  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;',
-    '  opacity: 0.9; border-top: 1px solid rgba(255,255,255,0.1);',
-    '  padding-top: 8px; text-align: center;',
-    '}',
-    '.ra-do__username { cursor: pointer; position: relative; color: #fff; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }',
-    '.ra-do__username:hover { color: #7dc0e8; }',
-    '.ra-do__user-dropdown { position: absolute; top: 100%; right: 0; margin-top: 8px; background: #fff; border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.25); min-width: 200px; z-index: 9999; padding: 6px 0; display: none; }',
-    '.ra-do__user-dropdown--open { display: block; }',
-    '.ra-do__user-dropdown-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; font-size: 13px; color: #333; cursor: pointer; border: none; background: none; width: 100%; text-align: left; }',
-    '.ra-do__user-dropdown-item:hover { background: #f5f7fa; }',
-    '.ra-do__user-dropdown-item svg { width: 16px; height: 16px; fill: #666; flex-shrink: 0; }',
-
-    /* Profile edit popup */
-    '.ra-do__popup-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 99999; display: flex; align-items: center; justify-content: center; }',
-    '.ra-do__popup { background: #fff; border-radius: 12px; width: 440px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,0.3); }',
-    '.ra-do__popup-header { padding: 16px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }',
-    '.ra-do__popup-header h3 { margin: 0; font-size: 16px; color: #1a2a3a; }',
-    '.ra-do__popup-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #999; padding: 4px 8px; }',
-    '.ra-do__popup-close:hover { color: #333; }',
-    '.ra-do__popup-body { padding: 16px 20px; overflow-y: auto; flex: 1; }',
-    '.ra-do__popup-field { margin-bottom: 14px; }',
-    '.ra-do__popup-field label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; }',
-    '.ra-do__popup-field input, .ra-do__popup-field textarea { width: 100%; padding: 8px 10px; font-size: 13px; border: 1px solid #d0d5dd; border-radius: 6px; box-sizing: border-box; font-family: inherit; }',
-    '.ra-do__popup-field textarea { resize: vertical; min-height: 60px; }',
-    '.ra-do__popup-field input:focus, .ra-do__popup-field textarea:focus { border-color: #54a8dc; outline: none; }',
-    '.ra-do__popup-footer { padding: 12px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 8px; }',
-    '.ra-do__popup-btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; border: 1px solid #d0d5dd; background: #fff; color: #333; }',
-    '.ra-do__popup-btn:hover { background: #f5f7fa; }',
-    '.ra-do__popup-btn--primary { background: #54a8dc; color: #fff; border-color: #54a8dc; }',
-    '.ra-do__popup-btn--primary:hover { background: #3d8abf; }',
-    '.ra-do__popup-status { padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-top: 8px; display: none; }',
-    '.ra-do__popup-status--ok { display: block; background: #e8f5e9; color: #2e7d32; }',
-    '.ra-do__popup-status--err { display: block; background: #fbe9e7; color: #c62828; }',
-
-    /* Subscribe floating button */
-    '.ra-do__subscribe-btn {',
-    '  position: fixed; bottom: 24px; right: 24px; z-index: 9998;',
-    '  background: #54a8dc; color: #fff; border: none; border-radius: 50px;',
-    '  padding: 12px 20px; font-size: 13px; font-weight: 600; cursor: pointer;',
-    '  box-shadow: 0 4px 16px rgba(84,168,220,0.4);',
-    '  display: flex; align-items: center; gap: 8px;',
-    '  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;',
-    '  font-family: inherit;',
-    '}',
-    '.ra-do__subscribe-btn:hover { background: #3d8abf; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(84,168,220,0.5); }',
-    '.ra-do__subscribe-btn svg { width: 18px; height: 18px; fill: #fff; }',
-    '.ra-do__subscribe-popup {',
-    '  position: fixed; bottom: 80px; right: 24px; z-index: 9999;',
-    '  background: #fff; border-radius: 12px; width: 380px;',
-    '  box-shadow: 0 12px 40px rgba(0,0,0,0.25);',
-    '  display: none; flex-direction: column;',
-    '  animation: ra-do-slidein 0.25s ease;',
-    '}',
-    '.ra-do__subscribe-popup--open { display: flex; }',
-    '@keyframes ra-do-slidein { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }',
-    '.ra-do__subscribe-header {',
-    '  padding: 14px 18px; border-bottom: 1px solid #eee;',
-    '  display: flex; align-items: center; justify-content: space-between;',
-    '}',
-    '.ra-do__subscribe-header h4 { margin: 0; font-size: 15px; color: #1a2a3a; }',
-    '.ra-do__subscribe-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #999; padding: 2px 6px; }',
-    '.ra-do__subscribe-close:hover { color: #333; }',
-    '.ra-do__subscribe-body { padding: 16px 18px; min-height: 200px; }',
-
-    '.ra-do__logout {',
-    '  background: rgba(255,255,255,0.2); color: #fff; border: none;',
-    '  padding: 7px 16px; border-radius: 5px; font-size: 13px; cursor: pointer;',
-    '}',
-    '.ra-do__logout:hover { background: rgba(255,255,255,0.3); }',
-    '.ra-do__content { max-width: 1200px; margin: 0 auto; padding: 24px 24px 60px; flex: 1; width: 100%; box-sizing: border-box; }',
-
-    '.ra-do__grid {',
-    '  display: grid; grid-template-columns: repeat(4, 1fr);',
-    '  gap: 20px;',
-    '}',
-    '.ra-do__widget {',
-    '  background: #fff; border-radius: 8px;',
-    '  box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden;',
-    '}',
-    '.ra-do__widget--full { grid-column: 1 / -1; }',
-    '.ra-do__widget--half { grid-column: span 2; }',
-    '.ra-do__widget--three-quarter { grid-column: span 3; }',
-    '.ra-do__widget--quarter { grid-column: span 1; }',
-    '.ra-do__widget-header {',
-    '  padding: 14px 18px; border-bottom: 1px solid #f1f5f9;',
-    '  font-size: 14px; font-weight: 600; color: #1e293b;',
-    '}',
-    '.ra-do__widget-body { padding: 18px; }',
-
-    '.ra-do__stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }',
-    '.ra-do__stat { text-align: center; padding: 12px; }',
-    '.ra-do__stat-value { font-size: 28px; font-weight: 700; color: #1e293b; }',
-    '.ra-do__stat-label { font-size: 12px; color: #64748b; margin-top: 4px; }',
-
-    '.ra-do__bar { fill: #54a8dc; transition: fill 0.15s; }',
-    '.ra-do__bar:hover { fill: #3b8abf; }',
-    '.ra-do__chart-label { font-size: 10px; fill: #94a3b8; }',
-    '.ra-do__chart-val { font-size: 10px; fill: #475569; text-anchor: middle; }',
-
-    '.ra-do__table { width: 100%; border-collapse: collapse; }',
-    '.ra-do__table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; padding: 10px 12px; border-bottom: 2px solid #e2e8f0; font-weight: 600; }',
-    '.ra-do__table td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #334155; }',
-    '.ra-do__table tr:hover td { background: #f8fafc; }',
-
-    '.ra-do__feed-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }',
-    '.ra-do__feed-avatar { width: 34px; height: 34px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }',
-    '.ra-do__feed-info { flex: 1; min-width: 0; }',
-    '.ra-do__feed-user { font-weight: 600; color: #1e293b; font-size: 13px; }',
-    '.ra-do__feed-form { color: #64748b; font-size: 12px; }',
-    '.ra-do__feed-time { color: #94a3b8; font-size: 12px; white-space: nowrap; }',
-
-    '.ra-do__pie-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }',
-    '.ra-do__pie-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; }',
-    '.ra-do__pie-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }',
-
-    '.ra-do__refresh { font-size: 11px; color: #94a3b8; text-align: right; margin-top: 12px; }',
-
-    /* Tablet */
-    '@media (max-width: 900px) {',
-    '  .ra-do__grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }',
-    '  .ra-do__widget-header { padding: 12px 14px; font-size: 13px; }',
-    '  .ra-do__widget-body { padding: 14px; }',
-    '  .ra-do__content { padding: 20px 16px 40px; }',
-    '}',
-
-    /* Mobile */
-    '@media (max-width: 600px) {',
-    '  .ra-do__header-top { padding: 8px 14px; min-height: 40px; }',
-    '  .ra-do__header img { height: 24px; }',
-    '  .ra-do__header-title { padding: 0 14px 8px; font-size: 13px; padding-top: 6px; }',
-    '  .ra-do__header-right { gap: 6px; font-size: 11px; }',
-    '  .ra-do__logout { padding: 5px 10px; font-size: 11px; }',
-    '  .ra-do__grid { grid-template-columns: 1fr; gap: 12px; }',
-    '  .ra-do__content { padding: 12px 10px 30px; }',
-    '  .ra-do__widget-header { padding: 10px 12px; font-size: 12px; }',
-    '  .ra-do__widget-body { padding: 12px; }',
-    '  .ra-do__stat-value { font-size: 22px; }',
-    '  .ra-do__stat-label { font-size: 11px; }',
-    '  .ra-do__stats { grid-template-columns: repeat(4, 1fr); gap: 8px; }',
-    '  .ra-do__stat { padding: 8px; }',
-    '  .ra-do__feed-item { gap: 8px; padding: 8px 0; }',
-    '  .ra-do__feed-avatar { width: 28px; height: 28px; font-size: 12px; }',
-    '  .ra-do__feed-user { font-size: 12px; }',
-    '  .ra-do__feed-form { font-size: 11px; }',
-    '  .ra-do__feed-time { font-size: 11px; }',
-    '  .ra-do__table th { font-size: 10px; padding: 8px; }',
-    '  .ra-do__table td { font-size: 12px; padding: 8px; }',
-    '  .ra-do__pie-legend { font-size: 11px; }',
-    '  .ra-do__popup { width: 95vw; max-height: 90vh; border-radius: 8px; }',
-    '  .ra-do__user-dropdown { right: -40px; min-width: 170px; }',
-    '}',
-    ''
-  ].join('\n');
-  document.head.appendChild(style);
+  var NAME_FIELD_PATTERNS = [
+    'collector_name', 'enumerator_name', 'enumerator', 'collector',
+    'surveyor_name', 'surveyor', 'interviewer_name', 'interviewer',
+    'recorder_name', 'recorder', 'agent_name', 'agent',
+    'field_officer', 'data_collector', 'respondent_name', 'your_name'
+  ];
 
   // ── Helpers ──
   function esc(s) {
@@ -261,16 +348,7 @@
     return new Date(ds).toLocaleDateString();
   }
 
-  // Common form field names that hold the submitter/collector name
-  var NAME_FIELD_PATTERNS = [
-    'collector_name', 'enumerator_name', 'enumerator', 'collector',
-    'surveyor_name', 'surveyor', 'interviewer_name', 'interviewer',
-    'recorder_name', 'recorder', 'agent_name', 'agent',
-    'field_officer', 'data_collector', 'respondent_name', 'your_name'
-  ];
-
   function getSubmitter(s, nameField) {
-    // 1. If explicit nameField is configured, use it first
     if (nameField) {
       var keys = Object.keys(s);
       for (var j = 0; j < keys.length; j++) {
@@ -281,12 +359,8 @@
         }
       }
     }
-
-    // 2. Check _submitted_by (KoboToolbox system field)
     var user = s._submitted_by;
     if (user && user !== '' && user !== 'AnonymousUser') return user;
-
-    // 3. Auto-detect common name fields in the submission data
     var allKeys = Object.keys(s);
     for (var i = 0; i < NAME_FIELD_PATTERNS.length; i++) {
       var pattern = NAME_FIELD_PATTERNS[i];
@@ -298,8 +372,6 @@
         }
       }
     }
-
-    // 4. Fallback
     return 'Unknown';
   }
 
@@ -307,26 +379,6 @@
     return fetch(url, { credentials: 'same-origin' }).then(function (r) {
       return r.ok ? r.json() : Promise.reject(r.status);
     });
-  }
-
-  // ── User Detection ──
-  function detectUser() {
-    return fetchJSON('/me/').then(function (data) {
-      currentUser = data;
-      return loadDashboardConfig().then(function () {
-        var users = (dashConfig && dashConfig.users) ? dashConfig.users : {};
-        if (users[data.username]) {
-          isDashboardOnly = true;
-          activeDashboardId = users[data.username];
-          // Set title immediately and flag globally so ra-welcome.js stops overriding
-          document.title = data.username + ' | ' + BRAND_NAME;
-        } else {
-          isDashboardOnly = false;
-          activeDashboardId = null;
-        }
-        return isDashboardOnly;
-      });
-    }).catch(function () { return false; });
   }
 
   function fetchWithTimeout(url, opts, ms) {
@@ -343,101 +395,184 @@
     });
   }
 
+  function getCsrf() {
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+      var c = cookies[i].trim();
+      if (c.indexOf('csrftoken=') === 0) return c.substring(10);
+    }
+    return '';
+  }
+
+  function getFieldValue(sub, field) {
+    if (!field) return undefined;
+    if (sub[field] !== undefined) return sub[field];
+    var keys = Object.keys(sub);
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i].indexOf('/' + field) === keys[i].length - field.length - 1) return sub[keys[i]];
+    }
+    return undefined;
+  }
+
+  function getNumericValues(subs, field) {
+    var vals = [];
+    subs.forEach(function (s) {
+      var v = getFieldValue(s, field);
+      var n = parseFloat(v);
+      if (!isNaN(n)) vals.push(n);
+    });
+    return vals;
+  }
+
+  // ── Loading Screen ──
+  function hideLoading() {
+    var el = document.getElementById('ra-loading');
+    if (el) {
+      el.style.opacity = '0';
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 400);
+    }
+  }
+
+  // ── Extract username from URL path ──
+  // URL format: /dashboard/username or /dashboard/
+  var pathParts = window.location.pathname.replace(/\/+$/, '').split('/');
+  var urlUsername = pathParts.length >= 3 ? decodeURIComponent(pathParts[2]) : '';
+
+  // ── Auth Check ──
+  function checkAuth() {
+    return fetchJSON('/me/').then(function (data) {
+      if (!data || !data.username) {
+        var loginNext = urlUsername ? '/dashboard/' + encodeURIComponent(urlUsername) : '/dashboard/';
+        window.location.replace('/accounts/login/?next=' + loginNext);
+        return Promise.reject('not logged in');
+      }
+      currentUser = data;
+
+      // If URL has a username, verify it matches the logged-in user
+      if (urlUsername && urlUsername !== data.username) {
+        // Wrong user — redirect to their own dashboard
+        window.location.replace('/dashboard/' + encodeURIComponent(data.username));
+        return Promise.reject('wrong user');
+      }
+
+      // If URL has no username, redirect to include it
+      if (!urlUsername) {
+        window.location.replace('/dashboard/' + encodeURIComponent(data.username));
+        return Promise.reject('redirecting');
+      }
+
+      return loadDashboardConfig().then(function () {
+        var users = (dashConfig && dashConfig.users) ? dashConfig.users : {};
+        if (users[data.username]) {
+          activeDashboardId = users[data.username];
+          return true;
+        }
+        // Not a dashboard user — redirect to projects
+        window.location.replace('/#/projects/home');
+        return Promise.reject('not a dashboard user');
+      });
+    }).catch(function (err) {
+      if (err === 'not logged in' || err === 'not a dashboard user' || err === 'wrong user' || err === 'redirecting') return Promise.reject(err);
+      var loginNext = urlUsername ? '/dashboard/' + encodeURIComponent(urlUsername) : '/dashboard/';
+      window.location.replace('/accounts/login/?next=' + loginNext);
+      return Promise.reject('auth error');
+    });
+  }
+
   function loadDashboardConfig() {
-    return fetchWithTimeout(CONFIG_URL, { credentials: 'same-origin' }, 3000)
+    return fetchWithTimeout(CONFIG_URL, { credentials: 'same-origin' }, 5000)
       .then(function (r) {
         if (!r.ok) throw new Error('not ok');
         return r.json();
       })
       .then(function (c) { dashConfig = c; })
       .catch(function () {
-        // Fallback for local dev
-        return fetchWithTimeout(CONFIG_URL_FALLBACK, {}, 3000)
-          .then(function (r) { return r.ok ? r.json() : {}; })
-          .then(function (c) { dashConfig = c; })
-          .catch(function () { dashConfig = { dashboards: {}, users: {} }; });
+        dashConfig = { dashboards: {}, users: {} };
       });
   }
 
-  // ── Access Control ──
-  function enforceAccess() {
-    if (!isDashboardOnly || isPreviewMode) return;
-    var p = document.getElementById(PAGE_ID);
-    if (p) p.classList.add('ra-do--visible');
-    document.body.classList.add('ra-do-active');
-  }
-
-  // ── Get Active Dashboard ──
+  // ── Dashboard Helpers ──
   function getActiveDashboard() {
     var dashboards = (dashConfig && dashConfig.dashboards) ? dashConfig.dashboards : {};
-    var dashId = isPreviewMode ? previewDashboardId : activeDashboardId;
-    if (dashId && dashboards[dashId]) {
-      return dashboards[dashId];
+    if (activeDashboardId && dashboards[activeDashboardId]) {
+      return dashboards[activeDashboardId];
     }
-    // Fallback to "default" dashboard
-    if (dashboards['default']) {
-      return dashboards['default'];
-    }
-    // Return null to trigger default widgets
+    if (dashboards['default']) return dashboards['default'];
     return null;
   }
 
-  // ── Create Page Shell ──
-  function createPage() {
-    var existing = document.getElementById(PAGE_ID);
-    if (existing) existing.remove();
+  function getFormsUrl() {
+    return '/webhook-api/dashboard-data/forms';
+  }
 
+  function getSubmissionsUrl(uid) {
+    return '/webhook-api/dashboard-data/submissions/' + uid + '?limit=100&sort={"_submission_time":-1}';
+  }
+
+  function getFormName(uid) {
+    for (var i = 0; i < formsCache.length; i++) {
+      if (formsCache[i].uid === uid) return formsCache[i].name;
+    }
+    return uid;
+  }
+
+  function getSubsForWidget(w) {
+    var uids = w.forms || [];
+    var all = [];
+    if (!uids.length || uids[0] === '__all__') {
+      Object.keys(subsCache).forEach(function (uid) {
+        subsCache[uid].forEach(function (s) {
+          s._form_uid = uid;
+          s._form_name = getFormName(uid);
+          all.push(s);
+        });
+      });
+    } else {
+      uids.forEach(function (uid) {
+        (subsCache[uid] || []).forEach(function (s) {
+          s._form_uid = uid;
+          s._form_name = getFormName(uid);
+          all.push(s);
+        });
+      });
+    }
+    all.sort(function (a, b) { return new Date(b._submission_time) - new Date(a._submission_time); });
+    return all;
+  }
+
+  function getDefaultWidgets() {
+    return [
+      { id: 'd1', type: 'stat-cards', title: 'Overview', width: 'full', forms: ['__all__'] },
+      { id: 'd2', type: 'submissions-period', title: 'Submissions', width: 'full', forms: ['__all__'] },
+      { id: 'd3', type: 'form-status', title: 'Form Status', width: 'quarter', forms: ['__all__'] },
+      { id: 'd4', type: 'avg-per-day', title: 'Daily Average', width: 'quarter', forms: ['__all__'] },
+      { id: 'd5', type: 'submissions-by-day', title: 'By Day of Week', width: 'half', forms: ['__all__'] },
+      { id: 'd6', type: 'top-contributors', title: 'Top Contributors', width: 'half', forms: ['__all__'], config: { limit: 10 } },
+      { id: 'd7', type: 'submissions-by-form', title: 'Submissions by Form', width: 'half', forms: ['__all__'] },
+      { id: 'd8', type: 'recent-feed', title: 'Recent Submissions', width: 'half', forms: ['__all__'], config: { limit: 10 } },
+      { id: 'd9', type: 'geo-coverage', title: 'Geographic Coverage', width: 'half', forms: ['__all__'] }
+    ];
+  }
+
+  // ── Initialize Page ──
+  function initPage() {
+    var app = document.getElementById('ra-dashboard-app');
+    app.style.display = 'flex';
+
+    // Set username
+    var usernameEl = document.getElementById('ra-do-username');
+    if (usernameEl) usernameEl.insertBefore(document.createTextNode(currentUser.username), usernameEl.firstChild);
+
+    // Set title
     var dashboard = getActiveDashboard();
     var dashName = (dashboard && dashboard.name) ? dashboard.name : 'Data Collection Dashboard';
+    var titleEl = document.getElementById('ra-do-dash-title');
+    if (titleEl) titleEl.textContent = dashName;
+    document.title = currentUser.username + ' | ' + BRAND_NAME;
 
-    var page = document.createElement('div');
-    page.id = PAGE_ID;
-    page.innerHTML =
-      '<div class="ra-do__header">' +
-        '<div class="ra-do__header-top">' +
-          '<div class="ra-do__header-left">' +
-            '<img src="/custom-static/images/ra-logo.png" alt="' + BRAND_NAME + '">' +
-          '</div>' +
-          '<div class="ra-do__header-right">' +
-            '<span>Welcome, <strong class="ra-do__username" id="ra-do-username" title="Click for account options">' + esc(currentUser ? currentUser.username : '') +
-              '<div class="ra-do__user-dropdown" id="ra-do-user-dropdown">' +
-                '<button class="ra-do__user-dropdown-item" data-action="edit-profile" title="Edit your profile details">' +
-                  '<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>' +
-                  'Edit Profile</button>' +
-              '</div>' +
-            '</strong></span>' +
-            '<button class="ra-do__logout" id="ra-do-logout-btn" title="Sign out of your account">Logout</button>' +
-          '</div>' +
-        '</div>' +
-        '<div class="ra-do__header-title">' + esc(dashName) + '</div>' +
-      '</div>' +
-      '<div class="ra-do__content">' +
-        '<div class="ra-do__grid" id="ra-do-grid"></div>' +
-        '<div class="ra-do__refresh" id="ra-do-refresh"></div>' +
-      '</div>' +
-      '<div id="ra-do-footer" style="display:none;"></div>';
-
-    document.body.appendChild(page);
-    page.classList.add('ra-do--visible');
-    if (!isPreviewMode) document.body.classList.add('ra-do-active');
-
-    // Load footer from customization/footer/
-    loadDashboardFooter();
-
-    // Subscribe floating button
-    createSubscribeButton(page);
-
-    // Set browser tab title to "username | Ramani Yangu"
-    if (currentUser && currentUser.username) {
-      document.title = currentUser.username + ' | ' + BRAND_NAME;
-    }
-
+    // Logout handler
     document.getElementById('ra-do-logout-btn').addEventListener('click', function () {
-      var csrf = '';
-      document.cookie.split(';').forEach(function (c) {
-        c = c.trim();
-        if (c.indexOf('csrftoken=') === 0) csrf = c.substring(10);
-      });
+      var csrf = getCsrf();
       var form = document.createElement('form');
       form.method = 'POST';
       form.action = '/accounts/logout/';
@@ -450,8 +585,7 @@
       form.submit();
     });
 
-    // Username dropdown toggle
-    var usernameEl = document.getElementById('ra-do-username');
+    // Username dropdown
     var userDropdown = document.getElementById('ra-do-user-dropdown');
     if (usernameEl && userDropdown) {
       usernameEl.addEventListener('click', function (e) {
@@ -467,21 +601,24 @@
         e.stopPropagation();
         userDropdown.classList.remove('ra-do__user-dropdown--open');
         var act = item.getAttribute('data-action');
-        if (act === 'edit-profile') openDashEditProfile();
-        else if (act === 'change-password') openDashChangePassword();
+        if (act === 'edit-profile') openEditProfile();
       });
     }
+
+    // Subscribe button
+    createSubscribeButton();
+
+    // Load footer
+    loadFooter();
   }
 
-  function createSubscribeButton(page) {
-    // Floating subscribe button
+  function createSubscribeButton() {
     var btn = document.createElement('button');
     btn.className = 'ra-do__subscribe-btn';
     btn.innerHTML =
       '<svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>' +
       'Subscribe';
 
-    // Popup
     var popup = document.createElement('div');
     popup.className = 'ra-do__subscribe-popup';
     popup.innerHTML =
@@ -493,15 +630,14 @@
         '<div id="ra-do-subscribe-form"></div>' +
       '</div>';
 
-    page.appendChild(btn);
-    page.appendChild(popup);
+    document.body.appendChild(btn);
+    document.body.appendChild(popup);
 
-    // Preload the SureContact script immediately (in background)
+    // Preload SureContact
     var scScript = document.createElement('script');
     scScript.src = 'https://app.surecontact.com/embed/forms.js';
     document.head.appendChild(scScript);
 
-    // Toggle popup
     var formRendered = false;
     btn.addEventListener('click', function () {
       var isOpen = popup.classList.contains('ra-do__subscribe-popup--open');
@@ -519,12 +655,10 @@
       }
     });
 
-    // Close button
     popup.querySelector('.ra-do__subscribe-close').addEventListener('click', function () {
       popup.classList.remove('ra-do__subscribe-popup--open');
     });
 
-    // Close on click outside
     document.addEventListener('click', function (e) {
       if (!popup.classList.contains('ra-do__subscribe-popup--open')) return;
       if (popup.contains(e.target) || btn.contains(e.target)) return;
@@ -532,52 +666,37 @@
     });
   }
 
-  function getCsrf() {
-    var c = document.cookie.split(';').find(function (s) { return s.trim().indexOf('csrftoken=') === 0; });
-    return c ? c.trim().substring(10) : '';
-  }
-
-  function loadDashboardFooter() {
+  function loadFooter() {
     var footerEl = document.getElementById('ra-do-footer');
     if (!footerEl) return;
 
-    // Load footer CSS
-    var cssLink = document.createElement('link');
-    cssLink.rel = 'stylesheet';
-    cssLink.href = '/custom-static/../customization/footer/dashboard-footer.css';
-
-    // Try loading from the custom-static mount (footer files are served via nginx)
     fetch('/custom-static/footer/dashboard-footer.html')
       .then(function (r) {
         if (!r.ok) throw new Error('not found');
         return r.text();
       })
       .then(function (html) {
-        // Replace template variables
         html = html.replace(/\{\{YEAR\}\}/g, new Date().getFullYear());
         html = html.replace(/\{\{BRAND\}\}/g, BRAND_NAME);
         footerEl.innerHTML = html;
-
-        // Load CSS
         var css = document.createElement('link');
         css.rel = 'stylesheet';
         css.href = '/custom-static/footer/dashboard-footer.css';
         document.head.appendChild(css);
       })
       .catch(function () {
-        // Fallback: inline footer if file not found
         footerEl.innerHTML =
-          '<div style="background:#1a2a3a;border-top:2px solid #54a8dc;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">' +
-            '<div style="display:flex;align-items:center;gap:10px;">' +
-              '<img src="/custom-static/images/ra-logo.png" alt="" style="height:24px;opacity:0.9;">' +
-              '<span style="font-size:11px;color:rgba(255,255,255,0.5);">Powered by Resilience Academy</span>' +
+          '<div class="ra-do__footer">' +
+            '<div class="ra-do__footer-left">' +
+              '<img src="/custom-static/images/ra-logo.png" alt="">' +
+              '<span>Powered by Resilience Academy</span>' +
             '</div>' +
-            '<div style="font-size:11px;color:rgba(255,255,255,0.4);">&copy; ' + new Date().getFullYear() + ' ' + BRAND_NAME + '</div>' +
+            '<div class="ra-do__footer-right">&copy; ' + new Date().getFullYear() + ' ' + BRAND_NAME + '</div>' +
           '</div>';
       });
   }
 
-  function openDashEditProfile() {
+  function openEditProfile() {
     fetchJSON('/me/').then(function (user) {
       if (!user) return;
       var extra = user.extra_details || {};
@@ -625,58 +744,7 @@
     });
   }
 
-  function openDashChangePassword() {
-    var overlay = document.createElement('div');
-    overlay.className = 'ra-do__popup-overlay';
-    overlay.innerHTML =
-      '<div class="ra-do__popup">' +
-        '<div class="ra-do__popup-header"><h3>Change Password</h3><button class="ra-do__popup-close" title="Close">&times;</button></div>' +
-        '<div class="ra-do__popup-body">' +
-          '<div class="ra-do__popup-field"><label>Current Password</label><input type="password" id="ra-do-pw-old"></div>' +
-          '<div class="ra-do__popup-field"><label>New Password</label><input type="password" id="ra-do-pw-new1"></div>' +
-          '<div class="ra-do__popup-field"><label>Confirm New Password</label><input type="password" id="ra-do-pw-new2"></div>' +
-          '<div class="ra-do__popup-status" id="ra-do-pw-status"></div>' +
-        '</div>' +
-        '<div class="ra-do__popup-footer"><button class="ra-do__popup-btn" id="ra-do-pw-cancel">Cancel</button><button class="ra-do__popup-btn ra-do__popup-btn--primary" id="ra-do-pw-save">Update Password</button></div>' +
-      '</div>';
-    document.body.appendChild(overlay);
-    overlay.querySelector('.ra-do__popup-close').addEventListener('click', function () { overlay.remove(); });
-    overlay.querySelector('#ra-do-pw-cancel').addEventListener('click', function () { overlay.remove(); });
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
-    overlay.querySelector('#ra-do-pw-save').addEventListener('click', function () {
-      var statusEl = overlay.querySelector('#ra-do-pw-status');
-      var oldPw = overlay.querySelector('#ra-do-pw-old').value;
-      var newPw1 = overlay.querySelector('#ra-do-pw-new1').value;
-      var newPw2 = overlay.querySelector('#ra-do-pw-new2').value;
-      if (!oldPw || !newPw1 || !newPw2) { statusEl.className = 'ra-do__popup-status ra-do__popup-status--err'; statusEl.textContent = 'All fields are required.'; return; }
-      if (newPw1 !== newPw2) { statusEl.className = 'ra-do__popup-status ra-do__popup-status--err'; statusEl.textContent = 'Passwords do not match.'; return; }
-      if (newPw1.length < 8) { statusEl.className = 'ra-do__popup-status ra-do__popup-status--err'; statusEl.textContent = 'Minimum 8 characters.'; return; }
-      var fd = new FormData();
-      fd.append('oldpassword', oldPw); fd.append('password1', newPw1); fd.append('password2', newPw2);
-      fetch('/accounts/password/change/', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': getCsrf() }, body: fd })
-      .then(function (r) {
-        if (r.ok || r.status === 302) { statusEl.className = 'ra-do__popup-status ra-do__popup-status--ok'; statusEl.textContent = 'Password changed!'; setTimeout(function () { overlay.remove(); }, 1200); }
-        else { return r.text().then(function (t) { if (t.indexOf('current password') !== -1) throw new Error('Current password is incorrect.'); throw new Error('Failed to change password.'); }); }
-      }).catch(function (err) { statusEl.className = 'ra-do__popup-status ra-do__popup-status--err'; statusEl.textContent = err.message; });
-    });
-  }
-
-  // ── Load Data & Render ──
-  // Use proxy for dashboard users (they don't have direct API access)
-  function getFormsUrl() {
-    if (isDashboardOnly && !isPreviewMode) {
-      return '/webhook-api/dashboard-data/forms';
-    }
-    return '/api/v2/assets/?asset_type=survey&fields=["uid","name","deployment_status","deployment__submission_count","date_modified","content"]&limit=200';
-  }
-
-  function getSubmissionsUrl(uid) {
-    if (isDashboardOnly && !isPreviewMode) {
-      return '/webhook-api/dashboard-data/submissions/' + uid + '?limit=100&sort={"_submission_time":-1}';
-    }
-    return '/api/v2/assets/' + uid + '/data/?limit=100&sort={"_submission_time":-1}';
-  }
-
+  // ── Data Loading ──
   function loadAndRender() {
     return loadDashboardConfig().then(function () {
       return fetchJSON(getFormsUrl());
@@ -686,7 +754,6 @@
       var dashboard = getActiveDashboard();
       var widgets = (dashboard && dashboard.widgets && dashboard.widgets.length) ? dashboard.widgets : getDefaultWidgets();
 
-      // Determine which forms we need submissions for
       var neededUids = {};
       widgets.forEach(function (w) {
         var uids = w.forms || [];
@@ -711,27 +778,15 @@
       renderWidgets(widgets);
       var ref = document.getElementById('ra-do-refresh');
       if (ref) ref.textContent = 'Auto-refreshes every 30s \u00b7 Last updated: ' + new Date().toLocaleTimeString();
-      // Show footer after content has loaded
       var footerEl = document.getElementById('ra-do-footer');
       if (footerEl) footerEl.style.display = '';
+    }).catch(function (err) {
+      var grid = document.getElementById('ra-do-grid');
+      if (grid) grid.innerHTML = '<div class="ra-do__widget ra-do__widget--full"><div class="ra-do__widget-body" style="text-align:center;padding:40px;color:#94a3b8;">Failed to load dashboard data. Retrying...</div></div>';
     });
   }
 
-  function getDefaultWidgets() {
-    return [
-      { id: 'd1', type: 'stat-cards', title: 'Overview', width: 'full', forms: ['__all__'] },
-      { id: 'd2', type: 'submissions-period', title: 'Submissions', width: 'full', forms: ['__all__'] },
-      { id: 'd3', type: 'form-status', title: 'Form Status', width: 'quarter', forms: ['__all__'] },
-      { id: 'd4', type: 'avg-per-day', title: 'Daily Average', width: 'quarter', forms: ['__all__'] },
-      { id: 'd5', type: 'submissions-by-day', title: 'By Day of Week', width: 'half', forms: ['__all__'] },
-      { id: 'd6', type: 'top-contributors', title: 'Top Contributors', width: 'half', forms: ['__all__'], config: { limit: 10 } },
-      { id: 'd7', type: 'submissions-by-form', title: 'Submissions by Form', width: 'half', forms: ['__all__'] },
-      { id: 'd8', type: 'recent-feed', title: 'Recent Submissions', width: 'half', forms: ['__all__'], config: { limit: 10 } },
-      { id: 'd9', type: 'geo-coverage', title: 'Geographic Coverage', width: 'half', forms: ['__all__'] }
-    ];
-  }
-
-  // ── Render Widgets ──
+  // ── Widget Rendering ──
   function renderWidgets(widgets) {
     var grid = document.getElementById('ra-do-grid');
     if (!grid) return;
@@ -800,52 +855,16 @@
         default: el.innerHTML = '<p style="color:#999;">Unknown widget type: ' + esc(w.type) + '</p>';
       }
 
-      // Apply custom text color to ALL child elements after rendering
-      // This overrides hardcoded inline colors inside each widget
       var cfg = w.config || {};
       if (cfg.textColor) {
         el.querySelectorAll('*').forEach(function (node) {
-          // Skip elements that are part of interactive controls (selects, inputs)
           if (node.tagName === 'SELECT' || node.tagName === 'INPUT' || node.tagName === 'OPTION') return;
-          // Skip SVG chart elements (they use fill, not color)
           if (node.closest('svg')) return;
-          // Skip the geo map container
           if (node.closest('[id^="ra-geo-map"]')) return;
           node.style.color = cfg.textColor;
         });
       }
     });
-  }
-
-  function getSubsForWidget(w) {
-    var uids = w.forms || [];
-    var all = [];
-    if (!uids.length || uids[0] === '__all__') {
-      Object.keys(subsCache).forEach(function (uid) {
-        subsCache[uid].forEach(function (s) {
-          s._form_uid = uid;
-          s._form_name = getFormName(uid);
-          all.push(s);
-        });
-      });
-    } else {
-      uids.forEach(function (uid) {
-        (subsCache[uid] || []).forEach(function (s) {
-          s._form_uid = uid;
-          s._form_name = getFormName(uid);
-          all.push(s);
-        });
-      });
-    }
-    all.sort(function (a, b) { return new Date(b._submission_time) - new Date(a._submission_time); });
-    return all;
-  }
-
-  function getFormName(uid) {
-    for (var i = 0; i < formsCache.length; i++) {
-      if (formsCache[i].uid === uid) return formsCache[i].name;
-    }
-    return uid;
   }
 
   // ── Widget: Stat Cards ──
@@ -1025,30 +1044,7 @@
     '</div>';
   }
 
-  // ── Field Value Helper ──
-  function getFieldValue(sub, field) {
-    if (!field) return undefined;
-    // Direct match
-    if (sub[field] !== undefined) return sub[field];
-    // Try nested path (group/field)
-    var keys = Object.keys(sub);
-    for (var i = 0; i < keys.length; i++) {
-      if (keys[i].indexOf('/' + field) === keys[i].length - field.length - 1) return sub[keys[i]];
-    }
-    return undefined;
-  }
-
-  function getNumericValues(subs, field) {
-    var vals = [];
-    subs.forEach(function (s) {
-      var v = getFieldValue(s, field);
-      var n = parseFloat(v);
-      if (!isNaN(n)) vals.push(n);
-    });
-    return vals;
-  }
-
-  // ── Widget: Field Number (sum/avg/min/max of a numeric field) ──
+  // ── Widget: Field Number ──
   function renderFieldNumber(el, w, subs) {
     var cfg = w.config || {};
     var field = cfg.field || '';
@@ -1073,7 +1069,6 @@
     }
 
     var displayVal = (typeof value === 'number' && value % 1 !== 0) ? value.toLocaleString(undefined, {maximumFractionDigits: 2}) : value.toLocaleString();
-
     var displayStr = (cfg.prefix || '') + displayVal + (cfg.suffix || '');
     el.innerHTML = '<div style="text-align:center;padding:20px;">' +
       '<div style="font-size:42px;font-weight:700;color:#1e293b;">' + esc(displayStr) + '</div>' +
@@ -1082,7 +1077,7 @@
     '</div>';
   }
 
-  // ── Widget: Field Text List (unique values with counts) ──
+  // ── Widget: Field Text List ──
   function renderFieldTextList(el, w, subs) {
     var cfg = w.config || {};
     var field = cfg.field || '';
@@ -1120,7 +1115,7 @@
     }).join('');
   }
 
-  // ── Widget: Field Select Bar Chart (distribution of choices) ──
+  // ── Widget: Field Select Bar Chart ──
   function renderFieldSelectBar(el, w, subs) {
     var cfg = w.config || {};
     var field = cfg.field || '';
@@ -1129,7 +1124,6 @@
     subs.forEach(function (s) {
       var v = getFieldValue(s, field);
       if (v !== undefined && v !== null && v !== '') {
-        // Handle select_multiple (space-separated)
         var vals = String(v).split(' ');
         vals.forEach(function (val) {
           val = val.trim();
@@ -1162,7 +1156,7 @@
     el.innerHTML = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:auto;" preserveAspectRatio="xMidYMid meet">' + bars + '</svg>';
   }
 
-  // ── Widget: Field Counter (count submissions where field matches a value) ──
+  // ── Widget: Field Counter ──
   function renderFieldCounter(el, w, subs) {
     var cfg = w.config || {};
     var field = cfg.field || '';
@@ -1195,12 +1189,11 @@
     '</div>';
   }
 
-  // ── Widget: Field Latest (most recent value of a field) ──
+  // ── Widget: Field Latest ──
   function renderFieldLatest(el, w, subs) {
     var cfg = w.config || {};
     var field = cfg.field || '';
 
-    // subs are already sorted by time descending
     var latestVal = '';
     var latestTime = '';
     var latestBy = '';
@@ -1223,13 +1216,12 @@
     '</div>';
   }
 
-  // ── Widget: Field Timeline (numeric field values over time) ──
+  // ── Widget: Field Timeline ──
   function renderFieldTimeline(el, w, subs) {
     var cfg = w.config || {};
     var field = cfg.field || '';
     var days = cfg.days || 30;
 
-    // Group by day, calculate average per day
     var buckets = {};
     var labels = [];
     for (var i = days - 1; i >= 0; i--) {
@@ -1261,14 +1253,12 @@
       return Math.round(b.sum / b.count * 100) / 100;
     });
 
-    // Find min/max for scaling
     var nonNull = values.filter(function (v) { return v !== null; });
     if (!nonNull.length) { el.innerHTML = '<p style="color:#94a3b8;text-align:center;">No numeric data for "' + esc(field) + '"</p>'; return; }
     var minVal = Math.min.apply(null, nonNull);
     var maxVal = Math.max.apply(null, nonNull);
     if (maxVal === minVal) maxVal = minVal + 1;
 
-    // SVG line chart
     var svgW = 760, svgH = 180, padL = 45, padR = 10, padT = 15, padB = 25;
     var chartW = svgW - padL - padR, chartH = svgH - padT - padB;
     var stepX = chartW / (days - 1);
@@ -1285,7 +1275,6 @@
 
     var line = points.length > 1 ? '<polyline points="' + points.join(' ') + '" fill="none" stroke="#54a8dc" stroke-width="2" stroke-linejoin="round"/>' : '';
 
-    // Y-axis labels
     var yLabels = '';
     for (var k = 0; k <= 3; k++) {
       var yV = minVal + (maxVal - minVal) * k / 3;
@@ -1294,7 +1283,6 @@
       yLabels += '<line x1="' + padL + '" y1="' + yP + '" x2="' + (svgW - padR) + '" y2="' + yP + '" stroke="#f1f5f9" stroke-width="1"/>';
     }
 
-    // X-axis labels
     var xLabels = '';
     for (var m = 0; m < days; m++) {
       if (m % 5 === 0 || m === days - 1) {
@@ -1307,7 +1295,7 @@
       yLabels + xLabels + line + dots + '</svg>';
   }
 
-  // ── Widget: Info / Contact Card ──
+  // ── Widget: Info Text ──
   function renderInfoText(el, w) {
     var cfg = w.config || {};
     var html = cfg.html || '<p>No content configured. Edit this widget to add contact information.</p>';
@@ -1316,13 +1304,11 @@
     var style = 'line-height:1.7;font-size:14px;color:' + textColor + ';';
     if (bgColor) style += 'background:' + bgColor + ';padding:16px;border-radius:6px;';
     el.innerHTML = '<div style="' + style + '">' + html + '</div>';
-    // Apply text color to all child elements that don't have inline color
     if (cfg.textColor) {
       el.querySelectorAll('p,div,span,li,td,th,h1,h2,h3,h4,h5,h6,b,strong,i,em,u,small').forEach(function (node) {
         if (!node.style.color) node.style.color = cfg.textColor;
       });
     }
-    // Make links open in new tab
     var linkColor = cfg.textColor ? cfg.textColor : '#54a8dc';
     el.querySelectorAll('a').forEach(function (a) {
       a.target = '_blank';
@@ -1344,7 +1330,6 @@
         '<div id="' + containerId + '"></div>' +
       '</div>';
 
-    // Render form when SDK is ready
     function tryRender() {
       if (window.SureContactForms) {
         window.SureContactForms.render({ formId: formId, container: '#' + containerId });
@@ -1352,7 +1337,6 @@
         setTimeout(tryRender, 500);
       }
     }
-    // Load SDK if not already loaded
     if (!document.querySelector('script[src*="surecontact"]')) {
       var s = document.createElement('script');
       s.src = 'https://app.surecontact.com/embed/forms.js';
@@ -1363,21 +1347,21 @@
     }
   }
 
-  // ── Widget: Embed (generic iframe) ──
+  // ── Widget: Embed ──
   function renderEmbedWidget(el, w) {
     var cfg = w.config || {};
     var url = cfg.url || '';
     var height = cfg.height || 400;
 
     if (!url) {
-      el.innerHTML = '<p style="color:#999;text-align:center;padding:24px;">No URL configured. Edit this widget and set <code>config.url</code>.</p>';
+      el.innerHTML = '<p style="color:#999;text-align:center;padding:24px;">No URL configured.</p>';
       return;
     }
 
     el.innerHTML = '<iframe src="' + esc(url) + '" width="100%" height="' + height + '" frameborder="0" style="border:none;border-radius:6px;" loading="lazy"></iframe>';
   }
 
-  // ── Widget: Submissions by Form (KoboToolbox) ──
+  // ── Widget: Submissions by Form ──
   function renderSubmissionsByForm(el, w) {
     var cfg = w.config || {};
     var sortBy = cfg.sortBy || 'count';
@@ -1408,7 +1392,7 @@
     el.innerHTML = html || '<p style="color:#94a3b8;text-align:center;">No forms</p>';
   }
 
-  // ── Widget: Top Contributors (KoboToolbox) ──
+  // ── Widget: Top Contributors ──
   function renderTopContributors(el, w, subs) {
     var cfg = w.config || {};
     var limit = cfg.limit || 10;
@@ -1438,10 +1422,10 @@
     }).join('');
   }
 
-  // ── Widget: Submissions by Day of Week (KoboToolbox) ──
+  // ── Widget: Submissions by Day of Week ──
   function renderSubmissionsByDay(el, w, subs) {
     var cfg = w.config || {};
-    var filterDays = cfg.days || 0; // 0 = all time
+    var filterDays = cfg.days || 0;
     var cutoff = filterDays ? new Date(Date.now() - filterDays * 86400000) : null;
     var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     var counts = [0, 0, 0, 0, 0, 0, 0];
@@ -1466,7 +1450,7 @@
       }).join('') + '</div>';
   }
 
-  // ── Widget: Average Per Day (KoboToolbox) ──
+  // ── Widget: Average Per Day ──
   function renderAvgPerDay(el, w, subs) {
     if (!subs.length) { el.innerHTML = '<p style="color:#94a3b8;text-align:center;">No submissions</p>'; return; }
     var cfg = w.config || {};
@@ -1499,7 +1483,7 @@
       '</div></div>';
   }
 
-  // ── Widget: Submissions by Period - KoboToolbox style with tabs ──
+  // ── Widget: Submissions by Period ──
   function renderSubmissionsPeriod(el, w, subs) {
     var periods = [
       { label: 'Past 7 days', days: 7 },
@@ -1516,7 +1500,6 @@
         return s._submission_time && new Date(s._submission_time) >= cutoff;
       });
 
-      // Build day buckets
       var buckets = {};
       for (var i = p.days - 1; i >= 0; i--) {
         var d = new Date(Date.now() - i * 86400000);
@@ -1531,13 +1514,11 @@
       var values = labels.map(function (l) { return buckets[l]; });
       var maxV = Math.max.apply(null, values) || 1;
 
-      // Tabs
       var tabs = periods.map(function (pp, idx) {
         var active = idx === periodIdx ? 'background:#54a8dc;color:#fff;' : 'background:#f1f5f9;color:#64748b;';
         return '<button style="padding:6px 12px;border:none;border-radius:4px;font-size:12px;cursor:pointer;' + active + '" data-pidx="' + idx + '">' + pp.label + '</button>';
       }).join('');
 
-      // Bar chart
       var barW = Math.max(2, Math.floor(700 / labels.length) - 2);
       var bars = values.map(function (v, i) {
         var h = Math.round((v / maxV) * 100);
@@ -1545,7 +1526,6 @@
           '<div style="width:80%;height:' + Math.max(h, 2) + '%;background:#54a8dc;border-radius:2px 2px 0 0;"></div></div>';
       }).join('');
 
-      // Summary numbers
       var totalP = filtered.length;
 
       el.innerHTML = '<div style="display:flex;gap:8px;margin-bottom:12px;">' + tabs + '</div>' +
@@ -1561,7 +1541,6 @@
           '</div>' +
         '</div>';
 
-      // Tab click handlers
       el.querySelectorAll('[data-pidx]').forEach(function (btn) {
         btn.addEventListener('click', function () { render(parseInt(this.getAttribute('data-pidx'))); });
       });
@@ -1570,10 +1549,7 @@
     render(activePeriod);
   }
 
-  // ── Widget: Geographic Coverage (KoboToolbox) — View-Only Leaflet Map ──
-  var GEO_COLORS = ['#54a8dc', '#e67e22', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#14b8a6', '#6366f1'];
-  var _geoMapInstances = {};
-
+  // ── Widget: Geographic Coverage ──
   function loadLeafletForGeo(callback) {
     if (window.L && window.L.map) { callback(); return; }
     if (!document.querySelector('link[href*="leaflet"]')) {
@@ -1607,7 +1583,6 @@
     var selectId = 'ra-geo-sel-' + w.id;
     var countId = 'ra-geo-count-' + w.id;
 
-    // Group submissions by form
     var formGroups = {};
     subs.forEach(function (s) {
       var uid = s._form_uid || '__unknown__';
@@ -1616,7 +1591,6 @@
     });
     var formKeys = Object.keys(formGroups);
 
-    // Only include forms that actually have GPS points
     var formsWithGeo = formKeys.filter(function (uid) {
       return formGroups[uid].subs.some(function (s) {
         var g = s._geolocation;
@@ -1626,7 +1600,6 @@
       });
     });
 
-    // Build form selector
     var optionsHtml = '<option value="__all__">All Forms (' + formsWithGeo.length + ')</option>';
     formsWithGeo.forEach(function (uid) {
       optionsHtml += '<option value="' + esc(uid) + '">' + esc(formGroups[uid].name) + '</option>';
@@ -1655,7 +1628,6 @@
         var container = document.getElementById(mapId);
         if (!container || container.offsetWidth === 0) return;
 
-        // Destroy previous instance on re-render
         if (_geoMapInstances[w.id]) {
           try { _geoMapInstances[w.id].remove(); } catch (e) {}
           _geoMapInstances[w.id] = null;
@@ -1664,17 +1636,16 @@
         var map = L.map(mapId, {
           center: [-6.8, 39.28],
           zoom: 6,
-          zoomControl: false,        // no zoom buttons — keep it clean
-          scrollWheelZoom: false,     // prevent accidental scroll zoom
-          doubleClickZoom: false,     // no double-click zoom
-          boxZoom: false,             // no box zoom
-          keyboard: false,            // no keyboard nav
-          dragging: true,             // allow panning
+          zoomControl: false,
+          scrollWheelZoom: false,
+          doubleClickZoom: false,
+          boxZoom: false,
+          keyboard: false,
+          dragging: true,
           attributionControl: false
         });
         _geoMapInstances[w.id] = map;
 
-        // Street basemap
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19
         }).addTo(map);
@@ -1711,7 +1682,7 @@
                 weight: 1.5,
                 opacity: 1,
                 fillOpacity: 0.8,
-                interactive: false   // no click/hover — view only
+                interactive: false
               }).addTo(activeLayer);
 
               bounds.push([lat, lon]);
@@ -1727,10 +1698,8 @@
           }
         }
 
-        // Initial render
         showPoints('__all__');
 
-        // Form selector — switch view
         var selectEl = document.getElementById(selectId);
         if (selectEl) {
           selectEl.addEventListener('change', function () { showPoints(this.value); });
@@ -1741,7 +1710,7 @@
     });
   }
 
-  // ── Widget: Form Status Overview (KoboToolbox) ──
+  // ── Widget: Form Status ──
   function renderFormStatus(el, w) {
     var deployed = 0, draft = 0, archived = 0;
     formsCache.forEach(function (f) {
@@ -1779,19 +1748,13 @@
 
   // ── Bootstrap ──
   function bootstrap() {
-    // Safety: always remove cover after 3 seconds no matter what
-    setTimeout(removeScreenCover, 3000);
-
-    detectUser().then(function (isDashOnly) {
-      if (!isDashOnly) {
-        removeScreenCover();
-        return;
-      }
-      // Dashboard user detected — redirect to standalone dashboard page with username
-      removeScreenCover();
-      window.location.replace('/dashboard/' + encodeURIComponent(currentUser.username));
+    checkAuth().then(function () {
+      hideLoading();
+      initPage();
+      loadAndRender();
+      startRefresh();
     }).catch(function () {
-      removeScreenCover();
+      // Auth redirects are handled inside checkAuth
     });
   }
 
@@ -1800,43 +1763,7 @@
   } else {
     bootstrap();
   }
-
-  // ── Admin Preview API ──
-  window.__raDashboardPreview = {
-    show: function (dashboardId) {
-      isPreviewMode = true;
-      previewDashboardId = dashboardId || 'default';
-      var existing = document.getElementById(PAGE_ID);
-      if (existing) existing.remove();
-      document.body.classList.remove('ra-do-active');
-
-      (currentUser ? Promise.resolve() : fetchJSON('/me/').then(function (d) { currentUser = d; }))
-        .then(function () {
-          return loadDashboardConfig();
-        })
-        .then(function () {
-          createPage();
-          var page = document.getElementById(PAGE_ID);
-          var bar = document.createElement('div');
-          bar.id = 'ra-do-preview-bar';
-          bar.style.cssText = 'background:#f59e0b;color:#000;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;z-index:100000;';
-          bar.innerHTML = '<span>ADMIN PREVIEW \u2014 This is what dashboard users see</span><button id="ra-do-preview-exit" title="Exit preview and return to Dashboard" style="background:#000;color:#fff;border:none;padding:8px 18px;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;">Exit Preview</button>';
-          page.insertBefore(bar, page.firstChild);
-          var lb = document.getElementById('ra-do-logout-btn');
-          if (lb) lb.style.display = 'none';
-          loadAndRender();
-          document.getElementById('ra-do-preview-exit').addEventListener('click', function () {
-            window.__raDashboardPreview.hide();
-          });
-        });
-    },
-    hide: function () {
-      isPreviewMode = false;
-      previewDashboardId = null;
-      var page = document.getElementById(PAGE_ID);
-      if (page) page.remove();
-      document.body.classList.remove('ra-do-active');
-      window.location.hash = '#/dashboard-admin';
-    }
-  };
 })();
+</script>
+</body>
+</html>

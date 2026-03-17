@@ -125,6 +125,30 @@ sed -i '/server_name.*kf\./,/^}/{
 }' "$NGINX_CONF"
 echo "GeoNode proxy endpoint configured."
 
+# Standalone dashboard page — served directly by nginx (no KPI proxy)
+DASHBOARD_PAGE_CONF="/etc/nginx/includes/dashboard_page.conf"
+cat > "$DASHBOARD_PAGE_CONF" << 'NGINX_DASH'
+location = /dashboard {
+    return 301 /dashboard/;
+}
+location = /dashboard/ {
+    alias /srv/custom-static/dashboard.html;
+    default_type text/html;
+    expires -1;
+    add_header Cache-Control "no-cache, no-store, must-revalidate";
+}
+location ~ ^/dashboard/[a-zA-Z0-9._-]+/?$ {
+    alias /srv/custom-static/dashboard.html;
+    default_type text/html;
+    expires -1;
+    add_header Cache-Control "no-cache, no-store, must-revalidate";
+}
+NGINX_DASH
+sed -i '/server_name.*kf\./,/^}/{
+    /location \/static {/i\    include /etc/nginx/includes/dashboard_page.conf;
+}' "$NGINX_CONF"
+echo "Standalone dashboard page configured."
+
 # Dashboard users API proxy — routes /webhook-api/ to the webhook-relay service
 WEBHOOK_API_CONF="/etc/nginx/includes/webhook_api.conf"
 cat > "$WEBHOOK_API_CONF" << 'NGINX_WH'
