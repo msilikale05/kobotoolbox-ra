@@ -303,7 +303,7 @@ body {
     <div class="ra-do__grid" id="ra-do-grid"></div>
     <div class="ra-do__refresh" id="ra-do-refresh"></div>
   </div>
-  <div id="ra-do-footer"></div>
+  <div id="ra-do-footer" style="display:none;"></div>
 </div>
 
 <script>
@@ -679,6 +679,7 @@ body {
         html = html.replace(/\{\{YEAR\}\}/g, new Date().getFullYear());
         html = html.replace(/\{\{BRAND\}\}/g, BRAND_NAME);
         footerEl.innerHTML = html;
+        footerEl.style.display = 'none'; // Stay hidden until widgets render
         var css = document.createElement('link');
         css.rel = 'stylesheet';
         css.href = '/custom-static/footer/dashboard-footer.css';
@@ -693,6 +694,7 @@ body {
             '</div>' +
             '<div class="ra-do__footer-right">&copy; ' + new Date().getFullYear() + ' ' + BRAND_NAME + '</div>' +
           '</div>';
+        footerEl.style.display = 'none'; // Stay hidden until widgets render
       });
   }
 

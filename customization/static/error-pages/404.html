@@ -25,12 +25,24 @@
     color: rgba(255,255,255,0.85);
     text-decoration: none;
     font-size: 13px;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-right a {
     padding: 8px 16px;
     border-radius: 5px;
     background: rgba(255,255,255,0.15);
     transition: background 0.2s;
   }
-  .header a:hover { background: rgba(255,255,255,0.25); }
+  .header-right a:hover { background: rgba(255,255,255,0.25); }
+  .header-user {
+    color: rgba(255,255,255,0.9);
+    font-size: 13px;
+    font-weight: 600;
+  }
   .accent { height: 4px; background: linear-gradient(90deg, #54a8dc, #1a2a3a); }
   .content {
     flex: 1;
@@ -104,7 +116,9 @@
 <body>
   <div class="header">
     <a href="/"><img src="/custom-static/images/ra-logo.png" alt="Ramani Yangu"></a>
-    <a href="/accounts/login/">Log In</a>
+    <div class="header-right" id="header-auth">
+      <a href="/accounts/login/">Log In</a>
+    </div>
   </div>
   <div class="accent"></div>
   <div class="content">
@@ -122,16 +136,26 @@
   <script>
   (function () {
     var btnContainer = document.getElementById('error-buttons');
+    var headerAuth = document.getElementById('header-auth');
+
     fetch('/me/', { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (user) {
         if (!user || !user.username) {
+          // Not logged in
+          headerAuth.innerHTML = '<a href="/accounts/login/">Log In</a>';
           btnContainer.innerHTML =
             '<a href="/accounts/login/" class="btn btn-primary">Log In</a>' +
             '<a href="mailto:info@ramaniyangu.com" class="btn btn-secondary">Contact Support</a>';
           return;
         }
-        // Check if dashboard user
+
+        // Both logged-in users see username + logout in header
+        headerAuth.innerHTML =
+          '<span class="header-user">' + user.username + '</span>' +
+          '<a href="/accounts/logout/">Logout</a>';
+
+        // Check if dashboard user — different button
         fetch('/webhook-api/dashboard-config', { credentials: 'same-origin' })
           .then(function (r) { return r.ok ? r.json() : {}; })
           .then(function (config) {
@@ -148,6 +172,7 @@
           });
       })
       .catch(function () {
+        headerAuth.innerHTML = '<a href="/accounts/login/">Log In</a>';
         btnContainer.innerHTML =
           '<a href="/accounts/login/" class="btn btn-primary">Log In</a>' +
           '<a href="mailto:info@ramaniyangu.com" class="btn btn-secondary">Contact Support</a>';

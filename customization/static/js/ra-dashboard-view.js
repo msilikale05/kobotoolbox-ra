@@ -790,6 +790,7 @@
         case 'submissions-by-form': renderSubmissionsByForm(el, w); break;
         case 'top-contributors': renderTopContributors(el, w, subs); break;
         case 'submissions-by-day': renderSubmissionsByDay(el, w, subs); break;
+        case 'submissions-by-hour': renderSubmissionsByHour(el, w, subs); break;
         case 'avg-per-day': renderAvgPerDay(el, w, subs); break;
         case 'submissions-period': renderSubmissionsPeriod(el, w, subs); break;
         case 'geo-coverage': renderGeoCoverage(el, w, subs); break;
@@ -1003,25 +1004,60 @@
   // ── Widget: Single Stat ──
   function renderSingleStat(el, w, subs) {
     var cfg = w.config || {};
-    var metric = cfg.metric || 'count';
+    var field = cfg.field || '';
+    var op = cfg.operation || cfg.metric || 'count';
     var value = 0;
 
-    if (metric === 'count') {
-      value = subs.length;
-    } else if (metric === 'today') {
-      var today = new Date();
-      today.setHours(0, 0, 0, 0);
-      value = subs.filter(function (s) { return new Date(s._submission_time) >= today; }).length;
-    } else if (metric === 'contributors') {
-      var c = {};
-      subs.forEach(function (s) { c[getSubmitter(s)] = true; });
-      value = Object.keys(c).length;
+    if (field && field.charAt(0) !== '_') {
+      // Field-based: aggregate from form field
+      var vals = [];
+      subs.forEach(function (s) {
+        var v = getFieldValue(s, field);
+        var n = parseFloat(v);
+        if (!isNaN(n)) vals.push(n);
+      });
+
+      if (vals.length) {
+        if (op === 'sum') {
+          vals.forEach(function (v) { value += v; });
+        } else if (op === 'average') {
+          var total = 0;
+          vals.forEach(function (v) { total += v; });
+          value = Math.round(total / vals.length * 100) / 100;
+        } else if (op === 'min') {
+          value = Math.min.apply(null, vals);
+        } else if (op === 'max') {
+          value = Math.max.apply(null, vals);
+        } else if (op === 'count') {
+          value = vals.length;
+        } else {
+          value = vals.length;
+        }
+      }
+    } else {
+      // System metric fallback
+      if (op === 'count' || !op) {
+        value = subs.length;
+      } else if (op === 'today') {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        value = subs.filter(function (s) { return new Date(s._submission_time) >= today; }).length;
+      } else if (op === 'contributors') {
+        var c = {};
+        subs.forEach(function (s) { c[getSubmitter(s)] = true; });
+        value = Object.keys(c).length;
+      }
     }
 
-    var display = (cfg.prefix || '') + value + (cfg.suffix || '');
+    var displayVal = (typeof value === 'number' && value % 1 !== 0) ? value.toLocaleString(undefined, {maximumFractionDigits: 2}) : value.toLocaleString();
+    var display = (cfg.prefix || '') + displayVal + (cfg.suffix || '');
+
+    var opLabel = op === 'sum' ? 'Total' : op === 'average' ? 'Average' : op === 'min' ? 'Minimum' : op === 'max' ? 'Maximum' : op === 'count' ? 'Count' : '';
+    var subtitle = cfg.label || (field ? opLabel + ' of ' + field : opLabel || 'Total submissions');
+
     el.innerHTML = '<div style="text-align:center;padding:20px;">' +
       '<div style="font-size:48px;font-weight:700;color:#1e293b;">' + esc(display) + '</div>' +
-      '<div style="font-size:13px;color:#64748b;margin-top:4px;">' + esc(cfg.label || metric) + '</div>' +
+      '<div style="font-size:13px;color:#64748b;margin-top:4px;">' + esc(subtitle) + '</div>' +
     '</div>';
   }
 
@@ -1439,6 +1475,48 @@
   }
 
   // ── Widget: Submissions by Day of Week (KoboToolbox) ──
+  // ── Widget: Submissions by Hour of Day ──
+  function renderSubmissionsByHour(el, w, subs) {
+    var hours = [];
+    for (var h = 0; h < 24; h++) hours.push(0);
+
+    subs.forEach(function (s) {
+      if (!s._submission_time) return;
+      var hour = new Date(s._submission_time).getHours();
+      hours[hour]++;
+    });
+
+    var maxC = Math.max.apply(null, hours) || 1;
+    var peakHour = hours.indexOf(maxC);
+
+    // Format hour labels
+    function fmtHour(h) {
+      if (h === 0) return '12am';
+      if (h < 12) return h + 'am';
+      if (h === 12) return '12pm';
+      return (h - 12) + 'pm';
+    }
+
+    var bars = '';
+    for (var i = 0; i < 24; i++) {
+      var pct = Math.round((hours[i] / maxC) * 100);
+      var isPeak = hours[i] === maxC && hours[i] > 0;
+      var color = isPeak ? '#54a8dc' : (hours[i] > 0 ? '#94a3b8' : '#e2e8f0');
+      bars += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">' +
+        '<span style="font-size:10px;font-weight:' + (isPeak ? '700' : '400') + ';color:' + (isPeak ? '#1e293b' : '#94a3b8') + ';">' + (hours[i] > 0 ? hours[i] : '') + '</span>' +
+        '<div style="width:100%;background:' + color + ';height:' + Math.max(pct, 2) + '%;border-radius:2px 2px 0 0;transition:height 0.3s;"></div>' +
+        '<span style="font-size:9px;color:#94a3b8;">' + (i % 3 === 0 ? fmtHour(i) : '') + '</span>' +
+      '</div>';
+    }
+
+    el.innerHTML =
+      '<div style="display:flex;align-items:flex-end;height:120px;gap:2px;padding-top:10px;">' + bars + '</div>' +
+      '<div style="display:flex;justify-content:center;gap:24px;margin-top:12px;font-size:12px;color:#64748b;">' +
+        '<div>Peak: <strong style="color:#1e293b;">' + fmtHour(peakHour) + '</strong> (' + maxC + ' submissions)</div>' +
+        '<div>Total: <strong style="color:#1e293b;">' + subs.length + '</strong></div>' +
+      '</div>';
+  }
+
   function renderSubmissionsByDay(el, w, subs) {
     var cfg = w.config || {};
     var filterDays = cfg.days || 0; // 0 = all time

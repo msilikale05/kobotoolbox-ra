@@ -10,8 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 COPY config.env .
 
-RUN chown -R app:app /app
-USER app
+# Run as root so config files can be written to mounted volumes
+# (the /app/config directory is volume-mounted from the host)
 
 EXPOSE 5000
 

@@ -378,7 +378,8 @@
     { id: 'form-table', label: 'Forms Table', desc: 'List of forms with submission counts', group: 'General' },
     { id: 'recent-feed', label: 'Recent Submissions', desc: 'Latest submissions with user and time', group: 'General' },
     { id: 'pie-chart', label: 'Pie Chart', desc: 'Breakdown by a field value', group: 'General' },
-    { id: 'single-stat', label: 'Single Metric', desc: 'One number: count, today, or contributors', group: 'General' },
+    { id: 'single-stat', label: 'Single Metric', desc: 'One number from a form field with aggregation (sum, avg, min, max)', group: 'General' },
+    { id: 'submissions-by-hour', label: 'Submissions by Hour', desc: 'What time of day forms are submitted most', group: 'General' },
     { id: 'field-number', label: 'Number Field', desc: 'Sum, average, min, or max of a numeric field', group: 'Field Data' },
     { id: 'field-text-list', label: 'Text Values', desc: 'Unique values from a text field with counts', group: 'Field Data' },
     { id: 'field-select-bar', label: 'Choices Bar Chart', desc: 'Horizontal bar chart of select field choices', group: 'Field Data' },
@@ -752,10 +753,20 @@
 
     loadDashConfig(function () {
       renderDashCards();
-      // Also load forms in background for widget editor later
-      fetch('/api/v2/assets/?asset_type=survey&fields=["uid","name","deployment_status","deployment__submission_count","content"]&limit=200', { credentials: 'same-origin' })
+      // Load forms list first, then fetch content for each form
+      fetch('/api/v2/assets/?asset_type=survey&fields=["uid","name","deployment_status","deployment__submission_count"]&limit=200', { credentials: 'same-origin' })
         .then(function (r) { return r.json(); })
-        .then(function (data) { _layoutForms = (data.results || []).filter(function (f) { return f.deployment_status === 'deployed'; }); })
+        .then(function (data) {
+          _layoutForms = (data.results || []).filter(function (f) { return f.deployment_status === 'deployed'; });
+          // Fetch content for each form individually (list endpoint doesn't include content)
+          var contentPromises = _layoutForms.map(function (f) {
+            return fetch('/api/v2/assets/' + f.uid + '/?fields=["content"]', { credentials: 'same-origin' })
+              .then(function (r) { return r.ok ? r.json() : {}; })
+              .then(function (detail) { f.content = detail.content || {}; })
+              .catch(function () { f.content = {}; });
+          });
+          return Promise.all(contentPromises);
+        })
         .catch(function () { _layoutForms = []; });
     });
   }
@@ -1613,12 +1624,10 @@
         var nf = document.getElementById('ra-dl-namefield').value;
         if (nf) newW.config.nameField = nf;
       }
-      // Field (for all field-based widgets + pie chart)
-      if (type === 'pie-chart' || type.indexOf('field-') === 0) newW.config.field = document.getElementById('ra-dl-field').value;
-      // Single stat metric
-      if (type === 'single-stat') newW.config.metric = document.getElementById('ra-dl-metric').value;
-      // Number operation
-      if (type === 'field-number') newW.config.operation = document.getElementById('ra-dl-operation').value;
+      // Field (for all field-based widgets + pie chart + single-stat)
+      if (type === 'pie-chart' || type === 'single-stat' || type.indexOf('field-') === 0) newW.config.field = document.getElementById('ra-dl-field').value;
+      // Operation (for number and single-stat)
+      if (type === 'field-number' || type === 'single-stat') newW.config.operation = document.getElementById('ra-dl-operation').value;
       // Counter condition
       if (type === 'field-counter') {
         newW.config.matchOp = document.getElementById('ra-dl-matchop').value;
@@ -1672,11 +1681,11 @@
       var el = document.getElementById(id);
       if (el) el.style.display = visible ? 'block' : 'none';
     };
-    var needsField = ['pie-chart', 'field-number', 'field-text-list', 'field-select-bar', 'field-counter', 'field-latest', 'field-timeline'];
+    var needsField = ['pie-chart', 'field-number', 'field-text-list', 'field-select-bar', 'field-counter', 'field-latest', 'field-timeline', 'single-stat'];
     var needsDays = ['chart', 'field-timeline', 'stat-cards', 'submissions-by-day', 'avg-per-day'];
     var needsLimit = ['recent-feed', 'field-text-list', 'top-contributors', 'form-table', 'submissions-by-form', 'field-select-bar'];
     var needsNameField = ['top-contributors', 'recent-feed'];
-    var needsOperation = ['field-number'];
+    var needsOperation = ['field-number', 'single-stat'];
     var needsMatch = ['field-counter'];
     var needsLabel = ['single-stat', 'field-number', 'field-counter', 'field-latest'];
     var needsSortBy = ['form-table', 'submissions-by-form', 'field-text-list'];
@@ -1687,7 +1696,7 @@
     show('ra-dl-field-wrap', needsField.indexOf(type) !== -1);
     show('ra-dl-days-wrap', needsDays.indexOf(type) !== -1);
     show('ra-dl-limit-wrap', needsLimit.indexOf(type) !== -1);
-    show('ra-dl-metric-wrap', type === 'single-stat');
+    show('ra-dl-metric-wrap', false); // Replaced by field + operation for single-stat
     show('ra-dl-operation-wrap', needsOperation.indexOf(type) !== -1);
     show('ra-dl-matchop-wrap', needsMatch.indexOf(type) !== -1);
     show('ra-dl-matchval-wrap', needsMatch.indexOf(type) !== -1);
