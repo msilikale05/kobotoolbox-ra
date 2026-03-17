@@ -132,12 +132,11 @@ location = /dashboard {
     return 301 /dashboard/;
 }
 location = /dashboard/ {
-    alias /srv/custom-static/dashboard.html;
-    default_type text/html;
+    rewrite ^ /custom-static/dashboard.html break;
     expires -1;
     add_header Cache-Control "no-cache, no-store, must-revalidate";
 }
-location ~ ^/dashboard/[a-zA-Z0-9._-]+/?$ {
+location ~ ^/dashboard/[a-zA-Z0-9._@-]+/?$ {
     alias /srv/custom-static/dashboard.html;
     default_type text/html;
     expires -1;
