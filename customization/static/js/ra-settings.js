@@ -4903,12 +4903,7 @@
           '<div style="color:#fff;font-weight:700;font-size:17px;">' + (isNew ? 'Add New User' : escapeHtml(username)) + '</div>' +
           (isNew ? '' : '<div style="margin-top:6px;">' + getRoleBadge(role) + ' ' + getStatusBadge(u.is_active) + '</div>') +
         '</div>' +
-        (!isNew ? '<div id="ra-um-avatar-upload" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 20px;background:#f8fafc;border-bottom:1px solid #f0f0f0;">' +
-          '<button id="ra-um-avatar-upload-btn" style="padding:6px 14px;border:1px solid #dbeafe;background:#eff6ff;color:#1e40af;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Upload Photo</button>' +
-          '<button id="ra-um-avatar-remove-btn" style="padding:6px 14px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Remove Photo</button>' +
-          '<input type="file" id="ra-um-avatar-file" accept="image/*" style="display:none;">' +
-          '<span id="ra-um-avatar-status" style="font-size:11px;color:#64748b;"></span>' +
-        '</div>' : '') +
+        (!isNew ? '<div style="text-align:center;padding:6px 20px 0;"><span style="font-size:10px;color:rgba(255,255,255,0.6);">Photo via <a href="https://gravatar.com" target="_blank" style="color:rgba(255,255,255,0.8);">Gravatar</a></span></div>' : '') +
         '<div style="padding:20px;">' + bodyHtml + '</div>' +
       '</div>';
 
@@ -4917,87 +4912,6 @@
     // Close
     modal.querySelector('#ra-um-modal-close').addEventListener('click', function () { modal.remove(); });
     modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
-
-    // Avatar upload/remove handlers
-    var avatarUploadBtn = modal.querySelector('#ra-um-avatar-upload-btn');
-    var avatarRemoveBtn = modal.querySelector('#ra-um-avatar-remove-btn');
-    var avatarFileInput = modal.querySelector('#ra-um-avatar-file');
-    var avatarStatus = modal.querySelector('#ra-um-avatar-status');
-
-    if (avatarUploadBtn && avatarFileInput) {
-      avatarUploadBtn.addEventListener('click', function () {
-        avatarFileInput.click();
-      });
-
-      avatarFileInput.addEventListener('change', function () {
-        var file = avatarFileInput.files && avatarFileInput.files[0];
-        if (!file) return;
-        if (file.size > 5 * 1024 * 1024) {
-          if (avatarStatus) avatarStatus.textContent = 'File too large (max 5MB)';
-          return;
-        }
-        var fd = new FormData();
-        fd.append('avatar', file);
-        if (avatarStatus) avatarStatus.textContent = 'Uploading...';
-        avatarUploadBtn.disabled = true;
-
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/webhook-api/avatar/' + encodeURIComponent(username));
-        xhr.onload = function () {
-          avatarUploadBtn.disabled = false;
-          if (xhr.status === 200) {
-            if (avatarStatus) avatarStatus.textContent = 'Uploaded!';
-            // Refresh the avatar image in the modal header
-            var avatarImg = modal.querySelector('#ra-um-modal-avatar-img');
-            if (avatarImg) {
-              avatarImg.style.display = '';
-              avatarImg.src = '/webhook-api/avatar/' + encodeURIComponent(username) + '?v=' + Date.now();
-              var fallback = avatarImg.nextElementSibling;
-              if (fallback) fallback.style.display = 'none';
-            }
-            setTimeout(function () { if (avatarStatus) avatarStatus.textContent = ''; }, 2000);
-          } else {
-            if (avatarStatus) avatarStatus.textContent = 'Upload failed';
-          }
-        };
-        xhr.onerror = function () {
-          avatarUploadBtn.disabled = false;
-          if (avatarStatus) avatarStatus.textContent = 'Upload failed';
-        };
-        xhr.send(fd);
-      });
-    }
-
-    if (avatarRemoveBtn) {
-      avatarRemoveBtn.addEventListener('click', function () {
-        if (avatarStatus) avatarStatus.textContent = 'Removing...';
-        avatarRemoveBtn.disabled = true;
-
-        var xhr = new XMLHttpRequest();
-        xhr.open('DELETE', '/webhook-api/avatar/' + encodeURIComponent(username));
-        xhr.onload = function () {
-          avatarRemoveBtn.disabled = false;
-          if (xhr.status === 200) {
-            if (avatarStatus) avatarStatus.textContent = 'Removed!';
-            var avatarImg = modal.querySelector('#ra-um-modal-avatar-img');
-            if (avatarImg) {
-              avatarImg.src = '/webhook-api/avatar/' + encodeURIComponent(username) + '?v=' + Date.now();
-              avatarImg.style.display = '';
-              var fallback = avatarImg.nextElementSibling;
-              if (fallback) fallback.style.display = 'none';
-            }
-            setTimeout(function () { if (avatarStatus) avatarStatus.textContent = ''; }, 2000);
-          } else {
-            if (avatarStatus) avatarStatus.textContent = 'Remove failed';
-          }
-        };
-        xhr.onerror = function () {
-          avatarRemoveBtn.disabled = false;
-          if (avatarStatus) avatarStatus.textContent = 'Remove failed';
-        };
-        xhr.send();
-      });
-    }
 
     // Impersonate button
     var impBtn = modal.querySelector('#ra-um-modal-impersonate');
