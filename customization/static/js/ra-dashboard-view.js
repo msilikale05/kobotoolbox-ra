@@ -661,9 +661,24 @@
   }
 
   // ── Load Data & Render ──
+  // Use proxy for dashboard users (they don't have direct API access)
+  function getFormsUrl() {
+    if (isDashboardOnly && !isPreviewMode) {
+      return '/webhook-api/dashboard-data/forms';
+    }
+    return '/api/v2/assets/?asset_type=survey&fields=["uid","name","deployment_status","deployment__submission_count","date_modified","content"]&limit=200';
+  }
+
+  function getSubmissionsUrl(uid) {
+    if (isDashboardOnly && !isPreviewMode) {
+      return '/webhook-api/dashboard-data/submissions/' + uid + '?limit=100&sort={"_submission_time":-1}';
+    }
+    return '/api/v2/assets/' + uid + '/data/?limit=100&sort={"_submission_time":-1}';
+  }
+
   function loadAndRender() {
     return loadDashboardConfig().then(function () {
-      return fetchJSON('/api/v2/assets/?asset_type=survey&fields=["uid","name","deployment_status","deployment__submission_count","date_modified","content"]&limit=200');
+      return fetchJSON(getFormsUrl());
     }).then(function (data) {
       formsCache = (data.results || []).filter(function (f) { return f.deployment_status === 'deployed'; });
 
@@ -683,7 +698,7 @@
 
       var uidsToFetch = Object.keys(neededUids);
       var promises = uidsToFetch.map(function (uid) {
-        return fetchJSON('/api/v2/assets/' + uid + '/data/?limit=100&sort={"_submission_time":-1}')
+        return fetchJSON(getSubmissionsUrl(uid))
           .then(function (d) { subsCache[uid] = d.results || []; })
           .catch(function () { subsCache[uid] = []; });
       });
@@ -944,11 +959,8 @@
     var field = cfg.field || '_submitted_by';
     var counts = {};
     subs.forEach(function (s) {
-      var val = s[field];
-      if (val === undefined) {
-        Object.keys(s).forEach(function (k) { if (k.indexOf('/' + field) === k.length - field.length - 1) val = s[k]; });
-      }
-      var key = String(val || 'Unknown');
+      var val = getFieldValue(s, field);
+      var key = String(val !== undefined && val !== null ? val : 'Unknown');
       counts[key] = (counts[key] || 0) + 1;
     });
 

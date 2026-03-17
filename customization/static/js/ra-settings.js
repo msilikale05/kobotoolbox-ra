@@ -1253,6 +1253,79 @@
     return icons[type] || '&#9632;';
   }
 
+  /**
+   * Build <option> HTML for the field dropdown.
+   * @param {Array} forms - list of form objects (from _layoutForms)
+   * @param {Array} selectedFormUids - UIDs selected in the forms multi-select (or ['__all__'])
+   * @param {string} currentValue - currently selected field value
+   * @returns {string} HTML options string
+   */
+  function buildFieldOptions(forms, selectedFormUids, currentValue) {
+    var sysSel_by = currentValue === '_submitted_by' ? ' selected' : '';
+    var sysSel_time = currentValue === '_submission_time' ? ' selected' : '';
+    var html = '<optgroup label="System Fields">' +
+      '<option value="_submitted_by"' + sysSel_by + '>Submitted By  [_submitted_by]</option>' +
+      '<option value="_submission_time"' + sysSel_time + '>Submission Time  [_submission_time]</option>' +
+      '</optgroup>';
+
+    if (!forms || !forms.length) return html;
+
+    // Determine which forms to include
+    var useAll = !selectedFormUids || !selectedFormUids.length || selectedFormUids[0] === '__all__';
+    var formsToScan = [];
+    if (useAll) {
+      formsToScan = forms;
+    } else {
+      for (var fi = 0; fi < forms.length; fi++) {
+        if (selectedFormUids.indexOf(forms[fi].uid) !== -1) {
+          formsToScan.push(forms[fi]);
+        }
+      }
+    }
+
+    // Collect fields from matching forms, tracking which forms each field appears in
+    var fieldMap = {}; // name -> { label, type, formNames[] }
+    for (var i = 0; i < formsToScan.length; i++) {
+      var f = formsToScan[i];
+      var survey = (f.content || {}).survey || [];
+      for (var j = 0; j < survey.length; j++) {
+        var row = survey[j];
+        var t = row.type || '';
+        // Skip structural/hidden types
+        if (t.indexOf('begin') === 0 || t.indexOf('end') === 0 || t === 'calculate' || t === 'hidden' || t === 'note') continue;
+        var name = row.name || row.$autoname || '';
+        if (!name) continue;
+        var label = (row.label && row.label[0]) || name;
+        if (!fieldMap[name]) {
+          fieldMap[name] = { label: label, type: t, formNames: [] };
+        }
+        if (fieldMap[name].formNames.indexOf(f.name) === -1) {
+          fieldMap[name].formNames.push(f.name);
+        }
+      }
+    }
+
+    // Sort fields alphabetically by label
+    var fieldNames = Object.keys(fieldMap);
+    fieldNames.sort(function (a, b) {
+      return fieldMap[a].label.toLowerCase().localeCompare(fieldMap[b].label.toLowerCase());
+    });
+
+    if (fieldNames.length) {
+      html += '<optgroup label="Form Fields (' + fieldNames.length + ')">';
+      for (var k = 0; k < fieldNames.length; k++) {
+        var fname = fieldNames[k];
+        var fd = fieldMap[fname];
+        var sel = currentValue === fname ? ' selected' : '';
+        var displayText = fd.label + '  [' + fname + ']  (' + fd.type + ')';
+        html += '<option value="' + escapeHtml(fname) + '"' + sel + '>' + escapeHtml(displayText) + '</option>';
+      }
+      html += '</optgroup>';
+    }
+
+    return html;
+  }
+
   function getWidgetFormNames(w) {
     if (!w.forms || !w.forms.length || w.forms[0] === '__all__') return 'All forms';
     if (!_layoutForms) return w.forms.join(', ');
@@ -1300,28 +1373,9 @@
     });
     if (lastGroup) typeOptions += '</optgroup>';
 
-    // Build field options from all forms (all field types)
-    var fieldOptions = '<option value="_submitted_by">Submitted By</option>' +
-      '<option value="_submission_time">Submission Time</option>';
-    if (_layoutForms) {
-      var allFields = {};
-      _layoutForms.forEach(function (f) {
-        var survey = (f.content || {}).survey || [];
-        survey.forEach(function (row) {
-          var t = row.type || '';
-          if (t.indexOf('begin') === 0 || t.indexOf('end') === 0 || t === 'calculate' || t === 'hidden' || t === 'note') return;
-          var name = row.name || row.$autoname || '';
-          var label = (row.label && row.label[0]) || name;
-          if (name && !allFields[name]) allFields[name] = { label: label, type: t };
-        });
-      });
-      Object.keys(allFields).forEach(function (name) {
-        var f = allFields[name];
-        var sel = (w.config || {}).field === name ? ' selected' : '';
-        var typeHint = f.type ? ' (' + f.type + ')' : '';
-        fieldOptions += '<option value="' + escapeHtml(name) + '"' + sel + '>' + escapeHtml(f.label + typeHint) + '</option>';
-      });
-    }
+    // Build field options filtered by selected forms
+    var currentFieldValue = (w.config || {}).field || '';
+    var fieldOptions = buildFieldOptions(_layoutForms, w.forms, currentFieldValue);
 
     var cfg = w.config || {};
     var modal = document.createElement('div');
@@ -1436,6 +1490,32 @@
     document.getElementById('ra-dl-type').addEventListener('change', function () { toggleExtraConfig(); updateTitlePlaceholder(); });
     document.getElementById('ra-dl-modal-close').addEventListener('click', function () { modal.remove(); });
     document.getElementById('ra-dl-modal-cancel').addEventListener('click', function () { modal.remove(); });
+
+    // Update field dropdowns when forms selection changes
+    var formsSelect = document.getElementById('ra-dl-forms');
+    if (formsSelect) {
+      formsSelect.addEventListener('change', function () {
+        var selectedUids = [];
+        var opts = formsSelect.options;
+        for (var i = 0; i < opts.length; i++) {
+          if (opts[i].selected) selectedUids.push(opts[i].value);
+        }
+        if (selectedUids.indexOf('__all__') !== -1) selectedUids = ['__all__'];
+
+        // Rebuild field dropdown preserving current selection
+        var fieldEl = document.getElementById('ra-dl-field');
+        var nameFieldEl2 = document.getElementById('ra-dl-namefield');
+        var curField = fieldEl ? fieldEl.value : '';
+        var curNameField = nameFieldEl2 ? nameFieldEl2.value : '';
+
+        var newFieldOpts = buildFieldOptions(_layoutForms, selectedUids, curField);
+        if (fieldEl) fieldEl.innerHTML = newFieldOpts;
+
+        // Rebuild nameField dropdown too (has an extra auto-detect option)
+        var newNameFieldOpts = '<option value="">(Auto-detect)</option>' + buildFieldOptions(_layoutForms, selectedUids, curNameField);
+        if (nameFieldEl2) nameFieldEl2.innerHTML = newNameFieldOpts;
+      });
+    }
 
     // Rich text toolbar handlers
     var toolbar = document.getElementById('ra-dl-toolbar');

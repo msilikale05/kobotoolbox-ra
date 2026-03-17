@@ -609,6 +609,97 @@ def get_user_dashboard(username):
         return jsonify({'username': username, 'dashboard': None})
 
 
+# ── Dashboard Data Proxy ──
+# Fetches form/submission data using the admin service token
+# so dashboard-only users can see data without individual form permissions.
+import requests as http_requests
+
+KPI_INTERNAL_URL = os.getenv('KPI_INTERNAL_URL', 'http://nginx')
+KPI_INTERNAL_HOST = os.getenv('KPI_INTERNAL_HOST', 'kf.ramaniyangu.internal')
+DASHBOARD_SERVICE_TOKEN = os.getenv('DASHBOARD_SERVICE_TOKEN', '')
+
+
+def get_service_token_for_dashboard():
+    """Get the service token for dashboard data proxy."""
+    if DASHBOARD_SERVICE_TOKEN:
+        return DASHBOARD_SERVICE_TOKEN
+    # Try reading from file
+    for path in ['/app/.service-token', '/srv/custom-static/.formlist-token']:
+        try:
+            with open(path, 'r') as f:
+                token = f.read().strip()
+                if token:
+                    return token
+        except FileNotFoundError:
+            pass
+    return ''
+
+
+@app.route('/api/dashboard-data/forms', methods=['GET'])
+def proxy_forms():
+    """Proxy form list using service token — for dashboard users."""
+    token = get_service_token_for_dashboard()
+    if not token:
+        return jsonify({'error': 'Service token not configured', 'results': []}), 200
+
+    try:
+        resp = http_requests.get(
+            f'{KPI_INTERNAL_URL}/api/v2/assets/',
+            params={
+                'asset_type': 'survey',
+                'fields': '["uid","name","deployment_status","deployment__submission_count","date_modified","content"]',
+                'limit': '200'
+            },
+            headers={
+                'Authorization': f'Token {token}',
+                'Accept': 'application/json',
+                'Host': KPI_INTERNAL_HOST,
+                'X-Forwarded-Proto': 'https'
+            },
+            timeout=15,
+            allow_redirects=False
+        )
+        if resp.ok:
+            return jsonify(resp.json())
+        return jsonify({'results': [], 'error': f'KPI returned {resp.status_code}'}), 200
+    except Exception as e:
+        log.error(f"Dashboard data proxy error: {e}")
+        return jsonify({'results': [], 'error': str(e)}), 200
+
+
+@app.route('/api/dashboard-data/submissions/<form_uid>', methods=['GET'])
+def proxy_submissions(form_uid):
+    """Proxy submission data using service token — for dashboard users."""
+    if not re.match(r'^[a-zA-Z0-9_-]+$', form_uid):
+        return jsonify({'error': 'Invalid form UID', 'results': []}), 400
+
+    token = get_service_token_for_dashboard()
+    if not token:
+        return jsonify({'error': 'Service token not configured', 'results': []}), 200
+
+    try:
+        limit = request.args.get('limit', '100')
+        sort = request.args.get('sort', '{"_submission_time":-1}')
+        resp = http_requests.get(
+            f'{KPI_INTERNAL_URL}/api/v2/assets/{form_uid}/data/',
+            params={'limit': limit, 'sort': sort},
+            headers={
+                'Authorization': f'Token {token}',
+                'Accept': 'application/json',
+                'Host': KPI_INTERNAL_HOST,
+                'X-Forwarded-Proto': 'https'
+            },
+            timeout=15,
+            allow_redirects=False
+        )
+        if resp.ok:
+            return jsonify(resp.json())
+        return jsonify({'results': [], 'error': f'KPI returned {resp.status_code}'}), 200
+    except Exception as e:
+        log.error(f"Dashboard submissions proxy error: {e}")
+        return jsonify({'results': [], 'error': str(e)}), 200
+
+
 # ── Public Dashboard Sharing ──
 import secrets
 import time
