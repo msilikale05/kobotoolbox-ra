@@ -21,7 +21,7 @@ sub_filter 'href="/static/favicon.png"' 'href="/custom-static/images/favicon.png
 sub_filter 'href="/static/apple-touch-icon.png"' 'href="/custom-static/images/favicon.png"';
 sub_filter 'href="/static/safari-pinned-tab.svg" color="#2095f3"' 'href="/custom-static/images/favicon.png" color="#54a8dc"';
 sub_filter '<meta name="description" content="KoboToolbox is a free toolkit for collecting and managing data in challenging environments and is the most widely-used tool in humanitarian emergencies">' '<meta name="description" content="Ramani Yangu - Resilience Academy Data Collection Platform for urban resilience research across Tanzania">\n<meta property="og:title" content="Ramani Yangu - Data Collection">\n<meta property="og:description" content="Resilience Academy Data Collection Platform for urban resilience research across Tanzania">\n<meta property="og:image" content="https://kf.ramaniyangu.com/custom-static/images/ra-logo-dark.png">\n<meta property="og:type" content="website">\n<meta property="og:url" content="https://kf.ramaniyangu.com">\n<meta name="twitter:card" content="summary">\n<meta name="twitter:title" content="Ramani Yangu - Data Collection">\n<meta name="twitter:image" content="https://kf.ramaniyangu.com/custom-static/images/ra-logo-dark.png">';
-sub_filter '</head>' '<link rel="stylesheet" href="/custom-static/css/custom-theme.css?v=5" />\n<script src="/custom-static/js/ra-welcome.js?v=7" defer></script>\n<script src="/custom-static/js/ra-submission-badge.js?v=6" defer></script>\n<script src="/custom-static/js/ra-leaderboard.js?v=12" defer></script>\n<script src="/custom-static/js/ra-map.js?v=17" defer></script>\n<script src="/custom-static/js/ra-settings.js?v=17" defer></script>\n<script src="/custom-static/js/ra-dashboard-view.js?v=17" defer></script>\n<script src="/custom-static/js/ra-map-extras.js?v=1" defer></script>\n<script src="/custom-static/js/ra-settings-extras.js?v=1" defer></script>\n<script src="/custom-static/js/ra-media-export.js?v=1" defer></script>\n</head>';
+sub_filter '</head>' '<link rel="stylesheet" href="/custom-static/css/custom-theme.css?v=5" />\n<script src="/custom-static/js/ra-welcome.js?v=9" defer></script>\n<script src="/custom-static/js/ra-submission-badge.js?v=6" defer></script>\n<script src="/custom-static/js/ra-leaderboard.js?v=13" defer></script>\n<script src="/custom-static/js/ra-map.js?v=17" defer></script>\n<script src="/custom-static/js/ra-settings.js?v=22" defer></script>\n<script src="/custom-static/js/ra-dashboard-view.js?v=18" defer></script>\n<script src="/custom-static/js/ra-map-extras.js?v=1" defer></script>\n<script src="/custom-static/js/ra-settings-extras.js?v=1" defer></script>\n<script src="/custom-static/js/ra-media-export.js?v=1" defer></script>\n</head>';
 sub_filter_types text/html;
 
 location /custom-static {
@@ -136,6 +136,12 @@ location = /dashboard/ {
     expires -1;
     add_header Cache-Control "no-cache, no-store, must-revalidate";
 }
+location ~ ^/dashboard/(public|embed)/[a-f0-9]+/?$ {
+    alias /srv/custom-static/dashboard-public.html;
+    default_type text/html;
+    expires -1;
+    add_header Cache-Control "no-cache, no-store, must-revalidate";
+}
 location ~ ^/dashboard/[a-zA-Z0-9._@-]+/?$ {
     alias /srv/custom-static/dashboard.html;
     default_type text/html;
@@ -157,6 +163,20 @@ sed -i '/server_name.*kf\./,/^}/{
     /location \/static {/i\    include /etc/nginx/includes/error_pages.conf;
 }' "$NGINX_CONF"
 echo "Custom error pages configured."
+
+# Status page — served directly by nginx
+STATUS_PAGE_CONF="/etc/nginx/includes/status_page.conf"
+cat > "$STATUS_PAGE_CONF" << 'NGINX_STATUS'
+location = /status {
+    rewrite ^ /custom-static/status.html break;
+    expires -1;
+    add_header Cache-Control "no-cache, no-store, must-revalidate";
+}
+NGINX_STATUS
+sed -i '/server_name.*kf\./,/^}/{
+    /location \/static {/i\    include /etc/nginx/includes/status_page.conf;
+}' "$NGINX_CONF"
+echo "Status page configured."
 
 # Dashboard users API proxy — routes /webhook-api/ to the webhook-relay service
 WEBHOOK_API_CONF="/etc/nginx/includes/webhook_api.conf"

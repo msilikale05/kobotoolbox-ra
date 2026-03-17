@@ -457,7 +457,7 @@
     main.innerHTML =
       '<h1 class="ra-st__page-title">Dashboard</h1>' +
       '<div class="ra-st__tabs" id="ra-st-dash-tabs">' +
-        '<button class="ra-st__tab' + (activeDashTab === 'users' ? ' active' : '') + '" data-tab="users">Users</button>' +
+        '<button class="ra-st__tab' + (activeDashTab === 'users' ? ' active' : '') + '" data-tab="users">Assigned Users</button>' +
         '<button class="ra-st__tab' + (activeDashTab === 'layout' ? ' active' : '') + '" data-tab="layout">Layout</button>' +
       '</div>' +
       '<div id="ra-st-dash-content"></div>';
@@ -662,11 +662,15 @@
       listEl.innerHTML = '<div style="padding:16px;text-align:center;color:#999;font-size:13px;">No dashboard users configured yet. Select a user above to add them.</div>';
       return;
     }
+    var allDashNames = getDashboardNames();
     listEl.innerHTML = usernames.map(function (u) {
       var dashId = users[u];
-      var dashName = (_dashConfig.dashboards && _dashConfig.dashboards[dashId] && _dashConfig.dashboards[dashId].name) ? _dashConfig.dashboards[dashId].name : dashId;
       var info = getUserDisplayInfo(u);
       var subtitle = [info.name, info.org].filter(function (s) { return s; }).join(' - ');
+      var dashOptions = allDashNames.map(function (d) {
+        var selected = (d.id === dashId) ? ' selected' : '';
+        return '<option value="' + escapeHtml(d.id) + '"' + selected + '>' + escapeHtml(d.name) + '</option>';
+      }).join('');
       return '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #f5f5f5;">' +
         '<div style="display:flex;align-items:center;gap:10px;">' +
           '<div style="width:36px;height:36px;border-radius:50%;background:#e0f2fe;color:#0284c7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;">' +
@@ -675,13 +679,28 @@
           '<div>' +
             '<div style="font-size:14px;font-weight:600;color:#1e293b;">' + escapeHtml(u) + '</div>' +
             (subtitle ? '<div style="font-size:12px;color:#94a3b8;">' + escapeHtml(subtitle) + '</div>' : '') +
-            '<div style="font-size:11px;color:#54a8dc;margin-top:2px;">Dashboard: ' + escapeHtml(dashName) + '</div>' +
           '</div>' +
         '</div>' +
-        '<button class="ra-st__btn ra-st__btn--secondary ra-st-du-remove" data-user="' + escapeHtml(u) + '" ' +
-          'style="padding:6px 12px;font-size:12px;color:#e74c3c;">Remove</button>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<select class="ra-st-du-reassign" data-user="' + escapeHtml(u) + '" ' +
+            'style="padding:6px 10px;font-size:12px;border:1px solid #e1e3ea;border-radius:4px;background:#fff;min-width:140px;">' +
+            dashOptions +
+          '</select>' +
+          '<button class="ra-st__btn ra-st__btn--secondary ra-st-du-remove" data-user="' + escapeHtml(u) + '" ' +
+            'style="padding:6px 12px;font-size:12px;color:#e74c3c;">Remove</button>' +
+        '</div>' +
       '</div>';
     }).join('');
+
+    listEl.querySelectorAll('.ra-st-du-reassign').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        var username = this.getAttribute('data-user');
+        var newDashId = this.value;
+        if (username && newDashId) {
+          reassignDashboardUser(username, newDashId);
+        }
+      });
+    });
 
     listEl.querySelectorAll('.ra-st-du-remove').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -723,6 +742,23 @@
         showStatus(statusEl, 'ok', '"' + username + '" removed from dashboard users');
         loadDashboardUsers();
         updateUserDropdown();
+      }
+    });
+  }
+
+  function reassignDashboardUser(username, newDashId) {
+    var statusEl = document.getElementById('ra-st-du-status');
+    var dashName = (_dashConfig.dashboards && _dashConfig.dashboards[newDashId] && _dashConfig.dashboards[newDashId].name) ? _dashConfig.dashboards[newDashId].name : newDashId;
+    showStatus(statusEl, 'info', 'Reassigning...');
+
+    if (!_dashConfig) _dashConfig = { dashboards: {}, users: {} };
+    _dashConfig.users[username] = newDashId;
+
+    saveDashConfig(function (err) {
+      if (err) {
+        showStatus(statusEl, 'err', err);
+      } else {
+        showStatus(statusEl, 'ok', '"' + username + '" reassigned to "' + dashName + '"');
       }
     });
   }
@@ -1399,7 +1435,8 @@
           '<button id="ra-dl-modal-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;" title="Close">&times;</button>' +
         '</div>' +
         '<div style="padding:20px;">' +
-          '<div class="ra-st__field"><label>Widget Title <span style="font-weight:400;color:#94a3b8;">(shown on dashboard)</span></label><input type="text" id="ra-dl-title" value="' + escapeHtml(w.title || '') + '" placeholder="Leave empty for default title"><small>This is the heading users see on the dashboard. Leave blank to use the widget type name.</small></div>' +
+          '<div class="ra-st__field"><label>Widget Title <span style="font-weight:400;color:#94a3b8;">(shown on dashboard)</span></label><input type="text" id="ra-dl-title" value="' + escapeHtml(w.title || '') + '" placeholder="Leave empty for default title">' +
+            '<label style="display:flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer;font-size:12px;color:#64748b;user-select:none;"><input type="checkbox" id="ra-dl-hidetitle"' + (cfg.hideTitle ? ' checked' : '') + ' style="width:15px;height:15px;accent-color:#54a8dc;cursor:pointer;"> Hide title on dashboard</label></div>' +
           '<div class="ra-st__field"><label>Widget Type</label><select id="ra-dl-type">' + typeOptions + '</select></div>' +
           '<div style="display:flex;gap:12px;">' +
             '<div class="ra-st__field" style="flex:1;"><label>Width</label><select id="ra-dl-width"><option value="quarter"' + (w.width === "quarter" ? " selected" : "") + '>Quarter (1 col)</option><option value="half"' + (w.width === "half" ? " selected" : "") + '>Half (2 cols)</option><option value="three-quarter"' + (w.width === "three-quarter" ? " selected" : "") + '>Three Quarter (3 cols)</option><option value="full"' + (w.width === "full" ? " selected" : "") + '>Full (4 cols)</option></select></div>' +
@@ -1418,6 +1455,8 @@
             '<div class="ra-st__field" id="ra-dl-sortby-wrap"><label>Sort By</label><select id="ra-dl-sortby"><option value="count"' + (cfg.sortBy === 'count' ? ' selected' : '') + '>Submission count (high to low)</option><option value="count-asc"' + (cfg.sortBy === 'count-asc' ? ' selected' : '') + '>Submission count (low to high)</option><option value="name"' + (cfg.sortBy === 'name' ? ' selected' : '') + '>Name (A-Z)</option><option value="name-desc"' + (cfg.sortBy === 'name-desc' ? ' selected' : '') + '>Name (Z-A)</option></select></div>' +
             '<div class="ra-st__field" id="ra-dl-groupby-wrap"><label>Group By</label><select id="ra-dl-groupby"><option value="day"' + (cfg.groupBy === 'day' || !cfg.groupBy ? ' selected' : '') + '>Day</option><option value="week"' + (cfg.groupBy === 'week' ? ' selected' : '') + '>Week</option><option value="month"' + (cfg.groupBy === 'month' ? ' selected' : '') + '>Month</option></select></div>' +
             '<div class="ra-st__field" id="ra-dl-aggregation-wrap"><label>Daily Aggregation</label><select id="ra-dl-aggregation"><option value="average"' + (cfg.aggregation === 'average' || !cfg.aggregation ? ' selected' : '') + '>Average per day</option><option value="sum"' + (cfg.aggregation === 'sum' ? ' selected' : '') + '>Sum per day</option><option value="min"' + (cfg.aggregation === 'min' ? ' selected' : '') + '>Min per day</option><option value="max"' + (cfg.aggregation === 'max' ? ' selected' : '') + '>Max per day</option></select></div>' +
+            '<div class="ra-st__field" id="ra-dl-hours-wrap"><label>Hours to Display</label><select id="ra-dl-hours"><option value="24"' + (cfg.hours == 24 || !cfg.hours ? ' selected' : '') + '>24 hours (full day)</option><option value="12"' + (cfg.hours == 12 ? ' selected' : '') + '>12 hours</option><option value="6"' + (cfg.hours == 6 ? ' selected' : '') + '>6 hours</option><option value="3"' + (cfg.hours == 3 ? ' selected' : '') + '>3 hours</option><option value="2"' + (cfg.hours == 2 ? ' selected' : '') + '>2 hours</option></select><small>Number of hours to show. Dashboard users can also filter by form and date.</small></div>' +
+            '<div class="ra-st__field" id="ra-dl-charttype-wrap"><label>Chart Type</label><select id="ra-dl-charttype"><option value="bar"' + (cfg.chartType === 'bar' || !cfg.chartType ? ' selected' : '') + '>Bar Chart</option><option value="line"' + (cfg.chartType === 'line' ? ' selected' : '') + '>Line Chart</option></select></div>' +
             '<div class="ra-st__field" id="ra-dl-prefix-wrap"><label>Prefix / Suffix</label><div style="display:flex;gap:8px;"><input type="text" id="ra-dl-prefix" value="' + escapeHtml(cfg.prefix || '') + '" placeholder="e.g., $, TZS" style="flex:1;"><input type="text" id="ra-dl-suffix" value="' + escapeHtml(cfg.suffix || '') + '" placeholder="e.g., km, %" style="flex:1;"></div></div>' +
             '<div class="ra-st__field" id="ra-dl-colors-wrap">' +
               '<label>Widget Colors <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>' +
@@ -1595,8 +1634,11 @@
         forms: getSelectedForms(),
         config: {}
       };
+      // Hide title checkbox — applies to all widgets
+      if (document.getElementById('ra-dl-hidetitle').checked) newW.config.hideTitle = true;
       var type = newW.type;
       var needsDays = ['chart', 'field-timeline', 'stat-cards', 'submissions-by-day', 'avg-per-day'];
+      var needsHours = ['submissions-by-hour'];
       var needsLimit = ['recent-feed', 'field-text-list', 'top-contributors', 'form-table', 'submissions-by-form', 'field-select-bar'];
       var needsSortBy = ['form-table', 'submissions-by-form', 'field-text-list'];
       var needsGroupBy = ['chart', 'submissions-period'];
@@ -1604,6 +1646,15 @@
       var needsPrefix = ['single-stat', 'field-number', 'avg-per-day'];
       // Days
       if (needsDays.indexOf(type) !== -1) newW.config.days = parseInt(document.getElementById('ra-dl-days').value) || 30;
+      // Hours
+      if (needsHours.indexOf(type) !== -1) {
+        newW.config.hours = parseInt(document.getElementById('ra-dl-hours').value) || 24;
+      }
+      // Chart type (bar or line) — applies to all chart widgets
+      var chartTypeWidgets = ['submissions-by-hour', 'chart', 'submissions-by-day', 'submissions-period', 'field-timeline', 'field-select-bar'];
+      if (chartTypeWidgets.indexOf(type) !== -1) {
+        newW.config.chartType = document.getElementById('ra-dl-charttype').value || 'bar';
+      }
       // Limit
       if (needsLimit.indexOf(type) !== -1) newW.config.limit = parseInt(document.getElementById('ra-dl-limit').value) || 15;
       // Sort by
@@ -1683,6 +1734,7 @@
     };
     var needsField = ['pie-chart', 'field-number', 'field-text-list', 'field-select-bar', 'field-counter', 'field-latest', 'field-timeline', 'single-stat'];
     var needsDays = ['chart', 'field-timeline', 'stat-cards', 'submissions-by-day', 'avg-per-day'];
+    var needsHoursToggle = ['submissions-by-hour'];
     var needsLimit = ['recent-feed', 'field-text-list', 'top-contributors', 'form-table', 'submissions-by-form', 'field-select-bar'];
     var needsNameField = ['top-contributors', 'recent-feed'];
     var needsOperation = ['field-number', 'single-stat'];
@@ -1695,6 +1747,9 @@
 
     show('ra-dl-field-wrap', needsField.indexOf(type) !== -1);
     show('ra-dl-days-wrap', needsDays.indexOf(type) !== -1);
+    var needsChartType = ['submissions-by-hour', 'chart', 'submissions-by-day', 'submissions-period', 'field-timeline', 'field-select-bar'];
+    show('ra-dl-hours-wrap', needsHoursToggle.indexOf(type) !== -1);
+    show('ra-dl-charttype-wrap', needsChartType.indexOf(type) !== -1);
     show('ra-dl-limit-wrap', needsLimit.indexOf(type) !== -1);
     show('ra-dl-metric-wrap', false); // Replaced by field + operation for single-stat
     show('ra-dl-operation-wrap', needsOperation.indexOf(type) !== -1);
@@ -1768,8 +1823,8 @@
 
           '<div class="ra-st__field"><label>Embed Code</label>' +
           '<div style="display:flex;gap:6px;">' +
-          '<input type="text" value="' + escapeHtml(embedCode) + '" readonly style="flex:1;font-size:11px;padding:8px;" onclick="this.select()">' +
-          '<button class="ra-st__btn ra-st__btn--secondary ra-share-copy" data-text="' + escapeHtml(embedCode) + '" style="padding:8px 12px;font-size:12px;white-space:nowrap;">Copy</button>' +
+          '<input type="text" id="ra-share-embed-' + escapeHtml(s.token) + '" value="" readonly style="flex:1;font-size:11px;padding:8px;" onclick="this.select()">' +
+          '<button class="ra-st__btn ra-st__btn--secondary ra-share-copy-embed" data-token="' + escapeHtml(s.token) + '" data-embed-url="' + escapeHtml(embedUrl) + '" style="padding:8px 12px;font-size:12px;white-space:nowrap;">Copy</button>' +
           '</div></div>' +
 
           '<button class="ra-st__btn ra-st__btn--secondary ra-share-revoke" data-token="' + escapeHtml(s.token) + '" style="color:#e74c3c;font-size:12px;margin-top:8px;">Revoke Access</button>' +
@@ -1784,11 +1839,29 @@
     html += '<button class="ra-st__btn ra-st__btn--primary" id="ra-share-create" style="width:100%;">Generate Public Link</button>';
     body.innerHTML = html;
 
-    // Copy handlers
+    // Populate embed input fields with raw iframe code (not HTML-escaped)
+    body.querySelectorAll('[id^="ra-share-embed-"]').forEach(function (inp) {
+      var token = inp.id.replace('ra-share-embed-', '');
+      inp.value = '<iframe src="' + baseUrl + '/dashboard/embed/' + token + '" width="100%" height="600" frameborder="0"></iframe>';
+    });
+
+    // Copy handlers for public link
     body.querySelectorAll('.ra-share-copy').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var text = this.getAttribute('data-text');
         navigator.clipboard.writeText(text).then(function () {
+          btn.textContent = 'Copied!';
+          setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
+        });
+      });
+    });
+
+    // Copy handlers for embed code
+    body.querySelectorAll('.ra-share-copy-embed').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var embedUrl = this.getAttribute('data-embed-url');
+        var iframeCode = '<iframe src="' + embedUrl + '" width="100%" height="600" frameborder="0"></iframe>';
+        navigator.clipboard.writeText(iframeCode).then(function () {
           btn.textContent = 'Copied!';
           setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
         });
@@ -3647,6 +3720,1383 @@
       });
   }
 
+  // ══════════════════════════════════════════════════════════
+  // ── USER MANAGEMENT SECTION ──
+  // ══════════════════════════════════════════════════════════
+  var _umUsers = null;
+  var _umForms = null;
+  var _umSubCounts = {};
+  var _umAllSubs = null;
+  var _umSearchTerm = '';
+  var _umFilterRole = 'all';
+  var _umFilterStatus = 'all';
+  var _umFilterInactive = '0';
+  var _umActiveTab = 'users';
+  var _umSelectedRows = {};
+
+  function renderUserManagementTab(container) {
+    container.innerHTML =
+      '<div class="ra-st__content" style="max-width:1200px;">' +
+
+        // Stats bar — 5 cards
+        '<div id="ra-um-stats" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;">' +
+          '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:16px;text-align:center;">' +
+            '<div style="font-size:28px;font-weight:700;color:#54a8dc;" id="ra-um-total">-</div>' +
+            '<div style="font-size:11px;color:#94a3b8;">Total Users</div>' +
+          '</div>' +
+          '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:16px;text-align:center;">' +
+            '<div style="font-size:28px;font-weight:700;color:#10b981;" id="ra-um-active">-</div>' +
+            '<div style="font-size:11px;color:#94a3b8;">Active Users</div>' +
+          '</div>' +
+          '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:16px;text-align:center;">' +
+            '<div style="font-size:28px;font-weight:700;color:#8b5cf6;" id="ra-um-dashboard">-</div>' +
+            '<div style="font-size:11px;color:#94a3b8;">Dashboard Users</div>' +
+          '</div>' +
+          '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:16px;text-align:center;">' +
+            '<div style="font-size:28px;font-weight:700;color:#f59e0b;" id="ra-um-new-week">-</div>' +
+            '<div style="font-size:11px;color:#94a3b8;">New This Week</div>' +
+          '</div>' +
+          '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:16px;text-align:center;">' +
+            '<div style="font-size:28px;font-weight:700;color:#ef4444;" id="ra-um-inactive30">-</div>' +
+            '<div style="font-size:11px;color:#94a3b8;">Inactive 30d+</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Sub-tabs
+        '<div style="display:flex;gap:0;border-bottom:2px solid #e1e3ea;margin-bottom:16px;">' +
+          '<button class="ra-um-subtab" data-tab="users" style="padding:10px 24px;border:none;background:none;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid #54a8dc;margin-bottom:-2px;color:#54a8dc;">Users</button>' +
+          '<button class="ra-um-subtab" data-tab="activity" style="padding:10px 24px;border:none;background:none;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:#64748b;">Activity</button>' +
+          '<button class="ra-um-subtab" data-tab="analytics" style="padding:10px 24px;border:none;background:none;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:#64748b;">Analytics</button>' +
+        '</div>' +
+
+        // Sub-tab content area
+        '<div id="ra-um-subtab-content"></div>' +
+
+        '<div class="ra-st__status" id="ra-um-status"></div>' +
+      '</div>';
+
+    // Sub-tab switching
+    container.querySelectorAll('.ra-um-subtab').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        _umActiveTab = this.getAttribute('data-tab');
+        container.querySelectorAll('.ra-um-subtab').forEach(function (b) {
+          b.style.borderBottomColor = 'transparent';
+          b.style.color = '#64748b';
+        });
+        this.style.borderBottomColor = '#54a8dc';
+        this.style.color = '#54a8dc';
+        renderUMActiveSubTab();
+      });
+    });
+
+    loadUMData();
+  }
+
+  function renderUMActiveSubTab() {
+    if (_umActiveTab === 'users') renderUMUsersSubTab();
+    else if (_umActiveTab === 'activity') renderUMActivitySubTab();
+    else if (_umActiveTab === 'analytics') renderUMAnalyticsSubTab();
+  }
+
+  // ── Users Sub-Tab ──
+  function renderUMUsersSubTab() {
+    var wrap = document.getElementById('ra-um-subtab-content');
+    if (!wrap) return;
+
+    wrap.innerHTML =
+      // Controls bar
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">' +
+        '<input type="text" id="ra-um-search" placeholder="Search users..." value="' + escapeHtml(_umSearchTerm) + '" style="flex:1;min-width:180px;padding:9px 14px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;">' +
+        '<select id="ra-um-filter-role" style="padding:9px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;background:#fff;">' +
+          '<option value="all"' + (_umFilterRole === 'all' ? ' selected' : '') + '>All Roles</option>' +
+          '<option value="admin"' + (_umFilterRole === 'admin' ? ' selected' : '') + '>Admins</option>' +
+          '<option value="dashboard"' + (_umFilterRole === 'dashboard' ? ' selected' : '') + '>Dashboard Only</option>' +
+          '<option value="regular"' + (_umFilterRole === 'regular' ? ' selected' : '') + '>Regular Users</option>' +
+        '</select>' +
+        '<select id="ra-um-filter-status" style="padding:9px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;background:#fff;">' +
+          '<option value="all"' + (_umFilterStatus === 'all' ? ' selected' : '') + '>All Status</option>' +
+          '<option value="active"' + (_umFilterStatus === 'active' ? ' selected' : '') + '>Active</option>' +
+          '<option value="inactive"' + (_umFilterStatus === 'inactive' ? ' selected' : '') + '>Inactive</option>' +
+        '</select>' +
+        '<select id="ra-um-filter-inactive" style="padding:9px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;background:#fff;">' +
+          '<option value="0"' + (_umFilterInactive === '0' ? ' selected' : '') + '>No Login Filter</option>' +
+          '<option value="7"' + (_umFilterInactive === '7' ? ' selected' : '') + '>No login 7d+</option>' +
+          '<option value="30"' + (_umFilterInactive === '30' ? ' selected' : '') + '>No login 30d+</option>' +
+          '<option value="90"' + (_umFilterInactive === '90' ? ' selected' : '') + '>No login 90d+</option>' +
+        '</select>' +
+      '</div>' +
+
+      // Bulk actions + add + export row
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">' +
+        '<button id="ra-um-add-btn" style="padding:9px 18px;background:#54a8dc;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">+ Add User</button>' +
+        '<button id="ra-um-export-btn" style="padding:9px 18px;background:#10b981;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Export Excel</button>' +
+        '<span id="ra-um-bulk-wrap" style="display:none;margin-left:8px;">' +
+          '<span id="ra-um-sel-count" style="font-size:12px;color:#64748b;margin-right:8px;">0 selected</span>' +
+          '<button class="ra-um-bulk-btn" data-action="activate" style="padding:5px 12px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;margin-right:4px;">Activate</button>' +
+          '<button class="ra-um-bulk-btn" data-action="deactivate" style="padding:5px 12px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;margin-right:4px;">Deactivate</button>' +
+          '<button class="ra-um-bulk-btn" data-action="dashboard" style="padding:5px 12px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;margin-right:4px;">Assign Dashboard</button>' +
+          '<button class="ra-um-bulk-btn" data-action="export" style="padding:5px 12px;background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;">Export Selected</button>' +
+        '</span>' +
+        '<span style="flex:1;"></span>' +
+        '<span id="ra-um-count" style="font-size:12px;color:#94a3b8;white-space:nowrap;"></span>' +
+      '</div>' +
+
+      // Table
+      '<div id="ra-um-table-wrap">' +
+        '<div style="padding:24px;text-align:center;color:#94a3b8;">Loading users...</div>' +
+      '</div>';
+
+    // Bind events
+    document.getElementById('ra-um-search').addEventListener('input', function () {
+      _umSearchTerm = this.value.toLowerCase();
+      renderUMTable();
+    });
+    document.getElementById('ra-um-filter-role').addEventListener('change', function () {
+      _umFilterRole = this.value;
+      renderUMTable();
+    });
+    document.getElementById('ra-um-filter-status').addEventListener('change', function () {
+      _umFilterStatus = this.value;
+      renderUMTable();
+    });
+    document.getElementById('ra-um-filter-inactive').addEventListener('change', function () {
+      _umFilterInactive = this.value;
+      renderUMTable();
+    });
+    document.getElementById('ra-um-add-btn').addEventListener('click', function () {
+      showUserModal(null);
+    });
+    document.getElementById('ra-um-export-btn').addEventListener('click', function () {
+      exportUsersExcel(false);
+    });
+    wrap.querySelectorAll('.ra-um-bulk-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        umBulkAction(this.getAttribute('data-action'));
+      });
+    });
+
+    if (_umUsers) {
+      renderUMTable();
+    }
+  }
+
+  // ── Activity Sub-Tab ──
+  function renderUMActivitySubTab() {
+    var wrap = document.getElementById('ra-um-subtab-content');
+    if (!wrap) return;
+
+    wrap.innerHTML =
+      '<div style="display:flex;gap:20px;flex-wrap:wrap;">' +
+        // Recent submissions panel
+        '<div style="flex:2;min-width:300px;">' +
+          '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:16px;">' +
+            '<div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:12px;">Recent Submissions (last 50)</div>' +
+            '<div id="ra-um-recent-subs" style="font-size:13px;color:#94a3b8;">Loading...</div>' +
+          '</div>' +
+        '</div>' +
+        // User timeline panel
+        '<div style="flex:1;min-width:260px;">' +
+          '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:16px;">' +
+            '<div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:12px;">User Submission Timeline</div>' +
+            '<div style="margin-bottom:10px;">' +
+              '<select id="ra-um-activity-user" style="width:100%;padding:8px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;background:#fff;">' +
+                '<option value="">Select a user...</option>' +
+              '</select>' +
+            '</div>' +
+            '<div id="ra-um-user-timeline" style="font-size:12px;color:#94a3b8;">Select a user to view timeline</div>' +
+          '</div>' +
+          '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:16px;margin-top:16px;">' +
+            '<div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:12px;">Login History</div>' +
+            '<div id="ra-um-login-history" style="font-size:12px;color:#94a3b8;">Select a user above</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    // Populate user dropdown
+    var sel = document.getElementById('ra-um-activity-user');
+    if (_umUsers) {
+      _umUsers.forEach(function (u) {
+        if (u.username === 'AnonymousUser') return;
+        var opt = document.createElement('option');
+        opt.value = u.username;
+        opt.textContent = u.username;
+        sel.appendChild(opt);
+      });
+    }
+    sel.addEventListener('change', function () {
+      var username = this.value;
+      if (username) {
+        loadUserTimeline(username);
+        renderLoginHistory(username);
+      } else {
+        document.getElementById('ra-um-user-timeline').innerHTML = 'Select a user to view timeline';
+        document.getElementById('ra-um-login-history').innerHTML = 'Select a user above';
+      }
+    });
+
+    // Load recent submissions
+    loadRecentSubmissions();
+  }
+
+  function loadRecentSubmissions() {
+    var el = document.getElementById('ra-um-recent-subs');
+    if (!el) return;
+
+    fetch('/api/v2/submissions/?limit=50&sort={"_submission_time":-1}&fields=["_submitted_by","_submission_time","_xform_id_string"]', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : { results: [] }; })
+      .then(function (data) {
+        var subs = data.results || [];
+        _umAllSubs = subs;
+        if (!subs.length) {
+          el.innerHTML = '<div style="padding:12px;font-style:italic;">No recent submissions found</div>';
+          return;
+        }
+        var html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+          '<thead><tr style="border-bottom:1px solid #e1e3ea;">' +
+            '<th style="text-align:left;padding:8px;font-size:11px;font-weight:600;text-transform:uppercase;color:#64748b;">User</th>' +
+            '<th style="text-align:left;padding:8px;font-size:11px;font-weight:600;text-transform:uppercase;color:#64748b;">Form</th>' +
+            '<th style="text-align:right;padding:8px;font-size:11px;font-weight:600;text-transform:uppercase;color:#64748b;">Time</th>' +
+          '</tr></thead><tbody>';
+        subs.forEach(function (s) {
+          var user = s._submitted_by || 'anonymous';
+          var form = s._xform_id_string || '-';
+          var time = s._submission_time ? formatLastLogin(s._submission_time) : '-';
+          html += '<tr style="border-bottom:1px solid #f0f0f0;cursor:pointer;" class="ra-um-sub-row" data-user="' + escapeHtml(user) + '">' +
+            '<td style="padding:8px;">' +
+              '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<div style="width:24px;height:24px;border-radius:50%;background:#e0f2fe;color:#0284c7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;">' + user.charAt(0).toUpperCase() + '</div>' +
+                '<span style="font-weight:500;">' + escapeHtml(user) + '</span>' +
+              '</div>' +
+            '</td>' +
+            '<td style="padding:8px;color:#64748b;">' + escapeHtml(form) + '</td>' +
+            '<td style="padding:8px;text-align:right;color:#94a3b8;font-size:12px;">' + time + '</td>' +
+          '</tr>';
+        });
+        html += '</tbody></table>';
+        el.innerHTML = html;
+
+        // Click on a submission row to load that user's timeline
+        el.querySelectorAll('.ra-um-sub-row').forEach(function (row) {
+          row.addEventListener('click', function () {
+            var username = this.getAttribute('data-user');
+            var sel2 = document.getElementById('ra-um-activity-user');
+            if (sel2) sel2.value = username;
+            loadUserTimeline(username);
+            renderLoginHistory(username);
+          });
+        });
+      })
+      .catch(function () {
+        el.innerHTML = '<div style="padding:12px;color:#e74c3c;">Failed to load submissions</div>';
+      });
+  }
+
+  function loadUserTimeline(username) {
+    var el = document.getElementById('ra-um-user-timeline');
+    if (!el) return;
+    el.innerHTML = '<span style="color:#94a3b8;">Loading...</span>';
+
+    fetch('/api/v2/submissions/?query={"_submitted_by":"' + encodeURIComponent(username) + '"}&limit=30&sort={"_submission_time":-1}&fields=["_submission_time","_xform_id_string"]', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : { results: [] }; })
+      .then(function (data) {
+        var subs = data.results || [];
+        if (!subs.length) {
+          el.innerHTML = '<div style="font-style:italic;">No submissions from this user</div>';
+          return;
+        }
+        var html = '';
+        subs.forEach(function (s, i) {
+          var time = s._submission_time ? formatLastLogin(s._submission_time) : '-';
+          var form = s._xform_id_string || '-';
+          html += '<div style="display:flex;align-items:flex-start;gap:10px;padding:6px 0;' + (i < subs.length - 1 ? 'border-bottom:1px solid #f0f0f0;' : '') + '">' +
+            '<div style="width:8px;height:8px;border-radius:50%;background:#54a8dc;margin-top:4px;flex-shrink:0;"></div>' +
+            '<div style="flex:1;min-width:0;">' +
+              '<div style="font-size:12px;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(form) + '</div>' +
+              '<div style="font-size:11px;color:#94a3b8;">' + time + '</div>' +
+            '</div>' +
+          '</div>';
+        });
+        el.innerHTML = html;
+      })
+      .catch(function () {
+        el.innerHTML = '<div style="color:#e74c3c;">Failed to load timeline</div>';
+      });
+  }
+
+  function renderLoginHistory(username) {
+    var el = document.getElementById('ra-um-login-history');
+    if (!el) return;
+    var u = _umUsers ? _umUsers.find(function (usr) { return usr.username === username; }) : null;
+    if (!u) {
+      el.innerHTML = 'User not found';
+      return;
+    }
+    var lastLogin = u.last_login ? formatLastLogin(u.last_login) : 'Never';
+    var joined = formatDate(u.date_joined);
+    el.innerHTML =
+      '<div style="padding:6px 0;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;">' +
+        '<span style="color:#64748b;">Last Login</span>' +
+        '<span style="color:#1e293b;font-weight:500;">' + lastLogin + '</span>' +
+      '</div>' +
+      '<div style="padding:6px 0;display:flex;justify-content:space-between;">' +
+        '<span style="color:#64748b;">Date Joined</span>' +
+        '<span style="color:#1e293b;font-weight:500;">' + joined + '</span>' +
+      '</div>' +
+      '<div style="padding:6px 0;display:flex;justify-content:space-between;">' +
+        '<span style="color:#64748b;">Status</span>' +
+        '<span>' + getStatusBadge(u.is_active) + '</span>' +
+      '</div>';
+  }
+
+  // ── Analytics Sub-Tab ──
+  function renderUMAnalyticsSubTab() {
+    var wrap = document.getElementById('ra-um-subtab-content');
+    if (!wrap) return;
+
+    wrap.innerHTML =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">' +
+        // Active Users Chart
+        '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:16px;">' +
+          '<div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:12px;">Daily Active Users (30 days)</div>' +
+          '<div id="ra-um-chart-active" style="min-height:200px;color:#94a3b8;font-size:12px;">Loading...</div>' +
+        '</div>' +
+        // Submissions Trend
+        '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:16px;">' +
+          '<div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:12px;">Submissions Trend (30 days)</div>' +
+          '<div id="ra-um-chart-subs" style="min-height:200px;color:#94a3b8;font-size:12px;">Loading...</div>' +
+        '</div>' +
+        // Top Contributors
+        '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:16px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+            '<div style="font-size:14px;font-weight:700;color:#1e293b;">Top Contributors</div>' +
+            '<select id="ra-um-contrib-period" style="padding:4px 8px;border:1px solid #e1e3ea;border-radius:4px;font-size:12px;background:#fff;">' +
+              '<option value="7">This Week</option>' +
+              '<option value="30">This Month</option>' +
+            '</select>' +
+          '</div>' +
+          '<div id="ra-um-top-contrib" style="font-size:13px;color:#94a3b8;">Loading...</div>' +
+        '</div>' +
+        // Inactive Users Report
+        '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:16px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+            '<div style="font-size:14px;font-weight:700;color:#1e293b;">Inactive Users Report</div>' +
+            '<select id="ra-um-inactive-period" style="padding:4px 8px;border:1px solid #e1e3ea;border-radius:4px;font-size:12px;background:#fff;">' +
+              '<option value="7">7 days</option>' +
+              '<option value="30" selected>30 days</option>' +
+              '<option value="90">90 days</option>' +
+            '</select>' +
+          '</div>' +
+          '<div id="ra-um-inactive-report" style="font-size:13px;color:#94a3b8;">Loading...</div>' +
+        '</div>' +
+        // New Registrations Chart — full width
+        '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:16px;grid-column:1/-1;">' +
+          '<div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:12px;">New Registrations (30 days)</div>' +
+          '<div id="ra-um-chart-regs" style="min-height:180px;color:#94a3b8;font-size:12px;">Loading...</div>' +
+        '</div>' +
+      '</div>';
+
+    // Load analytics data
+    loadUMAnalytics();
+
+    // Period change listeners
+    var contribSel = document.getElementById('ra-um-contrib-period');
+    if (contribSel) {
+      contribSel.addEventListener('change', function () {
+        renderUMTopContributors(document.getElementById('ra-um-top-contrib'), parseInt(this.value, 10));
+      });
+    }
+    var inactiveSel = document.getElementById('ra-um-inactive-period');
+    if (inactiveSel) {
+      inactiveSel.addEventListener('change', function () {
+        renderUMInactiveReport(document.getElementById('ra-um-inactive-report'), parseInt(this.value, 10));
+      });
+    }
+  }
+
+  function loadUMAnalytics() {
+    // Fetch 30 days of submissions for charts
+    var thirtyAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+    fetch('/api/v2/submissions/?query={"_submission_time":{"$gte":"' + thirtyAgo + '"}}&limit=5000&sort={"_submission_time":-1}&fields=["_submitted_by","_submission_time"]', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : { results: [] }; })
+      .then(function (data) {
+        var subs = data.results || [];
+        renderUMActiveUsersChart(document.getElementById('ra-um-chart-active'), subs);
+        renderUMSubsTrendChart(document.getElementById('ra-um-chart-subs'), subs);
+        renderUMTopContributors(document.getElementById('ra-um-top-contrib'), 7, subs);
+        renderUMNewRegsChart(document.getElementById('ra-um-chart-regs'));
+        renderUMInactiveReport(document.getElementById('ra-um-inactive-report'), 30);
+        // Store for period switching
+        _umAllSubs = subs;
+      })
+      .catch(function () {
+        var ids = ['ra-um-chart-active', 'ra-um-chart-subs', 'ra-um-top-contrib', 'ra-um-inactive-report', 'ra-um-chart-regs'];
+        ids.forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.innerHTML = '<div style="color:#e74c3c;">Failed to load data</div>';
+        });
+      });
+  }
+
+  function renderUMActiveUsersChart(el, subs) {
+    if (!el) return;
+    var days = 30;
+    var labels = [];
+    var buckets = {};
+    for (var i = days - 1; i >= 0; i--) {
+      var d = new Date(Date.now() - i * 86400000);
+      var key = d.toISOString().split('T')[0];
+      labels.push(key);
+      buckets[key] = {};
+    }
+    subs.forEach(function (s) {
+      if (!s._submission_time || !s._submitted_by) return;
+      var key = s._submission_time.split('T')[0];
+      if (buckets[key]) buckets[key][s._submitted_by] = true;
+    });
+    var values = labels.map(function (l) { return Object.keys(buckets[l]).length; });
+    renderUMBarChart(el, labels, values, '#54a8dc');
+  }
+
+  function renderUMSubsTrendChart(el, subs) {
+    if (!el) return;
+    var days = 30;
+    var labels = [];
+    var buckets = {};
+    for (var i = days - 1; i >= 0; i--) {
+      var d = new Date(Date.now() - i * 86400000);
+      var key = d.toISOString().split('T')[0];
+      labels.push(key);
+      buckets[key] = 0;
+    }
+    subs.forEach(function (s) {
+      if (!s._submission_time) return;
+      var key = s._submission_time.split('T')[0];
+      if (buckets[key] !== undefined) buckets[key]++;
+    });
+    var values = labels.map(function (l) { return buckets[l]; });
+    renderUMLineChart(el, labels, values, '#10b981');
+  }
+
+  function renderUMNewRegsChart(el) {
+    if (!el || !_umUsers) return;
+    var days = 30;
+    var labels = [];
+    var buckets = {};
+    for (var i = days - 1; i >= 0; i--) {
+      var d = new Date(Date.now() - i * 86400000);
+      var key = d.toISOString().split('T')[0];
+      labels.push(key);
+      buckets[key] = 0;
+    }
+    _umUsers.forEach(function (u) {
+      if (!u.date_joined || u.username === 'AnonymousUser') return;
+      var key = u.date_joined.split('T')[0];
+      if (buckets[key] !== undefined) buckets[key]++;
+    });
+    var values = labels.map(function (l) { return buckets[l]; });
+    renderUMBarChart(el, labels, values, '#f59e0b');
+  }
+
+  function renderUMBarChart(el, labels, values, color) {
+    if (!el) return;
+    var maxVal = Math.max.apply(null, values) || 1;
+    var svgW = 700, svgH = 180, padL = 35, padR = 10, padT = 15, padB = 25;
+    var chartW = svgW - padL - padR, chartH = svgH - padT - padB;
+    var barW = chartW / labels.length, gap = 1;
+
+    var bars = '', lbls = '';
+    for (var j = 0; j < labels.length; j++) {
+      var barH = (values[j] / maxVal) * chartH;
+      var x = padL + j * barW, y = padT + chartH - barH;
+      bars += '<rect x="' + (x + gap) + '" y="' + y + '" width="' + (barW - gap * 2) + '" height="' + barH + '" rx="1" fill="' + color + '" opacity="0.8"><title>' + labels[j] + ': ' + values[j] + '</title></rect>';
+      if (values[j] > 0 && labels.length <= 31) bars += '<text x="' + (x + barW / 2) + '" y="' + (y - 2) + '" text-anchor="middle" fill="#64748b" font-size="9">' + values[j] + '</text>';
+      if (j % 5 === 0 || j === labels.length - 1) lbls += '<text x="' + (x + barW / 2) + '" y="' + (svgH - 4) + '" text-anchor="middle" fill="#94a3b8" font-size="9">' + labels[j].substring(5) + '</text>';
+    }
+    var yLines = '';
+    for (var k = 0; k <= 3; k++) {
+      var yP = padT + chartH - (chartH * k / 3);
+      yLines += '<text x="' + (padL - 4) + '" y="' + (yP + 3) + '" text-anchor="end" fill="#94a3b8" font-size="9">' + Math.round(maxVal * k / 3) + '</text>';
+      yLines += '<line x1="' + padL + '" y1="' + yP + '" x2="' + (svgW - padR) + '" y2="' + yP + '" stroke="#f1f5f9" stroke-width="1"/>';
+    }
+    el.innerHTML = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:auto;" preserveAspectRatio="xMidYMid meet">' + yLines + bars + lbls + '</svg>';
+  }
+
+  function renderUMLineChart(el, labels, values, color) {
+    if (!el) return;
+    var maxVal = Math.max.apply(null, values) || 1;
+    var svgW = 700, svgH = 180, padL = 35, padR = 10, padT = 15, padB = 25;
+    var chartW = svgW - padL - padR, chartH = svgH - padT - padB;
+    var stepX = labels.length > 1 ? chartW / (labels.length - 1) : chartW;
+
+    var points = [];
+    var dots = '';
+    for (var j = 0; j < labels.length; j++) {
+      var x = padL + j * stepX;
+      var y = padT + chartH - ((values[j] / maxVal) * chartH);
+      points.push(x + ',' + y);
+      dots += '<circle cx="' + x + '" cy="' + y + '" r="3" fill="' + color + '"><title>' + labels[j] + ': ' + values[j] + '</title></circle>';
+    }
+    var line = points.length > 1 ? '<polyline points="' + points.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round"/>' : '';
+
+    var yLines = '';
+    for (var k = 0; k <= 3; k++) {
+      var yP = padT + chartH - (chartH * k / 3);
+      yLines += '<text x="' + (padL - 4) + '" y="' + (yP + 3) + '" text-anchor="end" fill="#94a3b8" font-size="9">' + Math.round(maxVal * k / 3) + '</text>';
+      yLines += '<line x1="' + padL + '" y1="' + yP + '" x2="' + (svgW - padR) + '" y2="' + yP + '" stroke="#f1f5f9" stroke-width="1"/>';
+    }
+    var xLabels = '';
+    for (var m = 0; m < labels.length; m++) {
+      if (m % 5 === 0 || m === labels.length - 1) {
+        var xPos = padL + m * stepX;
+        xLabels += '<text x="' + xPos + '" y="' + (svgH - 4) + '" text-anchor="middle" fill="#94a3b8" font-size="9">' + labels[m].substring(5) + '</text>';
+      }
+    }
+    el.innerHTML = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:auto;" preserveAspectRatio="xMidYMid meet">' + yLines + xLabels + line + dots + '</svg>';
+  }
+
+  function renderUMTopContributors(el, days, subs) {
+    if (!el) return;
+    subs = subs || _umAllSubs || [];
+    var cutoff = new Date(Date.now() - days * 86400000).toISOString();
+    var counts = {};
+    subs.forEach(function (s) {
+      if (!s._submitted_by || !s._submission_time) return;
+      if (s._submission_time >= cutoff) {
+        counts[s._submitted_by] = (counts[s._submitted_by] || 0) + 1;
+      }
+    });
+    var sorted = Object.keys(counts).map(function (u) {
+      return { username: u, count: counts[u] };
+    }).sort(function (a, b) { return b.count - a.count; }).slice(0, 10);
+
+    if (!sorted.length) {
+      el.innerHTML = '<div style="font-style:italic;">No submissions in this period</div>';
+      return;
+    }
+    var maxC = sorted[0].count || 1;
+    var html = '';
+    sorted.forEach(function (item, idx) {
+      var pct = Math.round((item.count / maxC) * 100);
+      var medal = '';
+      if (idx === 0) medal = '<span style="color:#f59e0b;">&#9733;</span> ';
+      else if (idx === 1) medal = '<span style="color:#94a3b8;">&#9733;</span> ';
+      else if (idx === 2) medal = '<span style="color:#cd7f32;">&#9733;</span> ';
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;' + (idx < sorted.length - 1 ? 'border-bottom:1px solid #f0f0f0;' : '') + '">' +
+        '<div style="width:24px;text-align:center;font-size:12px;font-weight:700;color:#64748b;">' + (idx + 1) + '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:13px;font-weight:500;color:#1e293b;">' + medal + escapeHtml(item.username) + '</div>' +
+          '<div style="height:4px;background:#f1f5f9;border-radius:2px;margin-top:3px;">' +
+            '<div style="height:4px;background:#54a8dc;border-radius:2px;width:' + pct + '%;"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="font-size:13px;font-weight:700;color:#1e293b;min-width:40px;text-align:right;">' + item.count + '</div>' +
+      '</div>';
+    });
+    el.innerHTML = html;
+  }
+
+  function renderUMInactiveReport(el, days) {
+    if (!el || !_umUsers) return;
+    var cutoff = Date.now() - days * 86400000;
+    var inactive = _umUsers.filter(function (u) {
+      if (u.username === 'AnonymousUser') return false;
+      if (!u.is_active) return false;
+      if (!u.last_login) return true;
+      return new Date(u.last_login).getTime() < cutoff;
+    }).sort(function (a, b) {
+      var aT = a.last_login ? new Date(a.last_login).getTime() : 0;
+      var bT = b.last_login ? new Date(b.last_login).getTime() : 0;
+      return aT - bT;
+    });
+
+    if (!inactive.length) {
+      el.innerHTML = '<div style="font-style:italic;">No inactive users for this period</div>';
+      return;
+    }
+
+    var html = '<div style="margin-bottom:8px;font-size:12px;color:#64748b;">' + inactive.length + ' user' + (inactive.length !== 1 ? 's' : '') + ' with no login in ' + days + '+ days</div>';
+    html += '<div style="max-height:220px;overflow-y:auto;">';
+    inactive.slice(0, 30).forEach(function (u) {
+      var lastLogin = u.last_login ? formatLastLogin(u.last_login) : 'Never';
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0f0;">' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<div style="width:24px;height:24px;border-radius:50%;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;flex-shrink:0;">' + u.username.charAt(0).toUpperCase() + '</div>' +
+          '<span style="font-size:12px;font-weight:500;color:#1e293b;">' + escapeHtml(u.username) + '</span>' +
+        '</div>' +
+        '<span style="font-size:11px;color:#94a3b8;">' + lastLogin + '</span>' +
+      '</div>';
+    });
+    if (inactive.length > 30) {
+      html += '<div style="padding:6px 0;font-size:11px;color:#94a3b8;text-align:center;">...and ' + (inactive.length - 30) + ' more</div>';
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  // ── Data Loading ──
+  function loadUMData() {
+    var usersPromise = fetch('/api/v2/users/?format=json&limit=1000', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : { results: [] }; })
+      .then(function (data) { return data.results || []; });
+
+    var formsPromise = fetch('/api/v2/assets/?q=asset_type:survey&limit=500&fields=["uid","name","deployment__submission_count","owner__username"]', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : { results: [] }; })
+      .then(function (data) { return data.results || []; });
+
+    var configPromise = loadDashConfig ? new Promise(function (resolve) {
+      if (_dashConfig) { resolve(); return; }
+      loadDashConfig(resolve);
+    }) : Promise.resolve();
+
+    Promise.all([usersPromise, formsPromise, configPromise]).then(function (results) {
+      _umUsers = results[0];
+      _umForms = results[1];
+      updateUMStats();
+      renderUMActiveSubTab();
+      // Load submission counts async
+      loadUMSubmissionCounts();
+    }).catch(function () {
+      var wrap = document.getElementById('ra-um-subtab-content');
+      if (wrap) wrap.innerHTML = '<div style="padding:24px;text-align:center;color:#e74c3c;">Failed to load users. Please try again.</div>';
+    });
+  }
+
+  function loadUMSubmissionCounts() {
+    if (!_umUsers || !_umForms) return;
+    // Build per-user submission count from forms
+    _umSubCounts = {};
+    _umForms.forEach(function (f) {
+      var owner = f.owner__username;
+      if (owner) {
+        _umSubCounts[owner] = (_umSubCounts[owner] || 0) + (f.deployment__submission_count || 0);
+      }
+    });
+    // Also fetch submission counts per user via a broader approach
+    // We already have form counts; update the table if visible
+    renderUMTable();
+  }
+
+  // ── User Role / Badge / Status helpers ──
+  function getUserRole(username) {
+    var u = _umUsers ? _umUsers.find(function (usr) { return usr.username === username; }) : null;
+    if (u && (u.is_superuser || u.is_staff)) return 'admin';
+    if (_dashConfig && _dashConfig.users && _dashConfig.users[username]) return 'dashboard';
+    return 'regular';
+  }
+
+  function getRoleBadge(role) {
+    if (role === 'admin') return '<span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;background:#fef3c7;color:#92400e;">Admin</span>';
+    if (role === 'dashboard') return '<span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;background:#dbeafe;color:#1e40af;">Dashboard</span>';
+    return '<span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;background:#f1f5f9;color:#64748b;">Regular</span>';
+  }
+
+  function getStatusBadge(isActive) {
+    if (isActive) return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#10b981;"><span style="width:6px;height:6px;border-radius:50%;background:#10b981;"></span>Active</span>';
+    return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#ef4444;"><span style="width:6px;height:6px;border-radius:50%;background:#ef4444;"></span>Inactive</span>';
+  }
+
+  function updateUMStats() {
+    if (!_umUsers) return;
+    var total = _umUsers.filter(function (u) { return u.username !== 'AnonymousUser'; }).length;
+    var active = _umUsers.filter(function (u) { return u.is_active && u.username !== 'AnonymousUser'; }).length;
+    var dashUsers = (_dashConfig && _dashConfig.users) ? Object.keys(_dashConfig.users).length : 0;
+
+    var weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    var newThisWeek = _umUsers.filter(function (u) {
+      return u.date_joined && u.date_joined >= weekAgo && u.username !== 'AnonymousUser';
+    }).length;
+
+    var thirtyAgo = Date.now() - 30 * 86400000;
+    var inactive30 = _umUsers.filter(function (u) {
+      if (u.username === 'AnonymousUser' || !u.is_active) return false;
+      if (!u.last_login) return true;
+      return new Date(u.last_login).getTime() < thirtyAgo;
+    }).length;
+
+    var el;
+    el = document.getElementById('ra-um-total'); if (el) el.textContent = total;
+    el = document.getElementById('ra-um-active'); if (el) el.textContent = active;
+    el = document.getElementById('ra-um-dashboard'); if (el) el.textContent = dashUsers;
+    el = document.getElementById('ra-um-new-week'); if (el) el.textContent = newThisWeek;
+    el = document.getElementById('ra-um-inactive30'); if (el) el.textContent = inactive30;
+  }
+
+  function getFilteredUMUsers() {
+    if (!_umUsers) return [];
+    return _umUsers.filter(function (u) {
+      if (u.username === 'AnonymousUser') return false;
+
+      // Search filter
+      if (_umSearchTerm) {
+        var searchStr = (u.username + ' ' + ((u.metadata && u.metadata.name) || '') + ' ' + ((u.metadata && u.metadata.organization) || '') + ' ' + (u.email || '')).toLowerCase();
+        if (searchStr.indexOf(_umSearchTerm) === -1) return false;
+      }
+
+      // Role filter
+      if (_umFilterRole !== 'all') {
+        var role = getUserRole(u.username);
+        if (role !== _umFilterRole) return false;
+      }
+
+      // Status filter
+      if (_umFilterStatus === 'active' && !u.is_active) return false;
+      if (_umFilterStatus === 'inactive' && u.is_active) return false;
+
+      // Inactive days filter
+      if (_umFilterInactive !== '0') {
+        var daysThresh = parseInt(_umFilterInactive, 10);
+        var cutoff = Date.now() - daysThresh * 86400000;
+        if (u.last_login && new Date(u.last_login).getTime() >= cutoff) return false;
+      }
+
+      return true;
+    });
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    var d = new Date(dateStr);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function formatLastLogin(dateStr) {
+    if (!dateStr) return '<span style="color:#94a3b8;">Never</span>';
+    var diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+    return formatDate(dateStr);
+  }
+
+  // ── Table Rendering ──
+  function renderUMTable() {
+    var wrap = document.getElementById('ra-um-table-wrap');
+    if (!wrap) return;
+    var users = getFilteredUMUsers();
+
+    var countEl = document.getElementById('ra-um-count');
+    if (countEl) countEl.textContent = users.length + ' user' + (users.length !== 1 ? 's' : '');
+
+    // Update bulk wrap visibility
+    updateBulkWrap();
+
+    if (!users.length) {
+      wrap.innerHTML = '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:32px;text-align:center;color:#94a3b8;font-size:13px;">No users match your filters.</div>';
+      return;
+    }
+
+    var allChecked = true;
+    users.forEach(function (u) { if (!_umSelectedRows[u.username]) allChecked = false; });
+
+    var html = '<table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e1e3ea;border-radius:6px;overflow:hidden;font-size:13px;">' +
+      '<thead><tr style="background:#f9f9fb;border-bottom:1px solid #e1e3ea;">' +
+        '<th style="width:36px;padding:10px 8px;text-align:center;"><input type="checkbox" id="ra-um-check-all"' + (allChecked && users.length ? ' checked' : '') + '></th>' +
+        '<th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">User</th>' +
+        '<th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Role</th>' +
+        '<th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Status</th>' +
+        '<th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Joined</th>' +
+        '<th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Last Login</th>' +
+        '<th style="text-align:right;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Submissions</th>' +
+        '<th style="text-align:right;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Actions</th>' +
+      '</tr></thead><tbody>';
+
+    users.forEach(function (u) {
+      var role = getUserRole(u.username);
+      var displayName = [u.first_name || '', u.last_name || ''].filter(Boolean).join(' ') || (u.metadata && u.metadata.name) || '';
+      var org = (u.metadata && u.metadata.organization) || '';
+      var initial = u.username.charAt(0).toUpperCase();
+      var subCount = _umSubCounts[u.username] || 0;
+      var isChecked = !!_umSelectedRows[u.username];
+
+      html += '<tr class="ra-um-row" data-username="' + escapeHtml(u.username) + '" style="border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background=\'#f7f9fb\'" onmouseout="this.style.background=\'\'">' +
+        '<td style="padding:10px 8px;text-align:center;" onclick="event.stopPropagation()"><input type="checkbox" class="ra-um-row-check" data-username="' + escapeHtml(u.username) + '"' + (isChecked ? ' checked' : '') + '></td>' +
+        '<td style="padding:10px 14px;">' +
+          '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<div style="width:32px;height:32px;border-radius:50%;background:#e0f2fe;color:#0284c7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;">' + initial + '</div>' +
+            '<div style="min-width:0;">' +
+              '<div style="font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(u.username) + '</div>' +
+              (displayName ? '<div style="font-size:11px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(displayName) + (org ? ' - ' + escapeHtml(org) : '') + '</div>' : '') +
+            '</div>' +
+          '</div>' +
+        '</td>' +
+        '<td style="padding:10px 14px;">' + getRoleBadge(role) + '</td>' +
+        '<td style="padding:10px 14px;">' + getStatusBadge(u.is_active) + '</td>' +
+        '<td style="padding:10px 14px;font-size:12px;color:#64748b;">' + formatDate(u.date_joined) + '</td>' +
+        '<td style="padding:10px 14px;font-size:12px;color:#64748b;">' + formatLastLogin(u.last_login) + '</td>' +
+        '<td style="padding:10px 14px;text-align:right;font-size:12px;color:#64748b;">' + subCount + '</td>' +
+        '<td style="padding:10px 14px;text-align:right;">' +
+          '<button class="ra-um-action-btn" data-action="toggle" data-user="' + escapeHtml(u.username) + '" title="' + (u.is_active ? 'Deactivate' : 'Activate') + '" style="background:none;border:1px solid #e1e3ea;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:' + (u.is_active ? '#ef4444' : '#10b981') + ';margin-right:4px;">' +
+            (u.is_active ? 'Deactivate' : 'Activate') +
+          '</button>' +
+        '</td>' +
+      '</tr>';
+    });
+
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+
+    // Check all checkbox
+    var checkAll = document.getElementById('ra-um-check-all');
+    if (checkAll) {
+      checkAll.addEventListener('change', function () {
+        var checked = this.checked;
+        var filtered = getFilteredUMUsers();
+        filtered.forEach(function (u) {
+          if (checked) _umSelectedRows[u.username] = true;
+          else delete _umSelectedRows[u.username];
+        });
+        renderUMTable();
+      });
+    }
+
+    // Individual row checkboxes
+    wrap.querySelectorAll('.ra-um-row-check').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        var uname = this.getAttribute('data-username');
+        if (this.checked) _umSelectedRows[uname] = true;
+        else delete _umSelectedRows[uname];
+        updateBulkWrap();
+      });
+    });
+
+    // Row click — show user popup
+    wrap.querySelectorAll('.ra-um-row').forEach(function (row) {
+      row.addEventListener('click', function (e) {
+        if (e.target.closest('.ra-um-action-btn') || e.target.tagName === 'INPUT') return;
+        var username = this.getAttribute('data-username');
+        showUserModal(username);
+      });
+    });
+
+    // Action buttons
+    wrap.querySelectorAll('.ra-um-action-btn').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var action = this.getAttribute('data-action');
+        var username = this.getAttribute('data-user');
+        if (action === 'toggle') toggleUserActive(username);
+      });
+    });
+  }
+
+  function updateBulkWrap() {
+    var bulkWrap = document.getElementById('ra-um-bulk-wrap');
+    var selCount = document.getElementById('ra-um-sel-count');
+    var count = Object.keys(_umSelectedRows).length;
+    if (bulkWrap) bulkWrap.style.display = count > 0 ? 'inline' : 'none';
+    if (selCount) selCount.textContent = count + ' selected';
+  }
+
+  // ── Bulk Actions ──
+  function umBulkAction(action) {
+    var selected = Object.keys(_umSelectedRows);
+    if (!selected.length) return;
+
+    if (action === 'activate' || action === 'deactivate') {
+      var newStatus = action === 'activate';
+      if (!confirm(action.charAt(0).toUpperCase() + action.slice(1) + ' ' + selected.length + ' user(s)?')) return;
+      var done = 0;
+      var errors = 0;
+      selected.forEach(function (username) {
+        fetch('/api/v2/users/' + encodeURIComponent(username) + '/', {
+          method: 'PATCH',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+          body: JSON.stringify({ is_active: newStatus })
+        }).then(function (r) {
+          if (!r.ok) throw new Error('fail');
+          return r.json();
+        }).then(function () {
+          var u = _umUsers ? _umUsers.find(function (usr) { return usr.username === username; }) : null;
+          if (u) u.is_active = newStatus;
+          done++;
+          if (done + errors === selected.length) {
+            _umSelectedRows = {};
+            updateUMStats();
+            renderUMTable();
+            showStatus(document.getElementById('ra-um-status'), 'ok', done + ' user(s) ' + (newStatus ? 'activated' : 'deactivated') + (errors ? ', ' + errors + ' failed' : ''));
+          }
+        }).catch(function () {
+          errors++;
+          if (done + errors === selected.length) {
+            _umSelectedRows = {};
+            updateUMStats();
+            renderUMTable();
+            showStatus(document.getElementById('ra-um-status'), 'err', errors + ' of ' + selected.length + ' failed');
+          }
+        });
+      });
+    } else if (action === 'dashboard') {
+      showBulkDashboardModal(selected);
+    } else if (action === 'export') {
+      exportUsersExcel(true);
+    }
+  }
+
+  function showBulkDashboardModal(usernames) {
+    var old = document.getElementById('ra-um-bulk-dash-modal');
+    if (old) old.remove();
+
+    var dashNames = getDashboardNames();
+    var dashOpts = '<option value="">(Remove dashboard)</option>';
+    dashNames.forEach(function (d) {
+      dashOpts += '<option value="' + escapeHtml(d.id) + '">' + escapeHtml(d.name) + '</option>';
+    });
+
+    var modal = document.createElement('div');
+    modal.id = 'ra-um-bulk-dash-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:10px;width:420px;max-width:92vw;padding:24px;box-shadow:0 10px 40px rgba(0,0,0,0.25);">' +
+        '<div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:16px;">Assign Dashboard to ' + usernames.length + ' user(s)</div>' +
+        '<select id="ra-um-bulk-dash-sel" style="width:100%;padding:10px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;background:#fff;margin-bottom:16px;">' + dashOpts + '</select>' +
+        '<div style="display:flex;gap:10px;">' +
+          '<button id="ra-um-bulk-dash-save" style="flex:1;padding:10px;background:#54a8dc;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Apply</button>' +
+          '<button id="ra-um-bulk-dash-cancel" style="padding:10px 20px;border:1px solid #e1e3ea;background:#fff;color:#64748b;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('#ra-um-bulk-dash-cancel').addEventListener('click', function () { modal.remove(); });
+    modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+
+    modal.querySelector('#ra-um-bulk-dash-save').addEventListener('click', function () {
+      var dashId = document.getElementById('ra-um-bulk-dash-sel').value;
+      if (!_dashConfig) _dashConfig = { dashboards: {}, users: {} };
+      if (!_dashConfig.users) _dashConfig.users = {};
+      usernames.forEach(function (uname) {
+        if (dashId) _dashConfig.users[uname] = dashId;
+        else delete _dashConfig.users[uname];
+      });
+      saveDashConfig(function (err) {
+        if (err) {
+          showStatus(document.getElementById('ra-um-status'), 'err', 'Failed: ' + err);
+        } else {
+          _umSelectedRows = {};
+          updateUMStats();
+          renderUMTable();
+          showStatus(document.getElementById('ra-um-status'), 'ok', 'Dashboard assigned to ' + usernames.length + ' user(s)');
+        }
+        modal.remove();
+      });
+    });
+  }
+
+  // ── Export to Excel ──
+  function exportUsersExcel(selectedOnly) {
+    var users = selectedOnly ? _umUsers.filter(function (u) { return _umSelectedRows[u.username]; }) : getFilteredUMUsers();
+    if (!users.length) {
+      showStatus(document.getElementById('ra-um-status'), 'err', 'No users to export');
+      return;
+    }
+
+    var dateStr = new Date().toISOString().split('T')[0];
+    var fileName = 'Users_' + dateStr + '.xls';
+
+    var excelHtml = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+      '<head><meta charset="utf-8">' +
+      '<style>td,th{padding:6px 10px;border:1px solid #ccc;font-family:Calibri,sans-serif;font-size:11pt;}' +
+      'th{background:#4472C4;color:#fff;font-weight:bold;}' +
+      'tr:nth-child(even) td{background:#D9E2F3;}</style></head><body>' +
+      '<table>' +
+      '<tr><th>Username</th><th>First Name</th><th>Last Name</th><th>Email</th><th>Organization</th><th>Role</th><th>Status</th><th>Date Joined</th><th>Last Login</th><th>Submissions</th><th>Notes</th></tr>';
+
+    users.forEach(function (u) {
+      var role = getUserRole(u.username);
+      var org = (u.metadata && u.metadata.organization) || '';
+      var subCount = _umSubCounts[u.username] || 0;
+      var notes = (_dashConfig && _dashConfig.userNotes && _dashConfig.userNotes[u.username]) || '';
+      excelHtml += '<tr>' +
+        '<td>' + escapeHtml(u.username) + '</td>' +
+        '<td>' + escapeHtml(u.first_name || '') + '</td>' +
+        '<td>' + escapeHtml(u.last_name || '') + '</td>' +
+        '<td>' + escapeHtml(u.email || '') + '</td>' +
+        '<td>' + escapeHtml(org) + '</td>' +
+        '<td>' + escapeHtml(role) + '</td>' +
+        '<td>' + (u.is_active ? 'Active' : 'Inactive') + '</td>' +
+        '<td>' + escapeHtml(formatDate(u.date_joined)) + '</td>' +
+        '<td>' + escapeHtml(u.last_login ? formatDate(u.last_login) : 'Never') + '</td>' +
+        '<td>' + subCount + '</td>' +
+        '<td>' + escapeHtml(notes) + '</td>' +
+      '</tr>';
+    });
+
+    excelHtml += '</table></body></html>';
+
+    var blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+
+    showStatus(document.getElementById('ra-um-status'), 'ok', 'Exported ' + users.length + ' user(s)');
+  }
+
+  // ── User Modal (enhanced — view existing user OR add new user) ──
+  function showUserModal(username) {
+    var old = document.getElementById('ra-um-modal');
+    if (old) old.remove();
+
+    var isNew = !username;
+    var u = isNew ? null : (_umUsers ? _umUsers.find(function (usr) { return usr.username === username; }) : null);
+    if (!isNew && !u) return;
+
+    var firstName = isNew ? '' : (u.first_name || '');
+    var lastName = isNew ? '' : (u.last_name || '');
+    var fullName = isNew ? '' : ((u.metadata && u.metadata.name) || [firstName, lastName].filter(Boolean).join(' ') || '');
+    var org = isNew ? '' : ((u.metadata && u.metadata.organization) || '');
+    var email = isNew ? '' : (u.email || '');
+    var initial = isNew ? '+' : username.charAt(0).toUpperCase();
+    var role = isNew ? 'regular' : getUserRole(username);
+
+    // Dashboard assignment options
+    var dashNames = getDashboardNames();
+    var assignedDashId = (!isNew && _dashConfig && _dashConfig.users) ? (_dashConfig.users[username] || '') : '';
+    var dashOpts = '<option value="">(None - regular user)</option>';
+    dashNames.forEach(function (d) {
+      dashOpts += '<option value="' + escapeHtml(d.id) + '"' + (d.id === assignedDashId ? ' selected' : '') + '>' + escapeHtml(d.name) + '</option>';
+    });
+
+    // User notes
+    var userNotes = (!isNew && _dashConfig && _dashConfig.userNotes && _dashConfig.userNotes[username]) ? _dashConfig.userNotes[username] : '';
+
+    var modal = document.createElement('div');
+    modal.id = 'ra-um-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;';
+
+    var bodyHtml = '';
+
+    if (isNew) {
+      // ── New User Form ──
+      bodyHtml =
+        '<div style="display:flex;gap:12px;margin-bottom:14px;">' +
+          '<div style="flex:1;"><label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Username *</label>' +
+            '<input type="text" id="ra-um-f-username" style="width:100%;padding:8px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;" placeholder="username"></div>' +
+          '<div style="flex:1;"><label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Password *</label>' +
+            '<input type="password" id="ra-um-f-password" style="width:100%;padding:8px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;" placeholder="password"></div>' +
+        '</div>' +
+        '<div style="display:flex;gap:12px;margin-bottom:14px;">' +
+          '<div style="flex:1;"><label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">First Name</label>' +
+            '<input type="text" id="ra-um-f-fname" style="width:100%;padding:8px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;" placeholder="First name"></div>' +
+          '<div style="flex:1;"><label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Last Name</label>' +
+            '<input type="text" id="ra-um-f-lname" style="width:100%;padding:8px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;" placeholder="Last name"></div>' +
+        '</div>' +
+        '<div style="margin-bottom:14px;"><label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Email</label>' +
+          '<input type="email" id="ra-um-f-email" style="width:100%;padding:8px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;" placeholder="user@example.com"></div>' +
+        '<div style="margin-bottom:14px;"><label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Organization</label>' +
+          '<input type="text" id="ra-um-f-org" style="width:100%;padding:8px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;" placeholder="Organization name"></div>' +
+        '<div style="margin-bottom:14px;"><label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Dashboard Assignment</label>' +
+          '<select id="ra-um-f-dash" style="width:100%;padding:8px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;background:#fff;">' + dashOpts + '</select></div>' +
+        '<div id="ra-um-modal-status" class="ra-st__status"></div>' +
+        '<div style="display:flex;gap:10px;margin-top:16px;">' +
+          '<button id="ra-um-modal-save" style="flex:1;padding:10px;background:#54a8dc;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Create User</button>' +
+        '</div>';
+    } else {
+      // ── Existing User Detail ──
+      var infoRow = function (label, value) {
+        return '<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f0;">' +
+          '<span style="font-size:12px;color:#94a3b8;">' + label + '</span>' +
+          '<span style="font-size:13px;font-weight:500;color:#1e293b;">' + escapeHtml(value || '-') + '</span></div>';
+      };
+
+      // Submission counts per form for this user
+      var perFormHtml = '';
+      if (_umForms) {
+        var userForms = _umForms.filter(function (f) { return f.owner__username === username; });
+        if (userForms.length) {
+          perFormHtml = '<div style="margin-bottom:14px;">' +
+            '<div style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Submissions per Form</div>' +
+            '<div style="background:#f8fafc;border-radius:6px;padding:4px 14px;max-height:160px;overflow-y:auto;">';
+          userForms.forEach(function (f) {
+            perFormHtml += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0;">' +
+              '<span style="font-size:12px;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px;">' + escapeHtml(f.name || f.uid) + '</span>' +
+              '<span style="font-size:12px;font-weight:600;color:#54a8dc;">' + (f.deployment__submission_count || 0) + '</span>' +
+            '</div>';
+          });
+          perFormHtml += '</div></div>';
+        }
+      }
+
+      bodyHtml =
+        // User details (read-only)
+        '<div style="background:#f8fafc;border-radius:6px;padding:4px 14px;margin-bottom:16px;">' +
+          infoRow('First Name', firstName) +
+          infoRow('Last Name', lastName) +
+          (fullName && fullName !== [firstName, lastName].filter(Boolean).join(' ') ? infoRow('Display Name', fullName) : '') +
+          infoRow('Email', email) +
+          infoRow('Organization', org) +
+          infoRow('Date Joined', formatDate(u.date_joined)) +
+          infoRow('Last Login', u.last_login ? formatLastLogin(u.last_login) : 'Never') +
+        '</div>' +
+
+        // Submissions per form
+        perFormHtml +
+
+        // Editable: Dashboard assignment
+        '<div style="margin-bottom:14px;"><label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Dashboard Assignment</label>' +
+          '<select id="ra-um-f-dash" style="width:100%;padding:8px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;background:#fff;">' + dashOpts + '</select></div>' +
+
+        // User notes
+        '<div style="margin-bottom:14px;"><label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Notes</label>' +
+          '<textarea id="ra-um-f-notes" rows="3" style="width:100%;padding:8px 12px;border:1px solid #e1e3ea;border-radius:4px;font-size:13px;resize:vertical;font-family:inherit;" placeholder="Add notes about this user...">' + escapeHtml(userNotes) + '</textarea></div>' +
+
+        // Recent activity
+        '<div style="margin-bottom:14px;padding:12px;background:#f8fafc;border-radius:6px;">' +
+          '<div style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Recent Activity</div>' +
+          '<div id="ra-um-activity" style="font-size:12px;color:#94a3b8;">Loading...</div>' +
+        '</div>' +
+
+        '<div id="ra-um-modal-status" class="ra-st__status"></div>' +
+
+        // Actions row
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">' +
+          '<button id="ra-um-modal-save" style="flex:1;padding:10px;background:#54a8dc;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Save Changes</button>' +
+          '<button id="ra-um-modal-toggle" style="padding:10px 16px;border:1px solid ' + (u.is_active ? '#fecaca' : '#bbf7d0') + ';background:' + (u.is_active ? '#fef2f2' : '#f0fdf4') + ';color:' + (u.is_active ? '#dc2626' : '#16a34a') + ';border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">' +
+            (u.is_active ? 'Deactivate' : 'Activate') + '</button>' +
+        '</div>' +
+
+        // Second action row — impersonate, password reset, admin edit
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">' +
+          '<button id="ra-um-modal-impersonate" style="padding:8px 14px;border:1px solid #dbeafe;background:#eff6ff;color:#1e40af;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;" title="Open this user\'s view in a new tab">Switch to User</button>' +
+          (email ? '<a href="/accounts/password/reset/?email=' + encodeURIComponent(email) + '" target="_blank" style="display:flex;align-items:center;padding:8px 14px;border:1px solid #fef3c7;background:#fffbeb;color:#92400e;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap;">Password Reset</a>' : '') +
+          '<a href="/admin/auth/user/' + encodeURIComponent(username) + '/change/" target="_blank" style="display:flex;align-items:center;padding:8px 14px;border:1px solid #e1e3ea;background:#f9fafb;color:#64748b;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap;">Edit in Admin</a>' +
+        '</div>';
+    }
+
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:10px;width:560px;max-width:92vw;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.25);">' +
+        '<div style="background:linear-gradient(135deg,#1a2a3a 0%,#54a8dc 100%);padding:24px;text-align:center;border-radius:10px 10px 0 0;position:relative;">' +
+          '<button id="ra-um-modal-close" style="position:absolute;top:10px;right:14px;background:none;border:none;color:rgba(255,255,255,0.7);font-size:22px;cursor:pointer;">&times;</button>' +
+          '<div style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.2);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:' + (isNew ? '28' : '24') + 'px;margin:0 auto 10px;border:2px solid rgba(255,255,255,0.4);">' + initial + '</div>' +
+          '<div style="color:#fff;font-weight:700;font-size:17px;">' + (isNew ? 'Add New User' : escapeHtml(username)) + '</div>' +
+          (isNew ? '' : '<div style="margin-top:6px;">' + getRoleBadge(role) + ' ' + getStatusBadge(u.is_active) + '</div>') +
+        '</div>' +
+        '<div style="padding:20px;">' + bodyHtml + '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+
+    // Close
+    modal.querySelector('#ra-um-modal-close').addEventListener('click', function () { modal.remove(); });
+    modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+
+    // Impersonate button
+    var impBtn = modal.querySelector('#ra-um-modal-impersonate');
+    if (impBtn && !isNew) {
+      impBtn.addEventListener('click', function () {
+        impersonateUser(username);
+      });
+    }
+
+    // Save handler
+    modal.querySelector('#ra-um-modal-save').addEventListener('click', function () {
+      var statusEl = document.getElementById('ra-um-modal-status');
+
+      if (isNew) {
+        // ── Create new user via KoboToolbox signup ──
+        var newUsername = (document.getElementById('ra-um-f-username').value || '').trim();
+        var newPassword = (document.getElementById('ra-um-f-password').value || '').trim();
+        var newEmail = (document.getElementById('ra-um-f-email').value || '').trim();
+        if (!newUsername || !newPassword) {
+          showStatus(statusEl, 'err', 'Username and password are required');
+          return;
+        }
+        showStatus(statusEl, 'info', 'Creating user...');
+
+        var formData = new FormData();
+        formData.append('username', newUsername);
+        formData.append('password1', newPassword);
+        formData.append('password2', newPassword);
+        formData.append('first_name', (document.getElementById('ra-um-f-fname').value || '').trim());
+        formData.append('last_name', (document.getElementById('ra-um-f-lname').value || '').trim());
+        formData.append('email', newEmail);
+        formData.append('organization', (document.getElementById('ra-um-f-org').value || '').trim());
+
+        fetch('/accounts/signup/', { credentials: 'same-origin' })
+          .then(function (r) { return r.text(); })
+          .then(function (html) {
+            var match = html.match(/name="csrfmiddlewaretoken" value="([^"]+)"/);
+            var csrf = match ? match[1] : getCSRFToken();
+            formData.append('csrfmiddlewaretoken', csrf);
+
+            return fetch('/accounts/signup/', {
+              method: 'POST',
+              credentials: 'same-origin',
+              body: formData
+            });
+          })
+          .then(function (r) {
+            if (r.redirected || r.status === 302 || r.status === 301) {
+              var dashId = document.getElementById('ra-um-f-dash').value;
+              if (dashId) {
+                if (!_dashConfig) _dashConfig = { dashboards: {}, users: {} };
+                if (!_dashConfig.users) _dashConfig.users = {};
+                _dashConfig.users[newUsername] = dashId;
+                saveDashConfig(function () {});
+              }
+              showStatus(statusEl, 'ok', 'User "' + newUsername + '" created!');
+              setTimeout(function () { modal.remove(); loadUMData(); }, 1000);
+              return;
+            }
+            return r.text().then(function (html) {
+              var errMatch = html.match(/class="[^"]*error[^"]*"[^>]*>([^<]+)/i);
+              var errMsg = errMatch ? errMatch[1].trim() : '';
+              if (!errMsg && html.indexOf('already exists') !== -1) errMsg = 'Username already exists';
+              if (!errMsg && html.indexOf('too short') !== -1) errMsg = 'Password is too short';
+              if (!errMsg && html.indexOf('too common') !== -1) errMsg = 'Password is too common';
+              if (!errMsg && r.ok) {
+                if (html.indexOf('accounts/login') !== -1 || html.indexOf('Verify') !== -1) {
+                  var dashId2 = document.getElementById('ra-um-f-dash').value;
+                  if (dashId2) {
+                    if (!_dashConfig) _dashConfig = { dashboards: {}, users: {} };
+                    if (!_dashConfig.users) _dashConfig.users = {};
+                    _dashConfig.users[newUsername] = dashId2;
+                    saveDashConfig(function () {});
+                  }
+                  showStatus(statusEl, 'ok', 'User "' + newUsername + '" created!');
+                  setTimeout(function () { modal.remove(); loadUMData(); }, 1000);
+                  return;
+                }
+              }
+              throw new Error(errMsg || 'Registration failed. Try a stronger password.');
+            });
+          })
+          .catch(function (err) {
+            showStatus(statusEl, 'err', err.message);
+          });
+      } else {
+        // ── Existing user: save dashboard assignment + notes ──
+        var dashId = document.getElementById('ra-um-f-dash').value;
+        var notes = (document.getElementById('ra-um-f-notes').value || '').trim();
+
+        if (!_dashConfig) _dashConfig = { dashboards: {}, users: {} };
+        if (!_dashConfig.users) _dashConfig.users = {};
+        if (!_dashConfig.userNotes) _dashConfig.userNotes = {};
+
+        if (dashId) { _dashConfig.users[username] = dashId; }
+        else { delete _dashConfig.users[username]; }
+
+        if (notes) { _dashConfig.userNotes[username] = notes; }
+        else { delete _dashConfig.userNotes[username]; }
+
+        showStatus(statusEl, 'info', 'Saving...');
+        saveDashConfig(function (err) {
+          if (err) {
+            showStatus(statusEl, 'err', err);
+          } else {
+            showStatus(statusEl, 'ok', 'Changes saved!');
+            updateUMStats();
+            renderUMTable();
+            setTimeout(function () { modal.remove(); }, 600);
+          }
+        });
+      }
+    });
+
+    // Toggle active (existing users only)
+    var toggleBtn = modal.querySelector('#ra-um-modal-toggle');
+    if (toggleBtn && !isNew) {
+      toggleBtn.addEventListener('click', function () {
+        modal.remove();
+        toggleUserActive(username);
+      });
+    }
+
+    // Load activity for existing users
+    if (!isNew) loadUserActivity(username);
+  }
+
+  // ── Impersonate User ──
+  function impersonateUser(username) {
+    // Open the user's KoboToolbox view in a new tab via Django admin
+    // We use the admin "log in as" approach by opening admin with a return URL
+    var adminUrl = '/admin/auth/user/?q=' + encodeURIComponent(username);
+    var userTab = window.open(adminUrl, '_blank');
+
+    // Show a helpful notification
+    showStatus(document.getElementById('ra-um-status'), 'info',
+      'Admin panel opened. Find "' + username + '" and use the "Log in as" action to switch. ' +
+      'To return, log out and log back in as admin.');
+
+    // Also try to set a marker so the user knows to return
+    try {
+      sessionStorage.setItem('ra-um-impersonating', username);
+      sessionStorage.setItem('ra-um-return-admin', 'true');
+    } catch (e) { /* ignore */ }
+  }
+
+  // ── Load User Activity (for modal) ──
+  function loadUserActivity(username) {
+    var actEl = document.getElementById('ra-um-activity');
+    if (!actEl) return;
+
+    fetch('/api/v2/submissions/?query={"_submitted_by":"' + encodeURIComponent(username) + '"}&limit=5&sort={"_submission_time":-1}&fields=["_submission_time","_xform_id_string"]', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : { results: [] }; })
+      .then(function (data) {
+        var subs = data.results || [];
+        if (!subs.length) {
+          actEl.innerHTML = '<span style="font-style:italic;">No recent submissions</span>';
+          return;
+        }
+        actEl.innerHTML = subs.map(function (s) {
+          var time = s._submission_time ? formatLastLogin(s._submission_time) : '-';
+          var form = s._xform_id_string || 'Submission';
+          return '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0;">' +
+            '<span style="color:#1e293b;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:250px;">' + escapeHtml(form) + '</span>' +
+            '<span style="color:#94a3b8;font-size:11px;">' + time + '</span></div>';
+        }).join('');
+      })
+      .catch(function () {
+        actEl.innerHTML = '<span style="font-style:italic;">Activity data not available</span>';
+      });
+  }
+
+  // ── Toggle User Active ──
+  function toggleUserActive(username) {
+    var u = _umUsers ? _umUsers.find(function (usr) { return usr.username === username; }) : null;
+    if (!u) return;
+
+    var newStatus = !u.is_active;
+    var action = newStatus ? 'activate' : 'deactivate';
+
+    if (!confirm((newStatus ? 'Activate' : 'Deactivate') + ' user "' + username + '"?')) return;
+
+    fetch('/api/v2/users/' + encodeURIComponent(username) + '/', {
+      method: 'PATCH',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCSRFToken()
+      },
+      body: JSON.stringify({ is_active: newStatus })
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function () {
+        u.is_active = newStatus;
+        showStatus(document.getElementById('ra-um-status'), 'ok', '"' + username + '" ' + (newStatus ? 'activated' : 'deactivated'));
+        updateUMStats();
+        renderUMTable();
+      })
+      .catch(function (err) {
+        showStatus(document.getElementById('ra-um-status'), 'err', 'Failed to ' + action + ': ' + err.message);
+      });
+  }
+
+  function getCSRFToken() {
+    var match = document.cookie.match(/csrftoken=([^;]+)/);
+    return match ? match[1] : '';
+  }
+
   function renderTeamsSection(main) {
     main.innerHTML =
       '<h1 class="ra-st__page-title">Teams</h1>' +
@@ -3929,7 +5379,11 @@
           '</div>' +
           '<div class="ra-da__nav-item' + (daActiveDashTab === 'users' ? ' ra-da__nav-item--active' : '') + '" data-tab="users">' +
             '<svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>' +
-            '<span>Users</span>' +
+            '<span>Assigned Users</span>' +
+          '</div>' +
+          '<div class="ra-da__nav-item' + (daActiveDashTab === 'user-management' ? ' ra-da__nav-item--active' : '') + '" data-tab="user-management">' +
+            '<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/><path d="M19 3v2h2V3h-2zm0 4v2h2V7h-2zm0 4v2h2v-2h-2z" opacity=".5"/></svg>' +
+            '<span>User Management</span>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -4012,6 +5466,7 @@
       activeDashTab = daActiveDashTab;
       if (daActiveDashTab === 'users') renderDashUsersTab(container);
       else if (daActiveDashTab === 'layout') renderDashLayoutTab(container);
+      else if (daActiveDashTab === 'user-management') renderUserManagementTab(container);
     }
 
     renderDaContent();

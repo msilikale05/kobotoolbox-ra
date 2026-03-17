@@ -43,7 +43,7 @@ body {
 .ra-do__header {
   background: linear-gradient(135deg, #1a2a3a 0%, #54a8dc 100%);
   color: #fff; display: flex; flex-direction: column;
-  position: sticky; top: 0; z-index: 10;
+  position: sticky; top: 0; z-index: 1000;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 .ra-do__header-top {
@@ -177,6 +177,8 @@ body {
 .ra-do__widget {
   background: #fff; border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden;
+  isolation: isolate; position: relative; z-index: 0;
+  transform: translateZ(0);
 }
 .ra-do__widget--full { grid-column: 1 / -1; }
 .ra-do__widget--half { grid-column: span 2; }
@@ -186,7 +188,7 @@ body {
   padding: 14px 18px; border-bottom: 1px solid #f1f5f9;
   font-size: 14px; font-weight: 600; color: #1e293b;
 }
-.ra-do__widget-body { padding: 18px; }
+.ra-do__widget-body { padding: 18px; position: relative; z-index: 0; }
 
 /* ── Stats ── */
 .ra-do__stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
@@ -247,10 +249,10 @@ body {
 @media (max-width: 600px) {
   /* Header */
   .ra-do__header-top { padding: 8px 12px; min-height: 40px; }
-  .ra-do__header img { height: 22px; }
-  .ra-do__header-title { padding: 4px 12px 8px; font-size: 12px; }
+  .ra-do__header img { height: 28px; }
+  .ra-do__header-title { padding: 10px 12px 12px; font-size: 13px; }
   .ra-do__header-right { gap: 6px; font-size: 11px; }
-  .ra-do__header-right span { display: none; } /* Hide "Welcome," on mobile */
+  .ra-do__header-right span { font-size: 11px; }
   .ra-do__username { font-size: 12px; }
   .ra-do__logout { padding: 5px 10px; font-size: 11px; }
 
@@ -309,6 +311,11 @@ body {
   /* Bar charts inside widgets — prevent overflow */
   div[style*="display:flex"][style*="align-items:flex-end"] { overflow-x: auto; }
 }
+
+/* Contain Leaflet map z-index within widgets */
+.leaflet-pane, .leaflet-control, .leaflet-top, .leaflet-bottom { z-index: auto !important; }
+.leaflet-container { z-index: 0 !important; }
+.ra-geo-legend-ctrl { z-index: 1 !important; }
 </style>
 </head>
 <body>
@@ -602,7 +609,9 @@ body {
 
     // Set username
     var usernameEl = document.getElementById('ra-do-username');
-    if (usernameEl) usernameEl.insertBefore(document.createTextNode(currentUser.username), usernameEl.firstChild);
+    var displayName = currentUser.username.charAt(0).toUpperCase() + currentUser.username.slice(1);
+    if (usernameEl) usernameEl.insertBefore(document.createTextNode(displayName), usernameEl.firstChild);
+    document.title = displayName + ' | ' + BRAND_NAME;
 
     // Set title
     var dashboard = getActiveDashboard();
@@ -611,8 +620,8 @@ body {
     if (titleEl) titleEl.textContent = dashName;
     document.title = currentUser.username + ' | ' + BRAND_NAME;
 
-    // Logout handler
-    document.getElementById('ra-do-logout-btn').addEventListener('click', function () {
+    // Logout handler — with confirmation modal
+    function doLogout() {
       var csrf = getCsrf();
       var form = document.createElement('form');
       form.method = 'POST';
@@ -624,7 +633,42 @@ body {
       form.appendChild(inp);
       document.body.appendChild(form);
       form.submit();
-    });
+    }
+
+    function showLogoutConfirm() {
+      var existing = document.getElementById('ra-dash-logout-modal');
+      if (existing) existing.remove();
+
+      var overlay = document.createElement('div');
+      overlay.id = 'ra-dash-logout-modal';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(26,42,58,0.6);z-index:2147483646;display:flex;align-items:center;justify-content:center;animation:ra-slidein 0.25s ease;';
+      overlay.innerHTML =
+        '<div style="background:rgba(255,255,255,0.95);border-radius:8px;width:380px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.3);overflow:hidden;animation:ra-slidein 0.25s ease;text-align:center;">' +
+          '<div style="padding:28px 24px 12px;">' +
+            '<img src="/custom-static/images/ra-logo-dark.png" alt="Ramani Yangu" style="width:200px;height:auto;margin:0 auto 10px;display:block;">' +
+            '<p style="font-size:13px;color:#64748b;margin:0;font-weight:500;">Data Collection Platform</p>' +
+          '</div>' +
+          '<div style="padding:16px 28px 28px;">' +
+            '<h3 style="margin:0 0 8px;font-size:18px;font-weight:700;color:#1a2a3a;">Log out of your account?</h3>' +
+            '<p style="margin:0 0 24px;font-size:13px;color:#94a3b8;line-height:1.5;">You will need to sign in again to access the platform.</p>' +
+            '<div style="display:flex;gap:10px;">' +
+              '<button id="ra-dash-logout-cancel" style="flex:1;padding:11px;border-radius:4px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid #ccc;background:#fff;color:#475569;font-family:inherit;">Cancel</button>' +
+              '<button id="ra-dash-logout-confirm" style="flex:1;padding:11px;border-radius:4px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:#54a8dc;color:#fff;font-family:inherit;">Log Out</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      document.body.appendChild(overlay);
+      overlay.querySelector('#ra-dash-logout-cancel').addEventListener('click', function () { overlay.remove(); });
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+      overlay.querySelector('#ra-dash-logout-confirm').addEventListener('click', function () {
+        this.textContent = 'Logging out...';
+        this.disabled = true;
+        doLogout();
+      });
+    }
+
+    document.getElementById('ra-do-logout-btn').addEventListener('click', showLogoutConfirm);
 
     // Username dropdown
     var userDropdown = document.getElementById('ra-do-user-dropdown');
@@ -823,9 +867,40 @@ body {
       if (ref) ref.textContent = 'Auto-refreshes every 30s \u00b7 Last updated: ' + new Date().toLocaleTimeString();
       var footerEl = document.getElementById('ra-do-footer');
       if (footerEl) footerEl.style.display = '';
-    }).catch(function (err) {
-      var grid = document.getElementById('ra-do-grid');
-      if (grid) grid.innerHTML = '<div class="ra-do__widget ra-do__widget--full"><div class="ra-do__widget-body" style="text-align:center;padding:40px;color:#94a3b8;">Failed to load dashboard data. Retrying...</div></div>';
+    }).catch(function () {
+      // Load the error template from the error-pages folder
+      fetch('/custom-static/error-pages/dashboard-error.html')
+        .then(function (r) { return r.ok ? r.text() : ''; })
+        .then(function (html) {
+          if (html) {
+            // Replace the entire page with the error template
+            document.open();
+            document.write(html);
+            document.close();
+          } else {
+            // Fallback if template can't be loaded
+            var grid = document.getElementById('ra-do-grid');
+            if (grid) grid.innerHTML =
+              '<div class="ra-do__widget ra-do__widget--full">' +
+                '<div class="ra-do__widget-body" style="text-align:center;padding:48px 24px;">' +
+                  '<h3 style="margin:0 0 8px;font-size:18px;font-weight:700;color:#1e293b;">Unable to Load Dashboard</h3>' +
+                  '<p style="margin:0 0 16px;font-size:13px;color:#64748b;">Please try refreshing the page.</p>' +
+                  '<button id="ra-do-retry-btn" style="padding:10px 24px;background:#54a8dc;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Retry</button>' +
+                '</div>' +
+              '</div>';
+            var retryBtn = document.getElementById('ra-do-retry-btn');
+            if (retryBtn) retryBtn.addEventListener('click', function () { loadAndRender(); });
+          }
+        })
+        .catch(function () {
+          var grid = document.getElementById('ra-do-grid');
+          if (grid) grid.innerHTML =
+            '<div class="ra-do__widget ra-do__widget--full">' +
+              '<div class="ra-do__widget-body" style="text-align:center;padding:48px;color:#64748b;">' +
+                'Unable to load dashboard. <a href="javascript:location.reload()" style="color:#54a8dc;">Refresh the page</a>' +
+              '</div>' +
+            '</div>';
+        });
     });
   }
 
@@ -861,8 +936,9 @@ body {
       if (cfg.textColor) bParts.push('color:' + cfg.textColor);
       if (cfg.bgColor) bParts.push('background-color:' + cfg.bgColor);
       var bodyStyle = bParts.length ? ' style="' + bParts.join(';') + ';"' : '';
+      var hideHeader = cfg.hideTitle;
       return '<div class="ra-do__widget' + cls + '" data-wid="' + esc(w.id) + '"' + (wStyle ? ' style="' + wStyle + '"' : '') + '>' +
-        '<div class="ra-do__widget-header"' + headerStyle + '>' + esc(displayTitle) + '</div>' +
+        (hideHeader ? '' : '<div class="ra-do__widget-header"' + headerStyle + '>' + esc(displayTitle) + '</div>') +
         '<div class="ra-do__widget-body" id="ra-do-wb-' + esc(w.id) + '"' + bodyStyle + '></div>' +
       '</div>';
     }).join('');
@@ -888,6 +964,7 @@ body {
         case 'submissions-by-form': renderSubmissionsByForm(el, w); break;
         case 'top-contributors': renderTopContributors(el, w, subs); break;
         case 'submissions-by-day': renderSubmissionsByDay(el, w, subs); break;
+        case 'submissions-by-hour': renderSubmissionsByHour(el, w, subs); break;
         case 'avg-per-day': renderAvgPerDay(el, w, subs); break;
         case 'submissions-period': renderSubmissionsPeriod(el, w, subs); break;
         case 'geo-coverage': renderGeoCoverage(el, w, subs); break;
@@ -964,21 +1041,40 @@ body {
     var chartW = svgW - padL - padR, chartH = svgH - padT - padB;
     var barW = chartW / days, gap = 1;
 
-    var bars = '', lbls = '';
-    for (var j = 0; j < days; j++) {
-      var barH = (values[j] / maxVal) * chartH;
-      var x = padL + j * barW, y = padT + chartH - barH;
-      bars += '<rect class="ra-do__bar" x="' + (x + gap) + '" y="' + y + '" width="' + (barW - gap * 2) + '" height="' + barH + '" rx="2"><title>' + labels[j] + ': ' + values[j] + '</title></rect>';
-      if (values[j] > 0) bars += '<text class="ra-do__chart-val" x="' + (x + barW / 2) + '" y="' + (y - 3) + '">' + values[j] + '</text>';
-      if (j % 5 === 0 || j === days - 1) lbls += '<text class="ra-do__chart-label" x="' + (x + barW / 2) + '" y="' + (svgH - 4) + '" text-anchor="middle">' + labels[j].substring(5) + '</text>';
-    }
+    var chartType = cfg.chartType || 'bar';
+    var content = '', lbls = '';
+
+    // Y-axis grid
     var yLines = '';
     for (var k = 0; k <= 3; k++) {
       var yP = padT + chartH - (chartH * k / 3);
       yLines += '<text class="ra-do__chart-label" x="' + (padL - 4) + '" y="' + (yP + 3) + '" text-anchor="end">' + Math.round(maxVal * k / 3) + '</text>';
       yLines += '<line x1="' + padL + '" y1="' + yP + '" x2="' + (svgW - padR) + '" y2="' + yP + '" stroke="#f1f5f9" stroke-width="1"/>';
     }
-    el.innerHTML = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:auto;" preserveAspectRatio="xMidYMid meet">' + yLines + bars + lbls + '</svg>';
+
+    if (chartType === 'line') {
+      var pts = [];
+      var dots = '';
+      for (var j = 0; j < days; j++) {
+        var px = padL + j * barW + barW / 2;
+        var py = padT + chartH - (values[j] / maxVal) * chartH;
+        pts.push(px + ',' + py);
+        if (values[j] > 0) dots += '<circle cx="' + px + '" cy="' + py + '" r="3" fill="#54a8dc" stroke="#fff" stroke-width="1"><title>' + labels[j] + ': ' + values[j] + '</title></circle>';
+        if (j % 5 === 0 || j === days - 1) lbls += '<text class="ra-do__chart-label" x="' + px + '" y="' + (svgH - 4) + '" text-anchor="middle">' + labels[j].substring(5) + '</text>';
+      }
+      var areaPath = 'M' + (padL + barW / 2) + ',' + (padT + chartH) + ' L' + pts.join(' L') + ' L' + (padL + (days - 1) * barW + barW / 2) + ',' + (padT + chartH) + ' Z';
+      content = '<path d="' + areaPath + '" fill="rgba(84,168,220,0.1)"/>' +
+        '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#54a8dc" stroke-width="2.5" stroke-linejoin="round"/>' + dots;
+    } else {
+      for (var j = 0; j < days; j++) {
+        var barH = (values[j] / maxVal) * chartH;
+        var x = padL + j * barW, y = padT + chartH - barH;
+        content += '<rect class="ra-do__bar" x="' + (x + gap) + '" y="' + y + '" width="' + (barW - gap * 2) + '" height="' + barH + '" rx="2"><title>' + labels[j] + ': ' + values[j] + '</title></rect>';
+        if (values[j] > 0) content += '<text class="ra-do__chart-val" x="' + (x + barW / 2) + '" y="' + (y - 3) + '">' + values[j] + '</text>';
+        if (j % 5 === 0 || j === days - 1) lbls += '<text class="ra-do__chart-label" x="' + (x + barW / 2) + '" y="' + (svgH - 4) + '" text-anchor="middle">' + labels[j].substring(5) + '</text>';
+      }
+    }
+    el.innerHTML = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:auto;" preserveAspectRatio="xMidYMid meet">' + yLines + content + lbls + '</svg>';
   }
 
   // ── Widget: Form Table ──
@@ -1182,21 +1278,46 @@ body {
 
     if (!entries.length) { el.innerHTML = '<p style="color:#94a3b8;text-align:center;">No data</p>'; return; }
 
+    var chartType = cfg.chartType || 'bar';
     var maxVal = entries[0].count;
-    var svgW = 760, barH = 28, gap = 4, padL = 120, padR = 50;
-    var svgH = entries.length * (barH + gap) + 10;
-    var chartW = svgW - padL - padR;
 
-    var bars = entries.map(function (e, i) {
-      var y = i * (barH + gap) + 5;
-      var w2 = (e.count / maxVal) * chartW;
-      var label = e.label.length > 18 ? e.label.substring(0, 18) + '..' : e.label;
-      return '<text x="' + (padL - 8) + '" y="' + (y + barH / 2 + 4) + '" text-anchor="end" font-size="11" fill="#475569">' + esc(label) + '</text>' +
-        '<rect x="' + padL + '" y="' + y + '" width="' + w2 + '" height="' + barH + '" rx="4" fill="' + PIE_COLORS[i % PIE_COLORS.length] + '" opacity="0.85"/>' +
-        '<text x="' + (padL + w2 + 6) + '" y="' + (y + barH / 2 + 4) + '" font-size="12" font-weight="600" fill="#475569">' + e.count + '</text>';
-    }).join('');
+    if (chartType === 'line') {
+      // Vertical line chart for select values
+      var svgW = 760, svgH = 180, padL2 = 10, padR2 = 10, padT2 = 20, padB2 = 50;
+      var cW2 = svgW - padL2 - padR2, cH2 = svgH - padT2 - padB2;
+      var stepX2 = entries.length > 1 ? cW2 / (entries.length - 1) : cW2;
+      var pts = [], dots2 = '', lbl2 = '';
+      for (var li = 0; li < entries.length; li++) {
+        var px = padL2 + li * stepX2;
+        var py = padT2 + cH2 - (entries[li].count / maxVal) * cH2;
+        pts.push(px + ',' + py);
+        dots2 += '<circle cx="' + px + '" cy="' + py + '" r="4" fill="' + PIE_COLORS[li % PIE_COLORS.length] + '" stroke="#fff" stroke-width="1.5"/>';
+        dots2 += '<text x="' + px + '" y="' + (py - 8) + '" text-anchor="middle" font-size="10" font-weight="600" fill="#475569">' + entries[li].count + '</text>';
+        var lb = entries[li].label.length > 10 ? entries[li].label.substring(0, 10) + '..' : entries[li].label;
+        lbl2 += '<text x="' + px + '" y="' + (svgH - 5) + '" text-anchor="middle" font-size="10" fill="#64748b" transform="rotate(-30 ' + px + ' ' + (svgH - 5) + ')">' + esc(lb) + '</text>';
+      }
+      var areaP2 = 'M' + padL2 + ',' + (padT2 + cH2) + ' L' + pts.join(' L') + ' L' + (padL2 + (entries.length - 1) * stepX2) + ',' + (padT2 + cH2) + ' Z';
+      el.innerHTML = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:auto;" preserveAspectRatio="xMidYMid meet">' +
+        '<line x1="' + padL2 + '" y1="' + (padT2 + cH2) + '" x2="' + (svgW - padR2) + '" y2="' + (padT2 + cH2) + '" stroke="#e2e8f0" stroke-width="1"/>' +
+        '<path d="' + areaP2 + '" fill="rgba(84,168,220,0.08)"/>' +
+        '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#54a8dc" stroke-width="2.5" stroke-linejoin="round"/>' +
+        dots2 + lbl2 + '</svg>';
+    } else {
+      var svgW = 760, barH = 28, gap = 4, padL = 120, padR = 50;
+      var svgH = entries.length * (barH + gap) + 10;
+      var chartW = svgW - padL - padR;
 
-    el.innerHTML = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:auto;" preserveAspectRatio="xMidYMid meet">' + bars + '</svg>';
+      var bars = entries.map(function (e, i) {
+        var y = i * (barH + gap) + 5;
+        var w2 = (e.count / maxVal) * chartW;
+        var label = e.label.length > 18 ? e.label.substring(0, 18) + '..' : e.label;
+        return '<text x="' + (padL - 8) + '" y="' + (y + barH / 2 + 4) + '" text-anchor="end" font-size="11" fill="#475569">' + esc(label) + '</text>' +
+          '<rect x="' + padL + '" y="' + y + '" width="' + w2 + '" height="' + barH + '" rx="4" fill="' + PIE_COLORS[i % PIE_COLORS.length] + '" opacity="0.85"/>' +
+          '<text x="' + (padL + w2 + 6) + '" y="' + (y + barH / 2 + 4) + '" font-size="12" font-weight="600" fill="#475569">' + e.count + '</text>';
+      }).join('');
+
+      el.innerHTML = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:auto;" preserveAspectRatio="xMidYMid meet">' + bars + '</svg>';
+    }
   }
 
   // ── Widget: Field Counter ──
@@ -1302,22 +1423,12 @@ body {
     var maxVal = Math.max.apply(null, nonNull);
     if (maxVal === minVal) maxVal = minVal + 1;
 
+    var chartType = cfg.chartType || 'line'; // default line for timeline
     var svgW = 760, svgH = 180, padL = 45, padR = 10, padT = 15, padB = 25;
     var chartW = svgW - padL - padR, chartH = svgH - padT - padB;
     var stepX = chartW / (days - 1);
 
-    var points = [];
-    var dots = '';
-    for (var j = 0; j < days; j++) {
-      if (values[j] === null) continue;
-      var x = padL + j * stepX;
-      var y = padT + chartH - ((values[j] - minVal) / (maxVal - minVal)) * chartH;
-      points.push(x + ',' + y);
-      dots += '<circle cx="' + x + '" cy="' + y + '" r="3" fill="#54a8dc"><title>' + labels[j] + ': ' + values[j] + '</title></circle>';
-    }
-
-    var line = points.length > 1 ? '<polyline points="' + points.join(' ') + '" fill="none" stroke="#54a8dc" stroke-width="2" stroke-linejoin="round"/>' : '';
-
+    // Y-axis
     var yLabels = '';
     for (var k = 0; k <= 3; k++) {
       var yV = minVal + (maxVal - minVal) * k / 3;
@@ -1326,6 +1437,7 @@ body {
       yLabels += '<line x1="' + padL + '" y1="' + yP + '" x2="' + (svgW - padR) + '" y2="' + yP + '" stroke="#f1f5f9" stroke-width="1"/>';
     }
 
+    // X-axis labels
     var xLabels = '';
     for (var m = 0; m < days; m++) {
       if (m % 5 === 0 || m === days - 1) {
@@ -1334,8 +1446,36 @@ body {
       }
     }
 
+    var dataContent = '';
+    if (chartType === 'bar') {
+      var barW2 = chartW / days;
+      for (var j = 0; j < days; j++) {
+        if (values[j] === null) continue;
+        var bH = ((values[j] - minVal) / (maxVal - minVal)) * chartH;
+        var bx = padL + j * barW2;
+        var by = padT + chartH - bH;
+        dataContent += '<rect x="' + (bx + 1) + '" y="' + by + '" width="' + (barW2 - 2) + '" height="' + bH + '" rx="2" fill="#54a8dc" opacity="0.85"><title>' + labels[j] + ': ' + values[j] + '</title></rect>';
+      }
+    } else {
+      var points = [];
+      var dots = '';
+      for (var j = 0; j < days; j++) {
+        if (values[j] === null) continue;
+        var x = padL + j * stepX;
+        var y = padT + chartH - ((values[j] - minVal) / (maxVal - minVal)) * chartH;
+        points.push(x + ',' + y);
+        dots += '<circle cx="' + x + '" cy="' + y + '" r="3" fill="#54a8dc" stroke="#fff" stroke-width="1"><title>' + labels[j] + ': ' + values[j] + '</title></circle>';
+      }
+      if (points.length > 1) {
+        var areaP = 'M' + points[0].split(',')[0] + ',' + (padT + chartH) + ' L' + points.join(' L') + ' L' + points[points.length - 1].split(',')[0] + ',' + (padT + chartH) + ' Z';
+        dataContent += '<path d="' + areaP + '" fill="rgba(84,168,220,0.1)"/>';
+        dataContent += '<polyline points="' + points.join(' ') + '" fill="none" stroke="#54a8dc" stroke-width="2.5" stroke-linejoin="round"/>';
+      }
+      dataContent += dots;
+    }
+
     el.innerHTML = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:auto;" preserveAspectRatio="xMidYMid meet">' +
-      yLabels + xLabels + line + dots + '</svg>';
+      yLabels + xLabels + dataContent + '</svg>';
   }
 
   // ── Widget: Info Text ──
@@ -1466,8 +1606,216 @@ body {
   }
 
   // ── Widget: Submissions by Day of Week ──
+  // ── Widget: Submissions by Hour of Day (SVG bar chart with form + date filters) ──
+  function renderSubmissionsByHour(el, w, subs) {
+    var cfg = w.config || {};
+    var hoursToShow = parseInt(cfg.hours) || 24;
+    var selId = 'ra-sbh-sel-' + w.id;
+    var dateId = 'ra-sbh-date-' + w.id;
+    var chartId = 'ra-sbh-chart-' + w.id;
+    var summaryId = 'ra-sbh-sum-' + w.id;
+
+    // Group submissions by form
+    var formGroups = {};
+    subs.forEach(function (s) {
+      var uid = s._form_uid || '__unknown__';
+      if (!formGroups[uid]) formGroups[uid] = { name: s._form_name || uid, subs: [] };
+      formGroups[uid].subs.push(s);
+    });
+    var formKeys = Object.keys(formGroups);
+
+    // Form selector
+    var formOpts = '<option value="__all__">All Forms</option>';
+    formKeys.forEach(function (uid) {
+      formOpts += '<option value="' + esc(uid) + '">' + esc(formGroups[uid].name) + '</option>';
+    });
+
+    var chartType = cfg.chartType || 'bar';
+
+    // Build date options: "All Days" + last 30 days
+    var dateOpts = '<option value="">All Days</option>';
+    for (var dd = 0; dd < 30; dd++) {
+      var dt = new Date(Date.now() - dd * 86400000);
+      var iso = dt.toISOString().split('T')[0];
+      var label = dd === 0 ? 'Today' : (dd === 1 ? 'Yesterday' : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }));
+      dateOpts += '<option value="' + iso + '">' + label + '</option>';
+    }
+
+    el.innerHTML =
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center;">' +
+        '<select id="' + selId + '" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;background:#fff;color:#1e293b;">' + formOpts + '</select>' +
+        '<select id="' + dateId + '" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;background:#fff;color:#1e293b;min-width:130px;">' + dateOpts + '</select>' +
+      '</div>' +
+      '<div id="' + chartId + '" style="width:100%;overflow-x:auto;"></div>' +
+      '<div id="' + summaryId + '" style="display:flex;justify-content:center;gap:24px;margin-top:8px;font-size:12px;color:#64748b;"></div>';
+
+    function fmtHour(h) {
+      if (h === 0) return '12am';
+      if (h < 12) return h + 'am';
+      if (h === 12) return '12pm';
+      return (h - 12) + 'pm';
+    }
+
+    function drawChart() {
+      var formVal = document.getElementById(selId).value;
+      var dateVal = document.getElementById(dateId).value; // YYYY-MM-DD or empty
+      var chartEl = document.getElementById(chartId);
+      var sumEl = document.getElementById(summaryId);
+      if (!chartEl) return;
+
+      // Filter submissions
+      var filtered = [];
+      var srcKeys = (formVal === '__all__') ? formKeys : [formVal];
+      srcKeys.forEach(function (uid) {
+        var fg = formGroups[uid];
+        if (fg) filtered = filtered.concat(fg.subs);
+      });
+
+      if (dateVal) {
+        filtered = filtered.filter(function (s) {
+          if (!s._submission_time) return false;
+          return s._submission_time.substring(0, 10) === dateVal;
+        });
+      }
+
+      // Count by hour
+      var hours = [];
+      for (var h = 0; h < 24; h++) hours.push(0);
+      filtered.forEach(function (s) {
+        if (!s._submission_time) return;
+        var hour = new Date(s._submission_time).getHours();
+        hours[hour]++;
+      });
+
+      // Determine which hours to show based on hoursToShow config
+      var startHour = 0;
+      var endHour = 24;
+      if (hoursToShow < 24) {
+        // Find the peak range of hoursToShow consecutive hours
+        var bestStart = 0;
+        var bestSum = 0;
+        for (var s = 0; s <= 24 - hoursToShow; s++) {
+          var sum = 0;
+          for (var j = s; j < s + hoursToShow; j++) sum += hours[j];
+          if (sum > bestSum) { bestSum = sum; bestStart = s; }
+        }
+        startHour = bestStart;
+        endHour = bestStart + hoursToShow;
+      }
+
+      var displayHours = hours.slice(startHour, endHour);
+      var numBars = displayHours.length;
+      var maxC = Math.max.apply(null, displayHours) || 1;
+      var peakIdx = displayHours.indexOf(maxC);
+      var peakHour = startHour + peakIdx;
+
+      // SVG chart — wider with more height
+      var svgW = Math.max(numBars * 30, 480);
+      var svgH = 180;
+      var padL = 30;
+      var padR = 10;
+      var barW = Math.floor((svgW - padL - padR) / numBars);
+      var barGap = 3;
+      var chartTop = 20;
+      var chartBottom = svgH - 24;
+      var chartH = chartBottom - chartTop;
+
+      var svgContent = '';
+
+      // Baseline
+      svgContent += '<line x1="' + padL + '" y1="' + chartBottom + '" x2="' + (padL + numBars * barW) + '" y2="' + chartBottom + '" stroke="#e2e8f0" stroke-width="1"/>';
+
+      // Grid lines
+      for (var g = 1; g <= 4; g++) {
+        var gy = chartBottom - Math.round((g / 4) * chartH);
+        svgContent += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (padL + numBars * barW) + '" y2="' + gy + '" stroke="#f0f0f0" stroke-width="0.5"/>';
+      }
+
+      if (chartType === 'line') {
+        // ── Line chart ──
+        var points = [];
+        var dots = '';
+        for (var i = 0; i < numBars; i++) {
+          var val = displayHours[i];
+          var px = padL + i * barW + barW / 2;
+          var py = maxC > 0 ? chartBottom - Math.round((val / maxC) * chartH) : chartBottom;
+          points.push(px + ',' + py);
+
+          // Dots
+          var isPeak = val === maxC && val > 0;
+          dots += '<circle cx="' + px + '" cy="' + py + '" r="' + (isPeak ? 5 : 3.5) + '" fill="' + (isPeak ? '#54a8dc' : '#94a3b8') + '" stroke="#fff" stroke-width="1.5"/>';
+
+          // Value label
+          if (val > 0) {
+            dots += '<text x="' + px + '" y="' + (py - 8) + '" text-anchor="middle" font-size="10" font-weight="' + (isPeak ? '700' : '400') + '" fill="' + (isPeak ? '#1e293b' : '#94a3b8') + '">' + val + '</text>';
+          }
+
+          // Hour label
+          var labelInterval = numBars <= 6 ? 1 : (numBars <= 12 ? 2 : 3);
+          if (i % labelInterval === 0) {
+            svgContent += '<text x="' + px + '" y="' + (svgH - 6) + '" text-anchor="middle" font-size="10" fill="#94a3b8">' + fmtHour(startHour + i) + '</text>';
+          }
+        }
+
+        // Area fill
+        if (points.length > 1) {
+          var areaPath = 'M' + (padL + barW / 2) + ',' + chartBottom + ' L' + points.join(' L') + ' L' + (padL + (numBars - 1) * barW + barW / 2) + ',' + chartBottom + ' Z';
+          svgContent += '<path d="' + areaPath + '" fill="rgba(84,168,220,0.1)"/>';
+        }
+
+        // Line
+        if (points.length > 1) {
+          svgContent += '<polyline points="' + points.join(' ') + '" fill="none" stroke="#54a8dc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+        }
+        svgContent += dots;
+      } else {
+        // ── Bar chart ──
+        for (var i = 0; i < numBars; i++) {
+          var val = displayHours[i];
+          var barH = maxC > 0 ? Math.round((val / maxC) * chartH) : 0;
+          if (val > 0 && barH < 4) barH = 4;
+          var x = padL + i * barW;
+          var y = chartBottom - barH;
+          var isPeak = val === maxC && val > 0;
+          var color = isPeak ? '#54a8dc' : (val > 0 ? '#94a3b8' : '#e2e8f0');
+
+          svgContent += '<rect x="' + (x + barGap / 2) + '" y="' + y + '" width="' + (barW - barGap) + '" height="' + barH + '" rx="2" fill="' + color + '"/>';
+
+          if (val > 0) {
+            svgContent += '<text x="' + (x + barW / 2) + '" y="' + (y - 5) + '" text-anchor="middle" font-size="10" font-weight="' + (isPeak ? '700' : '400') + '" fill="' + (isPeak ? '#1e293b' : '#94a3b8') + '">' + val + '</text>';
+          }
+
+          var labelInterval = numBars <= 6 ? 1 : (numBars <= 12 ? 2 : 3);
+          if (i % labelInterval === 0) {
+            svgContent += '<text x="' + (x + barW / 2) + '" y="' + (svgH - 6) + '" text-anchor="middle" font-size="10" fill="#94a3b8">' + fmtHour(startHour + i) + '</text>';
+          }
+        }
+      }
+
+      chartEl.innerHTML =
+        '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;min-width:360px;height:auto;font-family:inherit;">' +
+          svgContent +
+        '</svg>';
+
+      var totalFiltered = filtered.length;
+      var rangeLabel = (hoursToShow < 24) ? fmtHour(startHour) + ' - ' + fmtHour(endHour % 24) : 'Full day';
+      sumEl.innerHTML =
+        '<div>Peak: <strong style="color:#1e293b;">' + fmtHour(peakHour) + '</strong> (' + maxC + ')</div>' +
+        '<div>Total: <strong style="color:#1e293b;">' + totalFiltered + '</strong></div>' +
+        (hoursToShow < 24 ? '<div>Range: <strong style="color:#1e293b;">' + rangeLabel + '</strong></div>' : '');
+    }
+
+    // Initial draw
+    drawChart();
+
+    // Event listeners
+    document.getElementById(selId).addEventListener('change', drawChart);
+    document.getElementById(dateId).addEventListener('change', drawChart);
+  }
+
   function renderSubmissionsByDay(el, w, subs) {
     var cfg = w.config || {};
+    var chartType = cfg.chartType || 'bar';
     var filterDays = cfg.days || 0;
     var cutoff = filterDays ? new Date(Date.now() - filterDays * 86400000) : null;
     var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -1480,17 +1828,38 @@ body {
     });
     var maxC = Math.max.apply(null, counts) || 1;
 
-    el.innerHTML = '<div style="display:flex;align-items:flex-end;gap:8px;height:120px;padding-top:10px;">' +
-      dayNames.map(function (day, i) {
-        var pct = Math.round((counts[i] / maxC) * 100);
-        var isHighest = counts[i] === maxC && counts[i] > 0;
-        var color = isHighest ? '#54a8dc' : '#cbd5e1';
-        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">' +
-          '<span style="font-size:11px;font-weight:700;color:#29292a;">' + counts[i] + '</span>' +
-          '<div style="width:100%;background:' + color + ';height:' + Math.max(pct, 3) + '%;border-radius:3px 3px 0 0;transition:height 0.3s;"></div>' +
-          '<span style="font-size:11px;color:#64748b;">' + day + '</span>' +
-          '</div>';
-      }).join('') + '</div>';
+    if (chartType === 'line') {
+      var svgW = 320, svgH = 150, padL = 10, padR = 10, padT = 22, padB = 24;
+      var chartW = svgW - padL - padR, chartH = svgH - padT - padB;
+      var stepX = chartW / 6;
+      var pts = [], dots = '', lbls = '';
+      for (var i = 0; i < 7; i++) {
+        var px = padL + i * stepX;
+        var py = maxC > 0 ? padT + chartH - (counts[i] / maxC) * chartH : padT + chartH;
+        pts.push(px + ',' + py);
+        var isPeak = counts[i] === maxC && counts[i] > 0;
+        dots += '<circle cx="' + px + '" cy="' + py + '" r="' + (isPeak ? 5 : 3.5) + '" fill="' + (isPeak ? '#54a8dc' : '#94a3b8') + '" stroke="#fff" stroke-width="1.5"/>';
+        dots += '<text x="' + px + '" y="' + (py - 8) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#29292a">' + counts[i] + '</text>';
+        lbls += '<text x="' + px + '" y="' + (svgH - 5) + '" text-anchor="middle" font-size="11" fill="#64748b">' + dayNames[i] + '</text>';
+      }
+      var areaPath = 'M' + padL + ',' + (padT + chartH) + ' L' + pts.join(' L') + ' L' + (padL + 6 * stepX) + ',' + (padT + chartH) + ' Z';
+      el.innerHTML = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:auto;font-family:inherit;">' +
+        '<line x1="' + padL + '" y1="' + (padT + chartH) + '" x2="' + (svgW - padR) + '" y2="' + (padT + chartH) + '" stroke="#e2e8f0" stroke-width="1"/>' +
+        '<path d="' + areaPath + '" fill="rgba(84,168,220,0.1)"/>' +
+        '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#54a8dc" stroke-width="2.5" stroke-linejoin="round"/>' +
+        dots + lbls + '</svg>';
+    } else {
+      el.innerHTML = '<div style="display:flex;align-items:flex-end;gap:8px;height:120px;padding-top:10px;">' +
+        dayNames.map(function (day, i) {
+          var pct = Math.round((counts[i] / maxC) * 100);
+          var isHighest = counts[i] === maxC && counts[i] > 0;
+          var color = isHighest ? '#54a8dc' : '#cbd5e1';
+          return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">' +
+            '<span style="font-size:11px;font-weight:700;color:#29292a;">' + counts[i] + '</span>' +
+            '<div style="width:100%;background:' + color + ';height:' + Math.max(pct, 3) + '%;border-radius:3px 3px 0 0;transition:height 0.3s;"></div>' +
+            '<span style="font-size:11px;color:#64748b;">' + day + '</span></div>';
+        }).join('') + '</div>';
+    }
   }
 
   // ── Widget: Average Per Day ──
@@ -1562,17 +1931,38 @@ body {
         return '<button style="padding:6px 12px;border:none;border-radius:4px;font-size:12px;cursor:pointer;' + active + '" data-pidx="' + idx + '">' + pp.label + '</button>';
       }).join('');
 
-      var barW = Math.max(2, Math.floor(700 / labels.length) - 2);
-      var bars = values.map(function (v, i) {
-        var h = Math.round((v / maxV) * 100);
-        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:' + barW + 'px;">' +
-          '<div style="width:80%;height:' + Math.max(h, 2) + '%;background:#54a8dc;border-radius:2px 2px 0 0;"></div></div>';
-      }).join('');
+      var chartType = (w.config || {}).chartType || 'bar';
+      var chartHtml = '';
+
+      if (chartType === 'line') {
+        var svgW2 = 700, svgH2 = 120, padL2 = 5, padR2 = 5, padT2 = 10, padB2 = 5;
+        var cW = svgW2 - padL2 - padR2, cH = svgH2 - padT2 - padB2;
+        var stepX = labels.length > 1 ? cW / (labels.length - 1) : cW;
+        var pts2 = [], dots2 = '';
+        for (var li = 0; li < labels.length; li++) {
+          var px2 = padL2 + li * stepX;
+          var py2 = maxV > 0 ? padT2 + cH - (values[li] / maxV) * cH : padT2 + cH;
+          pts2.push(px2 + ',' + py2);
+        }
+        var areaP = 'M' + padL2 + ',' + (padT2 + cH) + ' L' + pts2.join(' L') + ' L' + (padL2 + (labels.length - 1) * stepX) + ',' + (padT2 + cH) + ' Z';
+        chartHtml = '<div style="height:120px;margin-bottom:8px;"><svg viewBox="0 0 ' + svgW2 + ' ' + svgH2 + '" style="width:100%;height:100%;" preserveAspectRatio="none">' +
+          '<path d="' + areaP + '" fill="rgba(84,168,220,0.15)"/>' +
+          '<polyline points="' + pts2.join(' ') + '" fill="none" stroke="#54a8dc" stroke-width="2"/>' +
+          '</svg></div>';
+      } else {
+        var barW = Math.max(2, Math.floor(700 / labels.length) - 2);
+        var bars = values.map(function (v) {
+          var h = Math.round((v / maxV) * 100);
+          return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:' + barW + 'px;">' +
+            '<div style="width:80%;height:' + Math.max(h, 2) + '%;background:#54a8dc;border-radius:2px 2px 0 0;"></div></div>';
+        }).join('');
+        chartHtml = '<div style="display:flex;align-items:flex-end;height:120px;gap:1px;margin-bottom:8px;">' + bars + '</div>';
+      }
 
       var totalP = filtered.length;
 
       el.innerHTML = '<div style="display:flex;gap:8px;margin-bottom:12px;">' + tabs + '</div>' +
-        '<div style="display:flex;align-items:flex-end;height:120px;gap:1px;margin-bottom:8px;">' + bars + '</div>' +
+        chartHtml +
         '<div style="display:flex;gap:24px;margin-top:8px;">' +
           '<div style="flex:1;text-align:center;padding:12px;background:#f8fafc;border-radius:6px;">' +
             '<div style="font-size:32px;font-weight:700;color:#54a8dc;">' + totalP + '</div>' +
@@ -1643,9 +2033,17 @@ body {
       });
     });
 
+    // Build color map: form uid -> color (stable across renders)
+    var formColorMap = {};
+    formsWithGeo.forEach(function (uid, idx) {
+      formColorMap[uid] = GEO_COLORS[idx % GEO_COLORS.length];
+    });
+
     var optionsHtml = '<option value="__all__">All Forms (' + formsWithGeo.length + ')</option>';
     formsWithGeo.forEach(function (uid) {
-      optionsHtml += '<option value="' + esc(uid) + '">' + esc(formGroups[uid].name) + '</option>';
+      var color = formColorMap[uid];
+      optionsHtml += '<option value="' + esc(uid) + '" style="color:' + color + ';font-weight:600;">' +
+        '\u25CF ' + esc(formGroups[uid].name) + '</option>';
     });
 
     el.innerHTML =
@@ -1656,7 +2054,16 @@ body {
         '</select>' +
         '<span id="' + countId + '" style="font-size:11px;color:#94a3b8;white-space:nowrap;"></span>' +
       '</div>' +
-      '<div id="' + mapId + '" style="width:100%;height:320px;border-radius:6px;border:1px solid #e2e8f0;background:#e8ecf0;"></div>';
+      '<div id="' + mapId + '" style="width:100%;height:320px;border-radius:6px;border:1px solid #e2e8f0;background:#e8ecf0;position:relative;"></div>';
+
+    // Update select color to match selected option
+    function syncSelectColor() {
+      var sel = document.getElementById(selectId);
+      if (!sel) return;
+      var opt = sel.options[sel.selectedIndex];
+      sel.style.color = (sel.value === '__all__') ? '#1e293b' : (opt && opt.style.color || '#1e293b');
+    }
+    syncSelectColor();
 
     if (!formsWithGeo.length) {
       document.getElementById(mapId).innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:13px;">No GPS data available</div>';
@@ -1709,10 +2116,10 @@ body {
           var total = 0;
           var keysToShow = (filterUid === '__all__') ? formsWithGeo : [filterUid];
 
-          keysToShow.forEach(function (uid, idx) {
+          keysToShow.forEach(function (uid) {
             var fg = formGroups[uid];
             if (!fg) return;
-            var color = GEO_COLORS[idx % GEO_COLORS.length];
+            var color = formColorMap[uid] || GEO_COLORS[0];
 
             fg.subs.forEach(function (s) {
               var geo = s._geolocation;
@@ -1743,11 +2150,38 @@ body {
           }
         }
 
+        // Add legend control inside the map (bottom-left)
+        var legendControl = L.control({ position: 'bottomleft' });
+        legendControl.onAdd = function () {
+          var div = L.DomUtil.create('div', 'ra-geo-legend-ctrl');
+          div.style.cssText = 'background:rgba(255,255,255,0.92);padding:6px 10px;border-radius:4px;font-size:10px;line-height:1.6;box-shadow:0 1px 4px rgba(0,0,0,0.2);max-width:180px;';
+          return div;
+        };
+        legendControl.addTo(map);
+
+        function updateMapLegend(filterUid) {
+          var container = legendControl.getContainer();
+          if (!container) return;
+          var items = (filterUid === '__all__') ? formsWithGeo : [filterUid];
+          container.innerHTML = items.map(function (uid) {
+            var c = formColorMap[uid] || '#94a3b8';
+            var n = formGroups[uid] ? formGroups[uid].name : uid;
+            return '<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+              '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + c + ';flex-shrink:0;"></span>' +
+              '<span style="overflow:hidden;text-overflow:ellipsis;">' + esc(n) + '</span></div>';
+          }).join('');
+        }
+        updateMapLegend('__all__');
+
         showPoints('__all__');
 
         var selectEl = document.getElementById(selectId);
         if (selectEl) {
-          selectEl.addEventListener('change', function () { showPoints(this.value); });
+          selectEl.addEventListener('change', function () {
+            showPoints(this.value);
+            updateMapLegend(this.value);
+            syncSelectColor();
+          });
         }
 
         setTimeout(function () { map.invalidateSize(); }, 300);

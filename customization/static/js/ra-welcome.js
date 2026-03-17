@@ -66,26 +66,37 @@
     setTimeout(replaceLogo, 5000);
   })();
 
-  // Title is managed by the interceptor in ra-dashboard-view.js (non-deferred).
-  // That interceptor uses window.__raGetPageName() which we update here for form-specific titles.
-  // We only need to handle hashchange for form-specific page names.
+  // ── Browser title: replace "KoboToolbox" with "Ramani Yangu" ──
+  // React dynamically sets document.title, overriding the nginx sub_filter.
+  // We use a MutationObserver on the <title> element to catch changes safely.
   (function overrideTitle() {
-    // Update __raGetPageName to handle form-specific titles (needs React's title)
-    var origGetPageName = window.__raGetPageName;
-    if (origGetPageName) {
-      window.__raGetPageName = function () {
-        var hash = window.location.hash;
-        if (hash.indexOf('#/forms/') === 0) {
-          // For individual form pages, try to extract form name from React's intended title
-          var titleEl = document.querySelector('title');
-          var raw = titleEl ? titleEl.textContent : '';
-          var parts = raw.replace(/KoboToolbox/gi, '').replace(/\s*\|\s*/g, '|').split('|')
-            .filter(function (s) { return s.trim() && s.trim() !== BRAND_NAME && s.trim() !== 'Loading...'; });
-          return parts.length ? parts[0].trim() : null;
-        }
-        return origGetPageName();
-      };
+    function fixTitle() {
+      var t = document.title;
+      if (t.indexOf('KoboToolbox') !== -1) {
+        document.title = t.replace(/KoboToolbox/g, BRAND_NAME);
+      }
     }
+
+    // Fix on load
+    fixTitle();
+
+    // Watch for React title changes via MutationObserver on <title> element
+    var titleEl = document.querySelector('title');
+    if (titleEl) {
+      var titleObs = new MutationObserver(function () {
+        // Only fix if it still contains KoboToolbox (prevents infinite loop)
+        if (document.title.indexOf('KoboToolbox') !== -1) {
+          fixTitle();
+        }
+      });
+      titleObs.observe(titleEl, { childList: true, characterData: true, subtree: true });
+    }
+
+    // Also fix on hash change (SPA navigation)
+    window.addEventListener('hashchange', function () {
+      setTimeout(fixTitle, 100);
+      setTimeout(fixTitle, 500);
+    });
   })();
 
   function isProjectListPage() {
@@ -577,5 +588,96 @@
     } else {
       initBanners();
     }
+  })();
+
+  // ── Logout Confirmation Modal (matches login page design) ──
+  (function logoutConfirmation() {
+    if (/\/accounts\/(login|signup|password)/.test(window.location.pathname)) return;
+
+    function getCSRF() {
+      var match = document.cookie.match(/csrftoken=([^;]+)/);
+      return match ? match[1] : '';
+    }
+
+    function doLogoutPost() {
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/accounts/logout/';
+      form.style.display = 'none';
+      var inp = document.createElement('input');
+      inp.type = 'hidden';
+      inp.name = 'csrfmiddlewaretoken';
+      inp.value = getCSRF();
+      form.appendChild(inp);
+      document.body.appendChild(form);
+      form.submit();
+    }
+
+    function showLogoutModal() {
+      var existing = document.getElementById('ra-logout-modal');
+      if (existing) existing.remove();
+
+      var overlay = document.createElement('div');
+      overlay.id = 'ra-logout-modal';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(26,42,58,0.6);z-index:2147483646;display:flex;align-items:center;justify-content:center;animation:ra-lo-fi 0.2s ease;';
+
+      overlay.innerHTML =
+        '<style>@keyframes ra-lo-fi{from{opacity:0}to{opacity:1}}@keyframes ra-lo-si{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}</style>' +
+        '<div style="background:rgba(255,255,255,0.95);border-radius:8px;width:380px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.3);overflow:hidden;animation:ra-lo-si 0.25s ease;text-align:center;">' +
+          // Logo section — matches login page
+          '<div style="padding:28px 24px 12px;">' +
+            '<img src="/custom-static/images/ra-logo-dark.png" alt="Ramani Yangu" style="width:200px;height:auto;margin:0 auto 10px;display:block;">' +
+            '<p style="font-size:13px;color:#64748b;margin:0;font-weight:500;">Data Collection Platform</p>' +
+          '</div>' +
+          // Content
+          '<div style="padding:16px 28px 28px;">' +
+            '<h3 style="margin:0 0 8px;font-size:18px;font-weight:700;color:#1a2a3a;">Log out of your account?</h3>' +
+            '<p style="margin:0 0 24px;font-size:13px;color:#94a3b8;line-height:1.5;">You will need to sign in again to access the platform.</p>' +
+            '<div style="display:flex;gap:10px;">' +
+              '<button id="ra-logout-cancel" style="flex:1;padding:11px;border-radius:4px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid #ccc;background:#fff;color:#475569;font-family:inherit;transition:background 0.15s;">Cancel</button>' +
+              '<button id="ra-logout-confirm" style="flex:1;padding:11px;border-radius:4px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:#54a8dc;color:#fff;font-family:inherit;transition:background 0.15s;">Log Out</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      document.body.appendChild(overlay);
+
+      overlay.querySelector('#ra-logout-cancel').addEventListener('click', function () { overlay.remove(); });
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+      var escH = function (e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escH); } };
+      document.addEventListener('keydown', escH);
+      overlay.querySelector('#ra-logout-confirm').addEventListener('click', function () {
+        this.textContent = 'Logging out...';
+        this.disabled = true;
+        doLogoutPost();
+      });
+    }
+
+    // Intercept all logout link clicks globally
+    document.addEventListener('click', function (e) {
+      var link = e.target.closest('a[href*="/accounts/logout"], a[href*="logout"]');
+      if (!link) return;
+      var href = link.getAttribute('href') || '';
+      if (href.indexOf('logout') === -1) return;
+      if (link.closest('#ra-logout-modal')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      showLogoutModal();
+    }, true);
+
+    // Intercept logout buttons
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('button');
+      if (!btn) return;
+      var text = (btn.textContent || '').trim().toLowerCase();
+      if (text === 'logout' || text === 'log out' || text === 'sign out') {
+        if (btn.closest('#ra-logout-modal')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        showLogoutModal();
+      }
+    }, true);
+
+    window.__raShowLogoutModal = showLogoutModal;
   })();
 })();

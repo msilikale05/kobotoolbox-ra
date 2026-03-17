@@ -35,10 +35,11 @@
   // ── INSTANT SCREEN COVER (replaces default KoboToolbox loading) ──
   var screenCover = document.createElement('div');
   screenCover.id = 'ra-do-screencover';
-  screenCover.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#ffffff;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.4s;';
+  screenCover.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#ffffff;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.4s;';
   screenCover.innerHTML =
     '<img src="/custom-static/images/ra-logo-dark.png" alt="Resilience Academy" style="width:180px;margin-bottom:32px;opacity:0;animation:ra-cover-fadein 0.6s ease forwards;">' +
     '<div style="width:120px;height:2px;background:#f0f0f0;border-radius:2px;overflow:hidden;"><div style="height:100%;background:#54a8dc;border-radius:2px;animation:ra-cover-bar 2s ease-in-out infinite;"></div></div>' +
+    '<div style="margin-top:16px;font-size:12px;color:#94a3b8;opacity:0;animation:ra-cover-fadein 1.2s ease forwards;">Loading your dashboard...</div>' +
     '<style>' +
       '@keyframes ra-cover-fadein{to{opacity:1}}' +
       '@keyframes ra-cover-bar{0%{width:0;margin-left:0}50%{width:100%;margin-left:0}100%{width:0;margin-left:100%}}' +
@@ -763,8 +764,9 @@
       if (cfg.textColor) bParts.push('color:' + cfg.textColor);
       if (cfg.bgColor) bParts.push('background-color:' + cfg.bgColor);
       var bodyStyle = bParts.length ? ' style="' + bParts.join(';') + ';"' : '';
+      var hideHeader = cfg.hideTitle;
       return '<div class="ra-do__widget' + cls + '" data-wid="' + esc(w.id) + '"' + (wStyle ? ' style="' + wStyle + '"' : '') + '>' +
-        '<div class="ra-do__widget-header"' + headerStyle + '>' + esc(displayTitle) + '</div>' +
+        (hideHeader ? '' : '<div class="ra-do__widget-header"' + headerStyle + '>' + esc(displayTitle) + '</div>') +
         '<div class="ra-do__widget-body" id="ra-do-wb-' + esc(w.id) + '"' + bodyStyle + '></div>' +
       '</div>';
     }).join('');
@@ -1474,22 +1476,46 @@
     }).join('');
   }
 
-  // ── Widget: Submissions by Day of Week (KoboToolbox) ──
-  // ── Widget: Submissions by Hour of Day ──
+  // ── Widget: Submissions by Hour of Day (SVG bar chart with form + date filters) ──
   function renderSubmissionsByHour(el, w, subs) {
-    var hours = [];
-    for (var h = 0; h < 24; h++) hours.push(0);
+    var cfg = w.config || {};
+    var hoursToShow = parseInt(cfg.hours) || 24;
+    var selId = 'ra-sbh-sel-' + w.id;
+    var dateId = 'ra-sbh-date-' + w.id;
+    var chartId = 'ra-sbh-chart-' + w.id;
+    var summaryId = 'ra-sbh-sum-' + w.id;
 
+    var formGroups = {};
     subs.forEach(function (s) {
-      if (!s._submission_time) return;
-      var hour = new Date(s._submission_time).getHours();
-      hours[hour]++;
+      var uid = s._form_uid || '__unknown__';
+      if (!formGroups[uid]) formGroups[uid] = { name: s._form_name || uid, subs: [] };
+      formGroups[uid].subs.push(s);
+    });
+    var formKeys = Object.keys(formGroups);
+
+    var formOpts = '<option value="__all__">All Forms</option>';
+    formKeys.forEach(function (uid) {
+      formOpts += '<option value="' + esc(uid) + '">' + esc(formGroups[uid].name) + '</option>';
     });
 
-    var maxC = Math.max.apply(null, hours) || 1;
-    var peakHour = hours.indexOf(maxC);
+    var chartType = cfg.chartType || 'bar';
 
-    // Format hour labels
+    var dateOpts = '<option value="">All Days</option>';
+    for (var dd = 0; dd < 30; dd++) {
+      var dt = new Date(Date.now() - dd * 86400000);
+      var iso = dt.toISOString().split('T')[0];
+      var label = dd === 0 ? 'Today' : (dd === 1 ? 'Yesterday' : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }));
+      dateOpts += '<option value="' + iso + '">' + label + '</option>';
+    }
+
+    el.innerHTML =
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center;">' +
+        '<select id="' + selId + '" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;background:#fff;color:#1e293b;">' + formOpts + '</select>' +
+        '<select id="' + dateId + '" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;background:#fff;color:#1e293b;min-width:130px;">' + dateOpts + '</select>' +
+      '</div>' +
+      '<div id="' + chartId + '" style="width:100%;overflow-x:auto;"></div>' +
+      '<div id="' + summaryId + '" style="display:flex;justify-content:center;gap:24px;margin-top:8px;font-size:12px;color:#64748b;"></div>';
+
     function fmtHour(h) {
       if (h === 0) return '12am';
       if (h < 12) return h + 'am';
@@ -1497,24 +1523,132 @@
       return (h - 12) + 'pm';
     }
 
-    var bars = '';
-    for (var i = 0; i < 24; i++) {
-      var pct = Math.round((hours[i] / maxC) * 100);
-      var isPeak = hours[i] === maxC && hours[i] > 0;
-      var color = isPeak ? '#54a8dc' : (hours[i] > 0 ? '#94a3b8' : '#e2e8f0');
-      bars += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">' +
-        '<span style="font-size:10px;font-weight:' + (isPeak ? '700' : '400') + ';color:' + (isPeak ? '#1e293b' : '#94a3b8') + ';">' + (hours[i] > 0 ? hours[i] : '') + '</span>' +
-        '<div style="width:100%;background:' + color + ';height:' + Math.max(pct, 2) + '%;border-radius:2px 2px 0 0;transition:height 0.3s;"></div>' +
-        '<span style="font-size:9px;color:#94a3b8;">' + (i % 3 === 0 ? fmtHour(i) : '') + '</span>' +
-      '</div>';
+    function drawChart() {
+      var formVal = document.getElementById(selId).value;
+      var dateVal = document.getElementById(dateId).value;
+      var chartEl = document.getElementById(chartId);
+      var sumEl = document.getElementById(summaryId);
+      if (!chartEl) return;
+
+      var filtered = [];
+      var srcKeys = (formVal === '__all__') ? formKeys : [formVal];
+      srcKeys.forEach(function (uid) {
+        var fg = formGroups[uid];
+        if (fg) filtered = filtered.concat(fg.subs);
+      });
+
+      if (dateVal) {
+        filtered = filtered.filter(function (s) {
+          if (!s._submission_time) return false;
+          return s._submission_time.substring(0, 10) === dateVal;
+        });
+      }
+
+      var hours = [];
+      for (var h = 0; h < 24; h++) hours.push(0);
+      filtered.forEach(function (s) {
+        if (!s._submission_time) return;
+        var hour = new Date(s._submission_time).getHours();
+        hours[hour]++;
+      });
+
+      var startHour = 0;
+      var endHour = 24;
+      if (hoursToShow < 24) {
+        var bestStart = 0;
+        var bestSum = 0;
+        for (var s = 0; s <= 24 - hoursToShow; s++) {
+          var sum = 0;
+          for (var j = s; j < s + hoursToShow; j++) sum += hours[j];
+          if (sum > bestSum) { bestSum = sum; bestStart = s; }
+        }
+        startHour = bestStart;
+        endHour = bestStart + hoursToShow;
+      }
+
+      var displayHours = hours.slice(startHour, endHour);
+      var numBars = displayHours.length;
+      var maxC = Math.max.apply(null, displayHours) || 1;
+      var peakIdx = displayHours.indexOf(maxC);
+      var peakHour = startHour + peakIdx;
+
+      var svgW = Math.max(numBars * 30, 480);
+      var svgH = 180;
+      var padL = 30;
+      var padR = 10;
+      var barW = Math.floor((svgW - padL - padR) / numBars);
+      var barGap = 3;
+      var chartTop = 20;
+      var chartBottom = svgH - 24;
+      var chartH = chartBottom - chartTop;
+
+      var svgContent = '';
+      svgContent += '<line x1="' + padL + '" y1="' + chartBottom + '" x2="' + (padL + numBars * barW) + '" y2="' + chartBottom + '" stroke="#e2e8f0" stroke-width="1"/>';
+      for (var g = 1; g <= 4; g++) {
+        var gy = chartBottom - Math.round((g / 4) * chartH);
+        svgContent += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (padL + numBars * barW) + '" y2="' + gy + '" stroke="#f0f0f0" stroke-width="0.5"/>';
+      }
+
+      if (chartType === 'line') {
+        var points = [];
+        var dots = '';
+        for (var i = 0; i < numBars; i++) {
+          var val = displayHours[i];
+          var px = padL + i * barW + barW / 2;
+          var py = maxC > 0 ? chartBottom - Math.round((val / maxC) * chartH) : chartBottom;
+          points.push(px + ',' + py);
+          var isPeak = val === maxC && val > 0;
+          dots += '<circle cx="' + px + '" cy="' + py + '" r="' + (isPeak ? 5 : 3.5) + '" fill="' + (isPeak ? '#54a8dc' : '#94a3b8') + '" stroke="#fff" stroke-width="1.5"/>';
+          if (val > 0) {
+            dots += '<text x="' + px + '" y="' + (py - 8) + '" text-anchor="middle" font-size="10" font-weight="' + (isPeak ? '700' : '400') + '" fill="' + (isPeak ? '#1e293b' : '#94a3b8') + '">' + val + '</text>';
+          }
+          var labelInterval = numBars <= 6 ? 1 : (numBars <= 12 ? 2 : 3);
+          if (i % labelInterval === 0) {
+            svgContent += '<text x="' + px + '" y="' + (svgH - 6) + '" text-anchor="middle" font-size="10" fill="#94a3b8">' + fmtHour(startHour + i) + '</text>';
+          }
+        }
+        if (points.length > 1) {
+          var areaPath = 'M' + (padL + barW / 2) + ',' + chartBottom + ' L' + points.join(' L') + ' L' + (padL + (numBars - 1) * barW + barW / 2) + ',' + chartBottom + ' Z';
+          svgContent += '<path d="' + areaPath + '" fill="rgba(84,168,220,0.1)"/>';
+          svgContent += '<polyline points="' + points.join(' ') + '" fill="none" stroke="#54a8dc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+        }
+        svgContent += dots;
+      } else {
+        for (var i = 0; i < numBars; i++) {
+          var val = displayHours[i];
+          var barH = maxC > 0 ? Math.round((val / maxC) * chartH) : 0;
+          if (val > 0 && barH < 4) barH = 4;
+          var x = padL + i * barW;
+          var y = chartBottom - barH;
+          var isPeak = val === maxC && val > 0;
+          var color = isPeak ? '#54a8dc' : (val > 0 ? '#94a3b8' : '#e2e8f0');
+          svgContent += '<rect x="' + (x + barGap / 2) + '" y="' + y + '" width="' + (barW - barGap) + '" height="' + barH + '" rx="2" fill="' + color + '"/>';
+          if (val > 0) {
+            svgContent += '<text x="' + (x + barW / 2) + '" y="' + (y - 5) + '" text-anchor="middle" font-size="10" font-weight="' + (isPeak ? '700' : '400') + '" fill="' + (isPeak ? '#1e293b' : '#94a3b8') + '">' + val + '</text>';
+          }
+          var labelInterval = numBars <= 6 ? 1 : (numBars <= 12 ? 2 : 3);
+          if (i % labelInterval === 0) {
+            svgContent += '<text x="' + (x + barW / 2) + '" y="' + (svgH - 6) + '" text-anchor="middle" font-size="10" fill="#94a3b8">' + fmtHour(startHour + i) + '</text>';
+          }
+        }
+      }
+
+      chartEl.innerHTML =
+        '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;min-width:360px;height:auto;font-family:inherit;">' +
+          svgContent +
+        '</svg>';
+
+      var totalFiltered = filtered.length;
+      var rangeLabel = (hoursToShow < 24) ? fmtHour(startHour) + ' - ' + fmtHour(endHour % 24) : 'Full day';
+      sumEl.innerHTML =
+        '<div>Peak: <strong style="color:#1e293b;">' + fmtHour(peakHour) + '</strong> (' + maxC + ')</div>' +
+        '<div>Total: <strong style="color:#1e293b;">' + totalFiltered + '</strong></div>' +
+        (hoursToShow < 24 ? '<div>Range: <strong style="color:#1e293b;">' + rangeLabel + '</strong></div>' : '');
     }
 
-    el.innerHTML =
-      '<div style="display:flex;align-items:flex-end;height:120px;gap:2px;padding-top:10px;">' + bars + '</div>' +
-      '<div style="display:flex;justify-content:center;gap:24px;margin-top:12px;font-size:12px;color:#64748b;">' +
-        '<div>Peak: <strong style="color:#1e293b;">' + fmtHour(peakHour) + '</strong> (' + maxC + ' submissions)</div>' +
-        '<div>Total: <strong style="color:#1e293b;">' + subs.length + '</strong></div>' +
-      '</div>';
+    drawChart();
+    document.getElementById(selId).addEventListener('change', drawChart);
+    document.getElementById(dateId).addEventListener('change', drawChart);
   }
 
   function renderSubmissionsByDay(el, w, subs) {
@@ -1704,10 +1838,18 @@
       });
     });
 
-    // Build form selector
+    // Build color map: form uid -> color (stable across renders)
+    var formColorMap = {};
+    formsWithGeo.forEach(function (uid, idx) {
+      formColorMap[uid] = GEO_COLORS[idx % GEO_COLORS.length];
+    });
+
+    // Build form selector with colored options
     var optionsHtml = '<option value="__all__">All Forms (' + formsWithGeo.length + ')</option>';
     formsWithGeo.forEach(function (uid) {
-      optionsHtml += '<option value="' + esc(uid) + '">' + esc(formGroups[uid].name) + '</option>';
+      var color = formColorMap[uid];
+      optionsHtml += '<option value="' + esc(uid) + '" style="color:' + color + ';font-weight:600;">' +
+        '\u25CF ' + esc(formGroups[uid].name) + '</option>';
     });
 
     el.innerHTML =
@@ -1718,7 +1860,15 @@
         '</select>' +
         '<span id="' + countId + '" style="font-size:11px;color:#94a3b8;white-space:nowrap;"></span>' +
       '</div>' +
-      '<div id="' + mapId + '" style="width:100%;height:320px;border-radius:6px;border:1px solid #e2e8f0;background:#e8ecf0;"></div>';
+      '<div id="' + mapId + '" style="width:100%;height:320px;border-radius:6px;border:1px solid #e2e8f0;background:#e8ecf0;position:relative;"></div>';
+
+    function syncSelectColor() {
+      var sel = document.getElementById(selectId);
+      if (!sel) return;
+      var opt = sel.options[sel.selectedIndex];
+      sel.style.color = (sel.value === '__all__') ? '#1e293b' : (opt && opt.style.color || '#1e293b');
+    }
+    syncSelectColor();
 
     if (!formsWithGeo.length) {
       document.getElementById(mapId).innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:13px;">No GPS data available</div>';
@@ -1773,10 +1923,10 @@
           var total = 0;
           var keysToShow = (filterUid === '__all__') ? formsWithGeo : [filterUid];
 
-          keysToShow.forEach(function (uid, idx) {
+          keysToShow.forEach(function (uid) {
             var fg = formGroups[uid];
             if (!fg) return;
-            var color = GEO_COLORS[idx % GEO_COLORS.length];
+            var color = formColorMap[uid] || GEO_COLORS[0];
 
             fg.subs.forEach(function (s) {
               var geo = s._geolocation;
@@ -1807,13 +1957,40 @@
           }
         }
 
+        // Add legend control inside the map
+        var legendControl = L.control({ position: 'bottomleft' });
+        legendControl.onAdd = function () {
+          var div = L.DomUtil.create('div', 'ra-geo-legend-ctrl');
+          div.style.cssText = 'background:rgba(255,255,255,0.92);padding:6px 10px;border-radius:4px;font-size:10px;line-height:1.6;box-shadow:0 1px 4px rgba(0,0,0,0.2);max-width:180px;';
+          return div;
+        };
+        legendControl.addTo(map);
+
+        function updateMapLegend(filterUid) {
+          var container = legendControl.getContainer();
+          if (!container) return;
+          var items = (filterUid === '__all__') ? formsWithGeo : [filterUid];
+          container.innerHTML = items.map(function (uid) {
+            var c = formColorMap[uid] || '#94a3b8';
+            var n = formGroups[uid] ? formGroups[uid].name : uid;
+            return '<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+              '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + c + ';flex-shrink:0;"></span>' +
+              '<span style="overflow:hidden;text-overflow:ellipsis;">' + esc(n) + '</span></div>';
+          }).join('');
+        }
+        updateMapLegend('__all__');
+
         // Initial render
         showPoints('__all__');
 
         // Form selector — switch view
         var selectEl = document.getElementById(selectId);
         if (selectEl) {
-          selectEl.addEventListener('change', function () { showPoints(this.value); });
+          selectEl.addEventListener('change', function () {
+            showPoints(this.value);
+            updateMapLegend(this.value);
+            syncSelectColor();
+          });
         }
 
         setTimeout(function () { map.invalidateSize(); }, 300);
@@ -1859,18 +2036,22 @@
 
   // ── Bootstrap ──
   function bootstrap() {
-    // Safety: always remove cover after 3 seconds no matter what
-    setTimeout(removeScreenCover, 3000);
+    // Safety: remove cover after 6 seconds if nothing happened
+    var coverSafety = setTimeout(removeScreenCover, 6000);
 
     detectUser().then(function (isDashOnly) {
       if (!isDashOnly) {
+        clearTimeout(coverSafety);
         removeScreenCover();
         return;
       }
-      // Dashboard user detected — redirect to standalone dashboard page with username
-      removeScreenCover();
+      // Dashboard user detected — redirect to standalone dashboard page
+      // KEEP the cover visible during redirect so no flash of KoboToolbox UI
+      clearTimeout(coverSafety);
       window.location.replace('/dashboard/' + encodeURIComponent(currentUser.username));
+      // Do NOT remove cover — the page navigation will clear it
     }).catch(function () {
+      clearTimeout(coverSafety);
       removeScreenCover();
     });
   }
@@ -1899,7 +2080,7 @@
           var page = document.getElementById(PAGE_ID);
           var bar = document.createElement('div');
           bar.id = 'ra-do-preview-bar';
-          bar.style.cssText = 'background:#f59e0b;color:#000;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;z-index:100000;';
+          bar.style.cssText = 'background:#f59e0b;color:#000;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;z-index:1001;position:sticky;top:0;';
           bar.innerHTML = '<span>ADMIN PREVIEW \u2014 This is what dashboard users see</span><button id="ra-do-preview-exit" title="Exit preview and return to Dashboard" style="background:#000;color:#fff;border:none;padding:8px 18px;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;">Exit Preview</button>';
           page.insertBefore(bar, page.firstChild);
           var lb = document.getElementById('ra-do-logout-btn');

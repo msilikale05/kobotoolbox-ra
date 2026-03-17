@@ -16,7 +16,13 @@
   var match = path.match(/\/dashboard\/(public|embed)\/([a-f0-9]+)/);
   if (!match) {
     document.getElementById('ra-pub-content').innerHTML =
-      '<div class="ra-pub-error"><h2>Invalid Dashboard Link</h2><p>This link is not valid.</p></div>';
+      '<div style="text-align:center;padding:60px 24px;">' +
+        '<img src="/custom-static/images/ra-logo-dark.png" alt="Ramani Yangu" style="width:180px;margin:0 auto 24px;display:block;">' +
+        '<h2 style="font-size:22px;font-weight:700;color:#1e293b;margin:0 0 8px;">Invalid Dashboard Link</h2>' +
+        '<p style="font-size:14px;color:#64748b;margin:0 0 24px;max-width:400px;margin-left:auto;margin-right:auto;line-height:1.5;">This link is not valid or has expired. Please check the URL or contact the person who shared it with you.</p>' +
+        '<a href="/" style="display:inline-block;padding:10px 24px;background:#54a8dc;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600;">Go to Home</a>' +
+        '<p style="margin-top:20px;font-size:12px;color:#94a3b8;">Need help? <a href="mailto:info@ramaniyangu.com" style="color:#54a8dc;text-decoration:none;">info@ramaniyangu.com</a></p>' +
+      '</div>';
     return;
   }
   var mode = match[1]; // 'public' or 'embed'
@@ -359,7 +365,15 @@
   fetchDashboard(function (err, data) {
     if (err) {
       document.getElementById('ra-pub-content').innerHTML =
-        '<div class="ra-pub-error"><h2>Dashboard Unavailable</h2><p>' + esc(err.message || String(err)) + '</p></div>';
+        '<div style="text-align:center;padding:60px 24px;">' +
+          '<img src="/custom-static/images/ra-logo-dark.png" alt="Ramani Yangu" style="width:180px;margin:0 auto 24px;display:block;">' +
+          '<h2 style="font-size:22px;font-weight:700;color:#1e293b;margin:0 0 8px;">Dashboard Unavailable</h2>' +
+          '<p style="font-size:14px;color:#64748b;margin:0 0 24px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.5;">' +
+            'This dashboard link may have been revoked or the dashboard no longer exists. Please contact the person who shared it with you.' +
+          '</p>' +
+          '<a href="/" style="display:inline-block;padding:10px 24px;background:#54a8dc;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600;">Go to Home</a>' +
+          '<p style="margin-top:20px;font-size:12px;color:#94a3b8;">Need help? <a href="mailto:info@ramaniyangu.com" style="color:#54a8dc;text-decoration:none;">info@ramaniyangu.com</a></p>' +
+        '</div>';
       return;
     }
     render(data);

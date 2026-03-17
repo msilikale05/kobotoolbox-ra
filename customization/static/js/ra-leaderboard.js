@@ -205,6 +205,24 @@
     '  transition: width 0.4s ease;',
     '}',
 
+    /* Export button */
+    '.ra-lb__export-btn {',
+    '  display: inline-flex;',
+    '  align-items: center;',
+    '  gap: 6px;',
+    '  padding: 8px 16px;',
+    '  font-size: 13px;',
+    '  font-weight: 600;',
+    '  color: #fff;',
+    '  background: #10b981;',
+    '  border: none;',
+    '  border-radius: 4px;',
+    '  cursor: pointer;',
+    '  transition: background 0.2s;',
+    '  font-family: inherit;',
+    '}',
+    '.ra-lb__export-btn:hover { background: #059669; }',
+
     /* Loading / empty states */
     '.ra-lb__loading, .ra-lb__empty {',
     '  padding: 60px 40px;',
@@ -375,6 +393,10 @@
       '    <option value="_submitted_by">Submitted by (default)</option>',
       '  </select>',
       '  <div class="ra-lb__stats" id="ra-lb-stats"></div>',
+      '  <button class="ra-lb__export-btn" id="ra-lb-export" title="Export to Excel" style="display:none;">',
+      '    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+      '    Export Excel',
+      '  </button>',
       '</div>',
       '<div class="ra-lb__table-wrap" id="ra-lb-content">',
       '  <div class="ra-lb__loading">Loading leaderboard...</div>',
@@ -385,6 +407,9 @@
 
     // Load forms into dropdown
     loadForms();
+
+    // Export button handler
+    document.getElementById('ra-lb-export').addEventListener('click', exportLeaderboardExcel);
 
     // Form change handler
     document.getElementById('ra-lb-form-select').addEventListener('change', function () {
@@ -563,6 +588,8 @@
 
       if (!leaders.length) {
         content.innerHTML = '<div class="ra-lb__empty">No submissions yet. Data will appear here as forms are submitted.</div>';
+        var exportBtnEmpty = document.getElementById('ra-lb-export');
+        if (exportBtnEmpty) exportBtnEmpty.style.display = 'none';
         return;
       }
 
@@ -599,6 +626,10 @@
 
       html.push('</tbody></table>');
       content.innerHTML = html.join('');
+
+      // Show export button
+      var exportBtn = document.getElementById('ra-lb-export');
+      if (exportBtn) exportBtn.style.display = 'inline-flex';
     }).catch(function (err) {
       content.innerHTML = '<div class="ra-lb__empty">Error loading submissions. ' + escapeHtml(String(err)) + '</div>';
     });
@@ -612,6 +643,75 @@
         clearInterval(refreshTimer);
       }
     }, 30000);
+  }
+
+  // ── Export to Excel ──
+  function exportLeaderboardExcel() {
+    var table = document.querySelector('.ra-lb__table');
+    if (!table) return;
+
+    var formSelect = document.getElementById('ra-lb-form-select');
+    var formName = formSelect ? formSelect.options[formSelect.selectedIndex].text : 'Leaderboard';
+    // Clean form name for filename
+    var safeName = formName.replace(/\s*\(.*?\)\s*/g, '').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 40);
+    var dateStr = new Date().toISOString().split('T')[0];
+    var fileName = 'Leaderboard_' + safeName + '_' + dateStr + '.xls';
+
+    // Build Excel-compatible HTML table
+    var rows = table.querySelectorAll('tr');
+    var excelHtml = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+      '<head><meta charset="utf-8">' +
+      '<style>td,th{padding:6px 10px;border:1px solid #ccc;font-family:Calibri,sans-serif;font-size:11pt;}' +
+      'th{background:#4472C4;color:#fff;font-weight:bold;}' +
+      'tr:nth-child(even) td{background:#D9E2F3;}' +
+      '.rank-1{background:#FFD700;font-weight:bold;}' +
+      '.rank-2{background:#C0C0C0;font-weight:bold;}' +
+      '.rank-3{background:#CD7F32;font-weight:bold;}</style></head><body>' +
+      '<table>';
+
+    for (var r = 0; r < rows.length; r++) {
+      var cells = rows[r].querySelectorAll('th, td');
+      excelHtml += '<tr>';
+      for (var c = 0; c < cells.length; c++) {
+        var cell = cells[c];
+        var tag = cell.tagName.toLowerCase();
+
+        // Skip the progress bar column (contains only visual bar, no text value)
+        var isProgressCol = cell.querySelector('.ra-lb__bar-wrap');
+        if (isProgressCol) continue;
+        // Also skip progress header
+        if (tag === 'th' && cell.textContent.trim() === 'Progress') continue;
+
+        var text = cell.textContent.trim();
+
+        // Check for rank badge styling
+        var rankBadge = cell.querySelector('.ra-lb__rank');
+        var rankClass = '';
+        if (rankBadge) {
+          if (rankBadge.classList.contains('ra-lb__rank--1')) rankClass = ' class="rank-1"';
+          else if (rankBadge.classList.contains('ra-lb__rank--2')) rankClass = ' class="rank-2"';
+          else if (rankBadge.classList.contains('ra-lb__rank--3')) rankClass = ' class="rank-3"';
+        }
+
+        excelHtml += '<' + tag + rankClass + '>' + escapeHtml(text) + '</' + tag + '>';
+      }
+      excelHtml += '</tr>';
+    }
+
+    excelHtml += '</table></body></html>';
+
+    // Download as .xls file
+    var blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
   }
 
   // ── Navigation ──
