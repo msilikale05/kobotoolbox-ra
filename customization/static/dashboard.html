@@ -334,7 +334,7 @@ body {
         <img src="/custom-static/images/ra-logo.png" alt="Ramani Yangu">
       </div>
       <div class="ra-do__header-right">
-        <span>Welcome, <strong class="ra-do__username" id="ra-do-username" title="Click for account options">
+        <span style="display:flex;align-items:center;gap:8px;">Welcome, <img id="ra-do-header-avatar" src="" style="width:28px;height:28px;border-radius:50%;object-fit:cover;display:none;border:1px solid rgba(255,255,255,0.4);" onerror="this.style.display='none';"><strong class="ra-do__username" id="ra-do-username" title="Click for account options">
           <div class="ra-do__user-dropdown" id="ra-do-user-dropdown">
             <button class="ra-do__user-dropdown-item" data-action="edit-profile" title="Edit your profile details">
               <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
@@ -612,6 +612,13 @@ body {
     var displayName = currentUser.username.charAt(0).toUpperCase() + currentUser.username.slice(1);
     if (usernameEl) usernameEl.insertBefore(document.createTextNode(displayName), usernameEl.firstChild);
     document.title = displayName + ' | ' + BRAND_NAME;
+
+    // Set header avatar
+    var headerAvatar = document.getElementById('ra-do-header-avatar');
+    if (headerAvatar && currentUser.username) {
+      headerAvatar.src = '/webhook-api/avatar/' + encodeURIComponent(currentUser.username) + '?v=' + Date.now();
+      headerAvatar.style.display = '';
+    }
 
     // Set title
     var dashboard = getActiveDashboard();
@@ -1105,7 +1112,8 @@ body {
     el.innerHTML = items.map(function (s) {
       var user = getSubmitter(s, nameField);
       return '<div class="ra-do__feed-item">' +
-        '<div class="ra-do__feed-avatar">' + user.charAt(0).toUpperCase() + '</div>' +
+        '<img src="/webhook-api/avatar/' + esc(user) + '" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';">' +
+        '<div class="ra-do__feed-avatar" style="display:none;">' + user.charAt(0).toUpperCase() + '</div>' +
         '<div class="ra-do__feed-info"><span class="ra-do__feed-user">' + esc(user) + '</span> <span class="ra-do__feed-form">' + esc(s._form_name || '') + '</span></div>' +
         '<span class="ra-do__feed-time">' + timeAgo(s._submission_time) + '</span>' +
       '</div>';

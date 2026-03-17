@@ -13,6 +13,8 @@ KoboToolbox Setup:
 
 UPDATE-PROOF: Standalone container using KoboToolbox's built-in Hook system.
 """
+import hashlib
+import io
 import json
 import logging
 import os
@@ -23,7 +25,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file, redirect, Response
+from PIL import Image
 from twilio.rest import Client as TwilioClient
 
 load_dotenv('/app/config.env')
@@ -1181,6 +1184,142 @@ def delete_team(team_id):
     write_teams_config(config)
     log.info(f"Team deleted: {team_id}")
     return jsonify({'status': 'deleted'})
+
+
+# ── Avatar System ──
+AVATAR_DIR = '/app/config/avatars'
+os.makedirs(AVATAR_DIR, exist_ok=True)
+
+# Color palette for letter-initial SVG fallback
+_AVATAR_COLORS = [
+    '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#1abc9c',
+    '#3498db', '#9b59b6', '#e91e63', '#00bcd4', '#ff5722',
+    '#795548', '#607d8b', '#4caf50', '#ff9800', '#673ab7',
+]
+
+
+def _color_for_username(username):
+    """Deterministic color based on username hash."""
+    idx = sum(ord(c) for c in username) % len(_AVATAR_COLORS)
+    return _AVATAR_COLORS[idx]
+
+
+def _generate_initial_svg(username):
+    """Generate a simple SVG with a colored circle and the first letter."""
+    letter = username[0].upper() if username else '?'
+    color = _color_for_username(username)
+    svg = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">'
+        '<circle cx="100" cy="100" r="100" fill="{color}"/>'
+        '<text x="100" y="100" dy=".35em" text-anchor="middle" '
+        'font-family="Arial,Helvetica,sans-serif" font-size="96" font-weight="700" '
+        'fill="#ffffff">{letter}</text>'
+        '</svg>'
+    ).format(color=color, letter=letter)
+    return svg
+
+
+def _get_email_for_user(username):
+    """Try to find the user's email from the KoboToolbox API."""
+    import requests
+    kobo_url = os.getenv('KOBO_API_URL', 'http://kpi:8000')
+    token = os.getenv('KOBO_API_TOKEN', '')
+    if not token:
+        return None
+    try:
+        resp = requests.get(
+            '{}/api/v2/users/{}/'.format(kobo_url, username),
+            headers={'Authorization': 'Token {}'.format(token)},
+            timeout=5
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            return data.get('email') or data.get('extra_details', {}).get('email')
+    except Exception:
+        pass
+    return None
+
+
+@app.route('/api/avatar/<username>', methods=['GET'])
+def get_avatar(username):
+    """
+    Avatar priority: Custom upload -> Gravatar -> Letter initial SVG.
+    """
+    # 1. Check for custom upload
+    avatar_path = os.path.join(AVATAR_DIR, '{}.jpg'.format(username))
+    if os.path.isfile(avatar_path):
+        return send_file(
+            avatar_path,
+            mimetype='image/jpeg',
+            download_name='{}.jpg'.format(username),
+        )
+
+    # 2. Try Gravatar via email
+    email = _get_email_for_user(username)
+    if email:
+        md5_hash = hashlib.md5(email.strip().lower().encode('utf-8')).hexdigest()
+        gravatar_url = 'https://www.gravatar.com/avatar/{}?s=200&d=404'.format(md5_hash)
+        # Check if Gravatar actually has an image (d=404 returns 404 if none)
+        try:
+            import requests
+            resp = requests.head(gravatar_url, timeout=3)
+            if resp.status_code == 200:
+                return redirect(gravatar_url)
+        except Exception:
+            pass
+
+    # 3. Fallback to generated SVG
+    svg = _generate_initial_svg(username)
+    return Response(svg, mimetype='image/svg+xml', headers={
+        'Cache-Control': 'public, max-age=3600',
+    })
+
+
+@app.route('/api/avatar/<username>', methods=['POST'])
+def upload_avatar(username):
+    """Upload a custom avatar. Resize/crop to 200x200 JPEG."""
+    if 'avatar' not in request.files:
+        return jsonify({'error': 'No avatar file provided'}), 400
+
+    file = request.files['avatar']
+    if not file.filename:
+        return jsonify({'error': 'Empty filename'}), 400
+
+    try:
+        img = Image.open(file.stream)
+        img = img.convert('RGB')
+
+        # Crop to square (center crop)
+        w, h = img.size
+        if w != h:
+            side = min(w, h)
+            left = (w - side) // 2
+            top = (h - side) // 2
+            img = img.crop((left, top, left + side, top + side))
+
+        # Resize to 200x200
+        img = img.resize((200, 200), Image.LANCZOS)
+
+        avatar_path = os.path.join(AVATAR_DIR, '{}.jpg'.format(username))
+        img.save(avatar_path, 'JPEG', quality=90)
+
+        log.info("Avatar uploaded for user: %s", username)
+        return jsonify({'status': 'ok', 'message': 'Avatar uploaded'})
+    except Exception as e:
+        log.error("Avatar upload failed for %s: %s", username, e)
+        return jsonify({'error': 'Failed to process image: {}'.format(str(e))}), 400
+
+
+@app.route('/api/avatar/<username>', methods=['DELETE'])
+def delete_avatar(username):
+    """Remove custom avatar, fall back to Gravatar or letter initial."""
+    avatar_path = os.path.join(AVATAR_DIR, '{}.jpg'.format(username))
+    if os.path.isfile(avatar_path):
+        os.remove(avatar_path)
+        log.info("Avatar deleted for user: %s", username)
+        return jsonify({'status': 'ok', 'message': 'Avatar removed'})
+    return jsonify({'status': 'ok', 'message': 'No custom avatar found'})
 
 
 if __name__ == '__main__':
