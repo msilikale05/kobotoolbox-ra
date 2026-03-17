@@ -19,3 +19,5 @@ customization/services/*/config.env
 # Non-code assets
 Training Materials/
 backup/
+customization/static/config/dashboard-config.json
+customization/static/config/dashboard-users.json
