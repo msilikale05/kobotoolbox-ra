@@ -148,6 +148,16 @@ sed -i '/server_name.*kf\./,/^}/{
 }' "$NGINX_CONF"
 echo "Standalone dashboard page configured."
 
+# Custom error pages
+ERROR_PAGES_CONF="/etc/nginx/includes/error_pages.conf"
+cat > "$ERROR_PAGES_CONF" << 'NGINX_ERR'
+error_page 404 /custom-static/error-pages/404.html;
+NGINX_ERR
+sed -i '/server_name.*kf\./,/^}/{
+    /location \/static {/i\    include /etc/nginx/includes/error_pages.conf;
+}' "$NGINX_CONF"
+echo "Custom error pages configured."
+
 # Dashboard users API proxy — routes /webhook-api/ to the webhook-relay service
 WEBHOOK_API_CONF="/etc/nginx/includes/webhook_api.conf"
 cat > "$WEBHOOK_API_CONF" << 'NGINX_WH'

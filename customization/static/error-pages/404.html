@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page Not Found | Ramani Yangu</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f1f5f9;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a2a3a 0%, #54a8dc 100%);
+    padding: 16px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header img { height: 32px; width: auto; }
+  .header a {
+    color: rgba(255,255,255,0.85);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 8px 16px;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.15);
+    transition: background 0.2s;
+  }
+  .header a:hover { background: rgba(255,255,255,0.25); }
+  .accent { height: 4px; background: linear-gradient(90deg, #54a8dc, #1a2a3a); }
+  .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+  }
+  .error-code {
+    font-size: 120px;
+    font-weight: 800;
+    color: #e2e8f0;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .error-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 12px;
+  }
+  .error-message {
+    font-size: 15px;
+    color: #64748b;
+    max-width: 440px;
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+  .error-message a { color: #54a8dc; text-decoration: none; font-weight: 600; }
+  .error-message a:hover { text-decoration: underline; }
+  .buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .btn {
+    display: inline-block;
+    padding: 12px 28px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .btn-primary { background: #54a8dc; color: #fff; }
+  .btn-primary:hover { background: #3d8abf; box-shadow: 0 4px 12px rgba(84,168,220,0.3); }
+  .btn-secondary { background: #1a2a3a; color: #fff; }
+  .btn-secondary:hover { background: #2c3e50; }
+  .footer {
+    background: #1a2a3a;
+    padding: 20px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .footer img { height: 28px; opacity: 0.8; }
+  .footer-text {
+    color: rgba(255,255,255,0.5);
+    font-size: 12px;
+    text-align: right;
+    line-height: 1.6;
+  }
+  .footer-text a { color: #54a8dc; text-decoration: none; }
+  @media (max-width: 600px) {
+    .error-code { font-size: 80px; }
+    .error-title { font-size: 20px; }
+    .header { padding: 12px 16px; }
+    .footer { flex-direction: column; gap: 12px; text-align: center; }
+    .footer-text { text-align: center; }
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <a href="/"><img src="/custom-static/images/ra-logo.png" alt="Ramani Yangu"></a>
+    <a href="/accounts/login/">Log In</a>
+  </div>
+  <div class="accent"></div>
+  <div class="content">
+    <div class="error-code">404</div>
+    <h1 class="error-title">Page Not Found</h1>
+    <p class="error-message">
+      The page you're looking for doesn't exist or has been moved.
+      If you think this is an error, please <a href="mailto:info@ramaniyangu.com">contact the support team</a>.
+    </p>
+    <div class="buttons" id="error-buttons">
+      <a href="/" class="btn btn-primary">Go to Home</a>
+      <a href="mailto:info@ramaniyangu.com" class="btn btn-secondary">Contact Support</a>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var btnContainer = document.getElementById('error-buttons');
+    fetch('/me/', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (user) {
+        if (!user || !user.username) {
+          btnContainer.innerHTML =
+            '<a href="/accounts/login/" class="btn btn-primary">Log In</a>' +
+            '<a href="mailto:info@ramaniyangu.com" class="btn btn-secondary">Contact Support</a>';
+          return;
+        }
+        // Check if dashboard user
+        fetch('/webhook-api/dashboard-config', { credentials: 'same-origin' })
+          .then(function (r) { return r.ok ? r.json() : {}; })
+          .then(function (config) {
+            var users = (config && config.users) ? config.users : {};
+            if (users[user.username]) {
+              btnContainer.innerHTML =
+                '<a href="/dashboard/' + encodeURIComponent(user.username) + '" class="btn btn-primary">Go to Dashboard</a>' +
+                '<a href="mailto:info@ramaniyangu.com" class="btn btn-secondary">Contact Support</a>';
+            } else {
+              btnContainer.innerHTML =
+                '<a href="/" class="btn btn-primary">Go to Home</a>' +
+                '<a href="mailto:info@ramaniyangu.com" class="btn btn-secondary">Contact Support</a>';
+            }
+          });
+      })
+      .catch(function () {
+        btnContainer.innerHTML =
+          '<a href="/accounts/login/" class="btn btn-primary">Log In</a>' +
+          '<a href="mailto:info@ramaniyangu.com" class="btn btn-secondary">Contact Support</a>';
+      });
+  })();
+  </script>
+  <div class="footer">
+    <img src="/custom-static/images/ra-logo.png" alt="Ramani Yangu">
+    <div class="footer-text">
+      Resilience Academy | Ramani Yangu<br>
+      Data Collection Platform<br>
+      <a href="mailto:info@ramaniyangu.com">info@ramaniyangu.com</a>
+    </div>
+  </div>
+</body>
+</html>
