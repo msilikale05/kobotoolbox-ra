@@ -1742,12 +1742,14 @@
         var map = L.map(mapId, {
           center: [-6.8, 39.28],
           zoom: 6,
-          zoomControl: false,        // no zoom buttons — keep it clean
-          scrollWheelZoom: false,     // prevent accidental scroll zoom
-          doubleClickZoom: false,     // no double-click zoom
-          boxZoom: false,             // no box zoom
-          keyboard: false,            // no keyboard nav
-          dragging: true,             // allow panning
+          zoomControl: false,
+          scrollWheelZoom: false,
+          doubleClickZoom: false,
+          boxZoom: false,
+          keyboard: false,
+          dragging: false,
+          touchZoom: false,
+          tap: false,
           attributionControl: false
         });
         _geoMapInstances[w.id] = map;
