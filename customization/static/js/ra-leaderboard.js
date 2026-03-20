@@ -446,10 +446,98 @@
     if (!fieldSelect) { if (callback) callback(); return; }
 
     if (uid === '__all__') {
-      fieldSelect.innerHTML = '<option value="_submitted_by" data-type="text">Submitted by (default)</option>';
+      // Fetch all deployed forms and find common fields across them
+      fieldSelect.innerHTML = '<option value="_submitted_by" data-type="text">Submitted by (default)</option><option value="" disabled>Loading fields...</option>';
       selectedField = '_submitted_by';
       fieldTypeMap = {};
-      if (callback) callback();
+
+      fetchDeployedForms().then(function (forms) {
+        if (!forms.length) { if (callback) callback(); return; }
+
+        // Fetch content for each form
+        var promises = forms.map(function (f) {
+          return fetchJSON('/api/v2/assets/' + f.uid + '/?fields=["content"]')
+            .then(function (data) {
+              var survey = (data.content || {}).survey || [];
+              var fields = {};
+              survey.forEach(function (row) {
+                var t = row.type || '';
+                var name = row.name || row.$autoname || '';
+                var label = (row.label && row.label[0]) || name;
+                if (!name) return;
+                if (t === 'text' || t.indexOf('select_one') === 0) {
+                  fields[name] = { type: 'text', label: label };
+                } else if (t === 'integer' || t === 'decimal' || t === 'calculate' || t === 'range') {
+                  fields[name] = { type: t, label: label };
+                }
+              });
+              return fields;
+            })
+            .catch(function () { return {}; });
+        });
+
+        return Promise.all(promises).then(function (allFields) {
+          if (!allFields.length) { if (callback) callback(); return; }
+
+          // Find fields that appear in at least 2 forms (shared/common)
+          var fieldCount = {};
+          var fieldInfo = {};
+          allFields.forEach(function (fields) {
+            Object.keys(fields).forEach(function (name) {
+              fieldCount[name] = (fieldCount[name] || 0) + 1;
+              if (!fieldInfo[name]) fieldInfo[name] = fields[name];
+            });
+          });
+
+          // Collect all fields: common first, then others
+          var commonFields = [];
+          var otherFields = [];
+          Object.keys(fieldCount).forEach(function (name) {
+            var info = fieldInfo[name];
+            if (fieldCount[name] >= 2) {
+              commonFields.push({ name: name, type: info.type, label: info.label, count: fieldCount[name] });
+            } else {
+              otherFields.push({ name: name, type: info.type, label: info.label, count: fieldCount[name] });
+            }
+          });
+
+          // Sort by how many forms share the field
+          commonFields.sort(function (a, b) { return b.count - a.count; });
+          otherFields.sort(function (a, b) { return a.label.localeCompare(b.label); });
+
+          fieldTypeMap = {};
+          var options = '<option value="_submitted_by" data-type="text">Submitted by (default)</option>';
+
+          if (commonFields.length) {
+            options += '<optgroup label="Common Fields (shared across forms)">';
+            commonFields.forEach(function (f) {
+              fieldTypeMap[f.name] = f.type;
+              var isNum = f.type === 'integer' || f.type === 'decimal' || f.type === 'calculate' || f.type === 'range';
+              options += '<option value="' + escapeHtml(f.name) + '" data-type="' + (isNum ? 'number' : 'text') + '">' +
+                escapeHtml(f.label) + ' (' + f.count + ' forms)' + (isNum ? ' (sum)' : '') + '</option>';
+            });
+            options += '</optgroup>';
+          }
+
+          if (otherFields.length) {
+            options += '<optgroup label="Other Fields (single form)">';
+            otherFields.forEach(function (f) {
+              fieldTypeMap[f.name] = f.type;
+              var isNum = f.type === 'integer' || f.type === 'decimal' || f.type === 'calculate' || f.type === 'range';
+              options += '<option value="' + escapeHtml(f.name) + '" data-type="' + (isNum ? 'number' : 'text') + '">' +
+                escapeHtml(f.label) + (isNum ? ' (sum)' : '') + '</option>';
+            });
+            options += '</optgroup>';
+          }
+
+          fieldSelect.innerHTML = options;
+          selectedField = '_submitted_by';
+          if (callback) callback();
+        });
+      }).catch(function () {
+        fieldSelect.innerHTML = '<option value="_submitted_by" data-type="text">Submitted by (default)</option>';
+        if (callback) callback();
+      });
       return;
     }
 
@@ -528,7 +616,16 @@
           loadLeaderboard(savedForm);
         });
       } else {
-        loadLeaderboard('__all__');
+        // Load common fields for "All Forms", then restore saved field, then load leaderboard
+        loadFormFields('__all__', function () {
+          var savedField = prefs.field || '_submitted_by';
+          var fieldSelect = document.getElementById('ra-lb-field-select');
+          if (fieldSelect && fieldSelect.querySelector('option[value="' + savedField + '"]')) {
+            fieldSelect.value = savedField;
+            selectedField = savedField;
+          }
+          loadLeaderboard('__all__');
+        });
       }
     }).catch(function () {
       select.innerHTML = '<option value="">Error loading forms</option>';

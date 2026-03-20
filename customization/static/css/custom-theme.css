@@ -69,6 +69,12 @@
    ========================================================================== */
 
 /* Login background image */
+/* Reveal login form now that our custom styles are loaded (hidden by inline style in <head>) */
+.registration__bg,
+.registration {
+  opacity: 1 !important;
+}
+
 .registration__bg {
   background-image: url('/custom-static/images/login-bg.jpg') !important;
   background-size: cover !important;
@@ -174,6 +180,52 @@
 .registration label {
   color: #2c3e50 !important;
   font-weight: 500 !important;
+}
+
+/* ── Mobile login form — reduce height so login button is visible above keyboard ── */
+@media (max-width: 600px) {
+  .registration {
+    max-width: 92% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+  .registration--logo {
+    padding: 6px 0 2px !important;
+  }
+  .registration--logo a {
+    height: 45px !important;
+  }
+  .registration--logo::after {
+    font-size: 11px;
+    margin-top: 2px;
+    line-height: 1.2;
+  }
+  .registration input[type="text"],
+  .registration input[type="password"],
+  .registration input[type="email"] {
+    padding: 7px 10px !important;
+    margin-bottom: 4px !important;
+    font-size: 16px !important;
+  }
+  .registration select {
+    font-size: 16px !important;
+  }
+  .registration label {
+    margin-bottom: 1px !important;
+  }
+  .registration .kobo-button--blue {
+    padding: 9px !important;
+    margin-top: 4px !important;
+  }
+  .registration .ra-remember-me {
+    margin: 4px 0 0 !important;
+  }
+  .ra-auth-footer {
+    margin-top: 8px !important;
+    padding-top: 8px !important;
+  }
 }
 
 /* Auth footer navigation buttons — matches .kobo-button.kobo-button--blue.kobo-button--fullwidth */

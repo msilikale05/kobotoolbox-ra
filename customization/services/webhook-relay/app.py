@@ -20,7 +20,10 @@ import logging
 import os
 import re
 import smtplib
+import threading
+import time as _time
 from collections import defaultdict
+from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -1183,6 +1186,258 @@ def delete_team(team_id):
     write_teams_config(config)
     log.info(f"Team deleted: {team_id}")
     return jsonify({'status': 'deleted'})
+
+
+# ── Form Scheduler ──
+
+def _read_form_schedules():
+    """Read formSchedules from dashboard-config.json."""
+    config = read_dashboard_config()
+    return config.get('formSchedules', {})
+
+
+def _write_form_schedules(schedules):
+    """Write formSchedules to dashboard-config.json."""
+    config = read_dashboard_config()
+    config['formSchedules'] = schedules
+    write_dashboard_config(config)
+
+
+@app.route('/api/form-schedules/<form_uid>', methods=['GET'])
+def get_form_schedules(form_uid):
+    """Return schedules for a specific form."""
+    if not re.match(r'^[a-zA-Z0-9]+$', form_uid):
+        return jsonify({'error': 'Invalid form UID'}), 400
+    schedules = _read_form_schedules()
+    return jsonify({'form_uid': form_uid, 'schedules': schedules.get(form_uid, [])})
+
+
+@app.route('/api/form-schedules/<form_uid>', methods=['POST'])
+def create_form_schedule(form_uid):
+    """Create or update a schedule for a form."""
+    if not re.match(r'^[a-zA-Z0-9]+$', form_uid):
+        return jsonify({'error': 'Invalid form UID'}), 400
+    try:
+        data = request.get_json(force=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Request body must be a JSON object'}), 400
+
+        schedule_type = data.get('type', '')
+        if schedule_type not in ('auto_deploy', 'auto_archive', 'reminder'):
+            return jsonify({'error': 'Invalid schedule type'}), 400
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        schedule = {
+            'id': 's_{}'.format(int(_time.time() * 1000)),
+            'type': schedule_type,
+            'executed': False,
+            'created_at': now_iso,
+        }
+
+        # Deploy/archive fields
+        if schedule_type in ('auto_deploy', 'auto_archive'):
+            dt_str = data.get('datetime', '')
+            if not dt_str:
+                return jsonify({'error': 'datetime is required for deploy/archive'}), 400
+            schedule['datetime'] = dt_str
+
+        # Reminder fields
+        if schedule_type == 'reminder':
+            schedule['recurring'] = bool(data.get('recurring', False))
+            schedule['recurrence'] = data.get('recurrence', 'weekly')
+            schedule['day'] = data.get('day', 'monday')
+            schedule['time'] = data.get('time', '09:00')
+            schedule['email_recipients'] = data.get('email_recipients', '')
+            schedule['message'] = data.get('message', '')
+
+        schedules = _read_form_schedules()
+        if form_uid not in schedules:
+            schedules[form_uid] = []
+        schedules[form_uid].append(schedule)
+        _write_form_schedules(schedules)
+
+        log.info(f"Form schedule created: {schedule['id']} type={schedule_type} for form={form_uid}")
+        return jsonify({'status': 'ok', 'schedule': schedule})
+    except Exception as e:
+        log.error(f"Failed to create form schedule: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/form-schedules/<form_uid>/<schedule_id>', methods=['DELETE'])
+def delete_form_schedule(form_uid, schedule_id):
+    """Delete a schedule."""
+    if not re.match(r'^[a-zA-Z0-9]+$', form_uid):
+        return jsonify({'error': 'Invalid form UID'}), 400
+    schedules = _read_form_schedules()
+    form_schedules = schedules.get(form_uid, [])
+    original_len = len(form_schedules)
+    form_schedules = [s for s in form_schedules if s.get('id') != schedule_id]
+    if len(form_schedules) == original_len:
+        return jsonify({'error': 'Schedule not found'}), 404
+    schedules[form_uid] = form_schedules
+    _write_form_schedules(schedules)
+    log.info(f"Form schedule deleted: {schedule_id} for form={form_uid}")
+    return jsonify({'status': 'deleted'})
+
+
+# ── Background Scheduler Checker ──
+
+def _send_reminder_email(recipients, subject, body):
+    """Send a reminder email using the existing SMTP config."""
+    if not SMTP_HOST or not SMTP_USER:
+        log.warning("SMTP not configured, cannot send reminder email")
+        return False
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['From'] = EMAIL_FROM or SMTP_USER
+        msg['To'] = recipients
+        msg['Subject'] = f'{EMAIL_SUBJECT_PREFIX} {subject}'
+        msg.attach(MIMEText(body, 'plain'))
+        msg.attach(MIMEText(
+            f'<html><body style="font-family:Arial,sans-serif;color:#1e293b;">'
+            f'<div style="max-width:600px;margin:0 auto;padding:20px;">'
+            f'<div style="background:#54a8dc;color:#fff;padding:16px 24px;border-radius:8px 8px 0 0;">'
+            f'<h2 style="margin:0;">Form Reminder</h2></div>'
+            f'<div style="background:#fff;border:1px solid #e2e8f0;border-top:none;padding:24px;border-radius:0 0 8px 8px;">'
+            f'<p>{body}</p></div></div></body></html>', 'html'))
+
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            if SMTP_USE_TLS:
+                server.starttls()
+            if SMTP_USER and SMTP_PASSWORD:
+                server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(msg['From'], recipients.split(','), msg.as_string())
+        log.info(f"Reminder email sent to {recipients}")
+        return True
+    except Exception as e:
+        log.error(f"Failed to send reminder email: {e}")
+        return False
+
+
+def _execute_deploy_action(form_uid, action_type):
+    """Call KoboToolbox API to deploy or archive a form."""
+    token = get_service_token_for_dashboard()
+    if not token:
+        log.error("No service token available for deploy/archive action")
+        return False
+    try:
+        if action_type == 'auto_deploy':
+            # Deploy the form
+            resp = http_requests.patch(
+                f'{KPI_INTERNAL_URL}/api/v2/assets/{form_uid}/deployment/',
+                json={'active': True},
+                headers={
+                    'Authorization': f'Token {token}',
+                    'Host': KPI_INTERNAL_HOST,
+                    'Content-Type': 'application/json',
+                },
+                timeout=30
+            )
+        elif action_type == 'auto_archive':
+            # Archive (set not active)
+            resp = http_requests.patch(
+                f'{KPI_INTERNAL_URL}/api/v2/assets/{form_uid}/deployment/',
+                json={'active': False},
+                headers={
+                    'Authorization': f'Token {token}',
+                    'Host': KPI_INTERNAL_HOST,
+                    'Content-Type': 'application/json',
+                },
+                timeout=30
+            )
+        else:
+            return False
+        log.info(f"Deploy/archive action {action_type} for {form_uid}: status={resp.status_code}")
+        return resp.status_code in (200, 201)
+    except Exception as e:
+        log.error(f"Deploy/archive action failed for {form_uid}: {e}")
+        return False
+
+
+def _check_reminder_due(schedule):
+    """Check if a recurring reminder is due right now (within the current minute)."""
+    now = datetime.now()
+    sched_time = schedule.get('time', '09:00')
+    try:
+        sched_hour, sched_min = [int(x) for x in sched_time.split(':')]
+    except (ValueError, AttributeError):
+        return False
+
+    if now.hour != sched_hour or now.minute != sched_min:
+        return False
+
+    recurrence = schedule.get('recurrence', 'daily')
+    if recurrence == 'daily':
+        return True
+    elif recurrence == 'weekly':
+        day_name = schedule.get('day', 'monday').lower()
+        day_map = {
+            'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+            'friday': 4, 'saturday': 5, 'sunday': 6
+        }
+        return now.weekday() == day_map.get(day_name, 0)
+    elif recurrence == 'monthly':
+        return now.day == 1  # First day of month
+    return False
+
+
+def _scheduler_loop():
+    """Background thread: checks every 60s for due schedules."""
+    log.info("Form scheduler background thread started")
+    while True:
+        try:
+            schedules = _read_form_schedules()
+            changed = False
+            now = datetime.now()
+
+            for form_uid, form_schedules in list(schedules.items()):
+                for schedule in form_schedules:
+                    stype = schedule.get('type', '')
+
+                    # Auto deploy/archive: one-time, check datetime
+                    if stype in ('auto_deploy', 'auto_archive') and not schedule.get('executed'):
+                        dt_str = schedule.get('datetime', '')
+                        try:
+                            sched_dt = datetime.fromisoformat(dt_str)
+                            if now >= sched_dt:
+                                log.info(f"Executing {stype} for form {form_uid}")
+                                success = _execute_deploy_action(form_uid, stype)
+                                schedule['executed'] = True
+                                schedule['executed_at'] = datetime.now(timezone.utc).isoformat()
+                                schedule['success'] = success
+                                changed = True
+                        except (ValueError, TypeError):
+                            log.warning(f"Invalid datetime in schedule {schedule.get('id')}: {dt_str}")
+
+                    # Reminders
+                    elif stype == 'reminder':
+                        if _check_reminder_due(schedule):
+                            last_sent = schedule.get('_last_sent_minute', '')
+                            current_minute = now.strftime('%Y-%m-%d %H:%M')
+                            if last_sent != current_minute:
+                                recipients = schedule.get('email_recipients', '')
+                                message = schedule.get('message', 'Please submit your data')
+                                if recipients:
+                                    _send_reminder_email(
+                                        recipients,
+                                        f'Reminder: Form {form_uid}',
+                                        message
+                                    )
+                                schedule['_last_sent_minute'] = current_minute
+                                changed = True
+
+            if changed:
+                _write_form_schedules(schedules)
+
+        except Exception as e:
+            log.error(f"Scheduler loop error: {e}")
+
+        _time.sleep(60)
+
+
+# Start background scheduler thread
+_scheduler_thread = threading.Thread(target=_scheduler_loop, daemon=True)
+_scheduler_thread.start()
 
 
 # ── Avatar System (Gravatar + Letter Initial) ──
