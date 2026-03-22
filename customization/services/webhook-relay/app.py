@@ -1188,6 +1188,85 @@ def delete_team(team_id):
     return jsonify({'status': 'deleted'})
 
 
+# ── GeoNode / Data Source Test Connection ──
+
+@app.route('/api/test-connection', methods=['GET'])
+def test_data_source():
+    """Test connection to a GeoNode or WMS/WFS server (avoids browser CORS)."""
+    url = request.args.get('url', '').rstrip('/')
+    token = request.args.get('token', '')
+    username = request.args.get('username', '')
+    password = request.args.get('password', '')
+    action = request.args.get('action', 'test')
+
+    if not url:
+        return jsonify({'ok': False, 'error': 'No URL provided'})
+
+    headers = {'Accept': 'application/json'}
+    auth = None
+    if token:
+        tok = token if ' ' in token else 'Bearer {}'.format(token)
+        headers['Authorization'] = tok
+    elif username and password:
+        auth = (username, password)
+
+    if action == 'list':
+        return _list_datasets(url, headers, auth, request.args)
+    else:
+        return _test_connection(url, headers, auth)
+
+
+def _test_connection(url, headers, auth):
+    import requests as req
+    try:
+        for endpoint in ['/api/v2/datasets/', '/api/v2/layers/']:
+            resp = req.get(
+                '{}{}'.format(url, endpoint),
+                headers=headers, auth=auth, timeout=15,
+                params={'page_size': 1}, allow_redirects=True
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                count = data.get('total', len(data.get('datasets', data.get('layers', data.get('results', [])))))
+                return jsonify({'ok': True, 'count': count})
+        return jsonify({'ok': False, 'error': 'HTTP {}'.format(resp.status_code)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+def _list_datasets(url, headers, auth, args):
+    import requests as req
+    page = int(args.get('page', 1))
+    search = args.get('search', '')
+    params = {'page_size': 20, 'page': page}
+    if search:
+        params['search'] = search
+    try:
+        for endpoint in ['/api/v2/datasets/', '/api/v2/layers/']:
+            resp = req.get(
+                '{}{}'.format(url, endpoint),
+                headers=headers, auth=auth, params=params,
+                timeout=20, allow_redirects=True
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                items = data.get('datasets', data.get('layers', data.get('results', [])))
+                total = data.get('total', len(items))
+                datasets = []
+                for item in items:
+                    datasets.append({
+                        'pk': item.get('pk', ''),
+                        'title': item.get('title', ''),
+                        'name': item.get('alternate', item.get('name', '')),
+                        'abstract': (item.get('abstract', '') or '')[:200],
+                        'subtype': item.get('subtype', 'vector'),
+                    })
+                return jsonify({'ok': True, 'datasets': datasets, 'total': total, 'page': page})
+        return jsonify({'ok': False, 'error': 'HTTP {}'.format(resp.status_code)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 # ── Form Scheduler ──
 
 def _read_form_schedules():

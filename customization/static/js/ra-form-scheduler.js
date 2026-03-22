@@ -189,8 +189,22 @@
 
   function getFormUid() {
     var hash = window.location.hash || '';
-    var m = hash.match(/#\/forms\/([a-zA-Z0-9]+)\/settings/);
+    // Match any form page: #/forms/<uid>/settings, #/forms/<uid>/settings/..., or #/forms/<uid>
+    var m = hash.match(/#\/forms\/([a-zA-Z0-9]+)/);
     return m ? m[1] : null;
+  }
+
+  function isOnSettingsTab() {
+    var hash = window.location.hash || '';
+    // Check if on settings sub-page
+    if (hash.indexOf('/settings') !== -1) return true;
+    // Also check if the settings tab is active in the DOM
+    var activeTab = document.querySelector('.form-view__tab--active, [class*="tab"][class*="active"]');
+    if (activeTab && (activeTab.textContent || '').toLowerCase().indexOf('settings') !== -1) return true;
+    // Check for the settings form content
+    var settingsContent = document.querySelector('.form-view__cell--settings, [class*="projectSettings"], [data-name="settings"]');
+    if (settingsContent) return true;
+    return false;
   }
 
   function formatScheduleDate(dtStr) {
@@ -514,9 +528,13 @@
   }
 
   // ── Injection Logic ──
+  // Add "Form Scheduler" as a sidebar tab in KoboToolbox's form settings
+  // The sidebar has tabs: General, Media, Sharing, Connect Projects, REST Services, Activity
+  // We add our tab below all of them
 
   var _injected = false;
   var _observer = null;
+  var _activeFormUid = null;
 
   function tryInject() {
     var formUid = getFormUid();
@@ -526,65 +544,118 @@
     }
 
     // Already injected for this form?
-    var existing = document.getElementById(INJECTED_ID);
-    if (existing) return;
+    if (document.getElementById('ra-fs-sidebar-tab')) return;
 
-    // Find the settings page content container
-    // KoboToolbox renders form settings inside .form-view or .form-modal
-    var settingsContainer = findSettingsContainer();
-    if (!settingsContainer) return;
+    // Find the left sidebar in the form settings page
+    // KoboToolbox uses .form-view__sidetabs for the left menu
+    var sidebar = document.querySelector('.form-view__sidetabs');
+    if (!sidebar) return;
 
-    // Create our section
-    var wrapper = document.createElement('div');
-    wrapper.id = INJECTED_ID;
-    settingsContainer.appendChild(wrapper);
+    _activeFormUid = formUid;
 
-    renderScheduler(wrapper, formUid);
+    // Copy the exact structure from an existing native tab
+    var existingTabs = sidebar.querySelectorAll('.form-view__tab');
+    var tab = document.createElement('a');
+    tab.id = 'ra-fs-sidebar-tab';
+    tab.className = 'form-view__tab';
+    tab.href = '#';
+
+    // Match the native tab structure: <i class="k-icon k-icon-..."></i> Text
+    // Use a clock icon via inline SVG styled to match KoboToolbox's k-icon size
+    var icon = document.createElement('i');
+    icon.className = 'k-icon';
+    icon.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;';
+    icon.innerHTML = '<svg viewBox="0 0 24 24" style="width:1em;height:1em;fill:currentColor;"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>';
+    tab.appendChild(icon);
+    tab.appendChild(document.createTextNode(' Form Scheduler'));
+
+    tab.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      showSchedulerPanel(formUid);
+    });
+
+    sidebar.appendChild(tab);
     _injected = true;
   }
 
-  function findSettingsContainer() {
-    // KoboToolbox form settings page uses these containers
-    // Try multiple selectors for compatibility
-    var selectors = [
-      '.form-view__cell--page-title',     // The main settings page wrapper
-      '.form-view__row',                   // Settings rows
-      '.form-view',                        // Form view container
-      '.form-modal__item',                 // Modal-style settings
-      '[data-cy="form-settings"]'          // Data attribute selector
-    ];
+  function showSchedulerPanel(formUid) {
+    var sidebar = document.querySelector('.form-view__sidetabs');
+    if (!sidebar) return;
 
-    // We want to find the main scrollable parent of the settings page
-    // and append our section at the bottom
-    var formView = document.querySelector('.form-view');
-    if (formView) {
-      // Find the last .form-view__row or the form-view itself
-      var rows = formView.querySelectorAll('.form-view__row');
-      if (rows.length > 0) {
-        return rows[rows.length - 1].parentNode;
+    // Deactivate all sidebar tabs, activate ours
+    sidebar.querySelectorAll('.form-view__tab').forEach(function (t) {
+      t.classList.remove('form-view__tab--active');
+    });
+    var ourTab = document.getElementById('ra-fs-sidebar-tab');
+    if (ourTab) ourTab.classList.add('form-view__tab--active');
+
+    // Find the right-side content area — it's the sibling of the sidebar
+    // KoboToolbox structure: .form-view > .form-view__sidetabs + .form-view__cell (content)
+    var formView = sidebar.parentNode;
+    if (!formView) return;
+
+    // Hide all sibling content (not sidebar, not our panel)
+    var children = formView.children;
+    for (var i = 0; i < children.length; i++) {
+      var child = children[i];
+      if (child === sidebar || child.id === INJECTED_ID) continue;
+      if (child.style.display !== 'none') {
+        child.setAttribute('data-ra-fs-hidden', 'true');
+        child.style.display = 'none';
       }
-      return formView;
     }
 
-    // Fallback: look for any settings-like container
-    var content = document.querySelector('.form-view__cell--settings') ||
-                  document.querySelector('.asset-settings') ||
-                  document.querySelector('[class*="settings"]');
-    if (content) return content;
+    // Create or show our panel — match the same layout class as native content
+    var panel = document.getElementById(INJECTED_ID);
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = INJECTED_ID;
+      panel.className = 'form-view__cell form-view__cell--sched';
+      panel.style.cssText = 'flex:1;padding:30px 40px;overflow-y:auto;';
+      formView.appendChild(panel);
+      renderScheduler(panel, formUid);
+    }
+    panel.style.display = '';
 
-    return null;
+    // Listen for clicks on OTHER sidebar tabs to restore
+    if (!sidebar._raFsListener) {
+      sidebar.addEventListener('click', function (ev) {
+        var tab = ev.target.closest('.form-view__tab');
+        if (!tab || tab.id === 'ra-fs-sidebar-tab') return;
+
+        // Restore hidden content
+        var hidden = formView.querySelectorAll('[data-ra-fs-hidden="true"]');
+        for (var j = 0; j < hidden.length; j++) {
+          hidden[j].style.display = '';
+          hidden[j].removeAttribute('data-ra-fs-hidden');
+        }
+
+        // Hide our panel
+        var p = document.getElementById(INJECTED_ID);
+        if (p) p.style.display = 'none';
+
+        // Deactivate our tab
+        var t = document.getElementById('ra-fs-sidebar-tab');
+        if (t) t.classList.remove('form-view__tab--active');
+      }, true);
+      sidebar._raFsListener = true;
+    }
   }
 
   function removeInjected() {
-    var el = document.getElementById(INJECTED_ID);
-    if (el) {
-      el.parentNode.removeChild(el);
-    }
+    var tab = document.getElementById('ra-fs-sidebar-tab');
+    if (tab) tab.parentNode.removeChild(tab);
+    var panel = document.getElementById(INJECTED_ID);
+    if (panel) panel.parentNode.removeChild(panel);
     _injected = false;
+    _activeFormUid = null;
   }
 
   function isOnFormSettings() {
-    return !!getFormUid();
+    if (!getFormUid()) return false;
+    var hash = window.location.hash || '';
+    return hash.indexOf('/settings') !== -1 || isOnSettingsTab();
   }
 
   // ── Polling with MutationObserver ──

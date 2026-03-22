@@ -114,10 +114,9 @@ fi
 GEONODE_PROXY_CONF="/etc/nginx/includes/geonode_proxy.conf"
 cat > "$GEONODE_PROXY_CONF" << 'NGINX_GN'
 location /geonode-proxy/ {
-    resolver 127.0.0.11 valid=1s;
-    set $geonode_sync "geonode_sync:8080";
-    proxy_pass http://$geonode_sync/test-connection$is_args$args;
+    proxy_pass http://webhook-relay:5000/api/test-connection$is_args$args;
     proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
 }
 NGINX_GN
 sed -i '/server_name.*kf\./,/^}/{
