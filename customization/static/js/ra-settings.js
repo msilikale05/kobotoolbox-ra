@@ -15,6 +15,52 @@
   var GEONODE_SETTINGS_KEY = 'ra_geonode_settings';
   var DEFAULT_GEONODE_URL = 'https://geonode.resilienceacademy.ac.tz';
 
+  // ── Branded Confirm Dialog (replaces browser confirm()) ──
+  function raConfirm(message, onYes, opts) {
+    opts = opts || {};
+    var title = opts.title || 'Are you sure?';
+    var yesText = opts.yesText || 'Delete';
+    var noText = opts.noText || 'Cancel';
+    var isDanger = opts.danger !== false; // default true
+
+    var old = document.getElementById('ra-confirm-modal');
+    if (old) old.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'ra-confirm-modal';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(26,42,58,0.5);z-index:2147483646;display:flex;align-items:center;justify-content:center;animation:ra-cf-fi 0.15s ease;';
+
+    overlay.innerHTML =
+      '<style>@keyframes ra-cf-fi{from{opacity:0}to{opacity:1}}@keyframes ra-cf-si{from{transform:scale(0.95);opacity:0}to{transform:scale(1);opacity:1}}</style>' +
+      '<div style="background:#fff;border-radius:10px;width:400px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,0.25);overflow:hidden;animation:ra-cf-si 0.2s ease;">' +
+        '<div style="padding:24px 24px 0;text-align:center;">' +
+          '<div style="width:48px;height:48px;border-radius:50%;background:' + (isDanger ? '#fef2f2' : '#eff6ff') + ';margin:0 auto 14px;display:flex;align-items:center;justify-content:center;">' +
+            (isDanger ?
+              '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' :
+              '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#54a8dc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+            ) +
+          '</div>' +
+          '<h3 style="margin:0 0 8px;font-size:17px;font-weight:700;color:#1e293b;">' + escapeHtml(title) + '</h3>' +
+          '<p style="margin:0;font-size:13px;color:#64748b;line-height:1.5;">' + escapeHtml(message) + '</p>' +
+        '</div>' +
+        '<div style="padding:20px 24px;display:flex;gap:10px;">' +
+          '<button id="ra-confirm-no" style="flex:1;padding:10px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#475569;font-family:inherit;transition:background 0.15s;">' + escapeHtml(noText) + '</button>' +
+          '<button id="ra-confirm-yes" style="flex:1;padding:10px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:' + (isDanger ? '#ef4444' : '#54a8dc') + ';color:#fff;font-family:inherit;transition:background 0.15s;">' + escapeHtml(yesText) + '</button>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#ra-confirm-no').addEventListener('click', function () { overlay.remove(); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+    var escH = function (e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escH); } };
+    document.addEventListener('keydown', escH);
+    overlay.querySelector('#ra-confirm-yes').addEventListener('click', function () {
+      overlay.remove();
+      if (onYes) onYes();
+    });
+  }
+
   // ── Styles ──
   var style = document.createElement('style');
   style.textContent = [
@@ -865,7 +911,7 @@
     listEl.querySelectorAll('.ra-dl-delete-dash').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var dashId = this.getAttribute('data-id');
-        if (!confirm('Delete dashboard "' + dashId + '"? Users assigned to it will need to be reassigned.')) return;
+        raConfirm('Users assigned to this dashboard will need to be reassigned.', function () {
         delete _dashConfig.dashboards[dashId];
         var users = _dashConfig.users || {};
         Object.keys(users).forEach(function (u) { if (users[u] === dashId) delete users[u]; });
@@ -877,6 +923,7 @@
             renderDashCards();
           }
         });
+        }, { title: 'Delete Dashboard?', yesText: 'Delete', danger: true });
       });
     });
     listEl.querySelectorAll('.ra-dl-rename-dash').forEach(function (btn) {
@@ -1013,7 +1060,7 @@
         '<div style="font-size:12px;color:#94a3b8;margin-bottom:24px;">' + escapeHtml(dashId) + '</div>' +
         '<div class="ra-st__status" id="ra-st-dl-status"></div>' +
         // Action bar — matches form summary top toolbar style
-        '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:12px 16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">' +
+        '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:10px 16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
           '<div style="display:flex;gap:8px;">' +
             '<button class="ra-de__btn ra-de__btn--primary" id="ra-st-dl-add" title="Add a new widget">' +
               '<svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:#fff;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>' +
@@ -1023,12 +1070,11 @@
               '<svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:currentColor;"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>' +
               'Preview' +
             '</button>' +
-            '<button class="ra-de__btn ra-de__btn--outline" id="ra-st-dl-save" title="Save dashboard">' +
-              '<svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:currentColor;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
-              'Save' +
-            '</button>' +
           '</div>' +
-          '<button class="ra-de__btn ra-de__btn--ghost" id="ra-st-dl-reset" title="Remove all widgets from this dashboard">Clear All</button>' +
+          '<div style="display:flex;align-items:center;gap:12px;">' +
+            '<span id="ra-dl-autosave-status" style="font-size:11px;color:#94a3b8;"></span>' +
+            '<button class="ra-de__btn ra-de__btn--ghost" id="ra-st-dl-reset" title="Remove all widgets">Clear All</button>' +
+          '</div>' +
         '</div>' +
         // Widget grid
         '<div id="ra-st-dl-widgets" style="min-height:80px;"></div>' +
@@ -1052,16 +1098,15 @@
       renderDashTabContent();
     });
     document.getElementById('ra-st-dl-add').addEventListener('click', function () { showWidgetEditor(-1); });
-    document.getElementById('ra-st-dl-save').addEventListener('click', function () { saveLayout(); });
     document.getElementById('ra-st-dl-preview').addEventListener('click', function () {
       if (window.__raDashboardPreview) window.__raDashboardPreview.show(dashId);
     });
     document.getElementById('ra-st-dl-reset').addEventListener('click', function () {
-      if (confirm('Remove all widgets from this dashboard?')) {
+      raConfirm('This will remove all widgets from this dashboard.', function () {
         dash.widgets = [];
         renderWidgetList();
         autoSaveDashConfig();
-      }
+      }, { title: 'Clear All Widgets?', yesText: 'Clear All', danger: true });
     });
     document.getElementById('ra-dl-editor-rename').addEventListener('click', function () {
       showRenameDashboardModal(dashId, dash.name, function (newName) {
@@ -1103,175 +1148,475 @@
     if (!dash) return;
 
     var widgets = dash.widgets || [];
+    var spanMap = { full: 4, half: 2, 'three-quarter': 3, quarter: 1 };
+    var spanToWidth = { 1: 'quarter', 2: 'half', 3: 'three-quarter', 4: 'full' };
+    var COLS = 4;
+    var CELL_H = 110;
+    var GAP = 8;
+
     if (!widgets.length) {
       container.style.display = 'block';
-      container.innerHTML = '<div style="padding:32px;text-align:center;color:#94a3b8;border:2px dashed #e2e8f0;border-radius:8px;">' +
-        '<p style="font-size:14px;margin:0 0 8px;">No widgets yet</p>' +
-        '<p style="font-size:12px;margin:0;">Click "+ Add Widget" to build this dashboard.</p></div>';
+      container.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;border:2px dashed #e2e8f0;border-radius:10px;background:#fafbfc;">' +
+        '<svg viewBox="0 0 24 24" style="width:32px;height:32px;fill:#cbd5e1;margin-bottom:8px;"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>' +
+        '<p style="font-size:14px;margin:0 0 4px;color:#64748b;">No widgets yet</p>' +
+        '<p style="font-size:12px;margin:0;">Click <strong>+ Add Widget</strong> to start building.</p></div>';
       return;
     }
 
-    container.style.display = 'grid';
-    container.style.gridTemplateColumns = 'repeat(4, 1fr)';
-    container.style.gap = '10px';
-    container.style.alignItems = 'start';
-
-    var spanMap = { full: 4, half: 2, 'three-quarter': 3, quarter: 1 };
-    var widthLabel = { full: 'Full (4)', half: 'Half (2)', 'three-quarter': '3/4 (3)', quarter: '1/4 (1)' };
-
-    // Build widget cards + drop zone placeholders
-    var html = '';
-    widgets.forEach(function (w, idx) {
-      var typeDef = null;
-      for (var t = 0; t < WIDGET_TYPES.length; t++) { if (WIDGET_TYPES[t].id === w.type) { typeDef = WIDGET_TYPES[t]; break; } }
-      if (!typeDef) typeDef = { label: w.type };
-      var span = spanMap[w.width] || 1;
-
-      html += '<div class="ra-dl-widget-item" draggable="true" data-idx="' + idx + '" style="' +
-        'grid-column:span ' + span + ';' +
-        'border:2px solid #e2e8f0;border-radius:8px;background:#fff;cursor:grab;transition:all 0.15s;overflow:hidden;">' +
-        '<div style="background:#f8fafc;padding:8px 12px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">' +
-          '<div style="display:flex;align-items:center;gap:6px;min-width:0;">' +
-            '<span style="color:#cbd5e1;font-size:14px;cursor:grab;flex-shrink:0;">&#9776;</span>' +
-            '<span style="font-weight:600;color:#1e293b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(w.title || typeDef.label) + '</span>' +
-          '</div>' +
-          '<div style="display:flex;gap:3px;flex-shrink:0;">' +
-            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-edit" data-idx="' + idx + '" style="padding:2px 6px;font-size:10px;">Edit</button>' +
-            '<button class="ra-st__btn ra-st__btn--secondary ra-dl-remove" data-idx="' + idx + '" style="padding:2px 6px;font-size:10px;color:#e74c3c;">&#10005;</button>' +
-          '</div>' +
-        '</div>' +
-        '<div style="padding:12px;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;">' +
-          '<div style="font-size:20px;margin-bottom:4px;">' + getWidgetIcon(w.type) + '</div>' +
-          '<div style="font-size:11px;font-weight:600;color:#64748b;">' + escapeHtml(typeDef.label) + '</div>' +
-          '<div style="font-size:10px;color:#b0b8c4;margin-top:2px;">' + (widthLabel[w.width] || w.width) + '</div>' +
-        '</div>' +
-      '</div>';
-    });
-
-    container.innerHTML = html;
-
-    // ── Drag and Drop with insert-before logic ──
-    var dragSrcIdx = null;
-
-    function clearHighlights() {
-      container.querySelectorAll('.ra-dl-widget-item').forEach(function (el) {
-        el.style.borderColor = '#e2e8f0';
-        el.style.boxShadow = 'none';
-      });
-      // Remove drop indicators
-      container.querySelectorAll('.ra-dl-drop-indicator').forEach(function (el) { el.remove(); });
+    // ── Compute flow layout: assign row/col to each widget ──
+    function computeLayout(widgetArr) {
+      var layout = [];
+      var row = 0;
+      var col = 0;
+      for (var i = 0; i < widgetArr.length; i++) {
+        var span = spanMap[widgetArr[i].width] || 1;
+        if (span > COLS) span = COLS;
+        if (col + span > COLS) {
+          row++;
+          col = 0;
+        }
+        layout.push({ idx: i, col: col, row: row, span: span });
+        col += span;
+        if (col >= COLS) {
+          row++;
+          col = 0;
+        }
+      }
+      return layout;
     }
 
-    container.querySelectorAll('.ra-dl-widget-item').forEach(function (item) {
-      item.addEventListener('dragstart', function (e) {
-        dragSrcIdx = parseInt(this.getAttribute('data-idx'));
-        this.style.opacity = '0.3';
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', String(dragSrcIdx));
-      });
+    var layout = computeLayout(widgets);
+    var maxRow = 0;
+    for (var li = 0; li < layout.length; li++) {
+      if (layout[li].row > maxRow) maxRow = layout[li].row;
+    }
+    var totalRows = maxRow + 2; // +1 for last widget row, +1 for empty drop row
 
-      item.addEventListener('dragend', function () {
-        this.style.opacity = '1';
-        clearHighlights();
-        dragSrcIdx = null;
-      });
+    container.style.display = 'block';
+    container.innerHTML = '';
 
-      item.addEventListener('dragover', function (e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        clearHighlights();
-        var idx = parseInt(this.getAttribute('data-idx'));
-        if (idx !== dragSrcIdx) {
-          // Show drop indicator — blue left border
-          var rect = this.getBoundingClientRect();
-          var mouseX = e.clientX;
-          var midX = rect.left + rect.width / 2;
-          if (mouseX < midX) {
-            this.style.borderLeftColor = '#54a8dc';
-            this.style.borderLeftWidth = '4px';
-          } else {
-            this.style.borderRightColor = '#54a8dc';
-            this.style.borderRightWidth = '4px';
-          }
-          this.style.boxShadow = '0 0 0 1px rgba(84,168,220,0.2)';
-        }
-      });
+    // ── Column headers ──
+    var colHeader = document.createElement('div');
+    colHeader.style.cssText = 'display:flex;margin-bottom:4px;';
+    for (var ch = 0; ch < COLS; ch++) {
+      var hdr = document.createElement('div');
+      hdr.style.cssText = 'flex:1;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;padding:2px 0;';
+      hdr.textContent = String(ch + 1);
+      colHeader.appendChild(hdr);
+    }
+    container.appendChild(colHeader);
 
-      item.addEventListener('dragleave', function () {
-        this.style.borderColor = '#e2e8f0';
-        this.style.borderWidth = '2px';
-        this.style.boxShadow = 'none';
-      });
+    // ── Grid canvas (position:relative) ──
+    var canvas = document.createElement('div');
+    canvas.id = 'ra-dl-grid';
+    canvas.style.cssText = 'position:relative;width:100%;min-height:' + (totalRows * (CELL_H + GAP)) + 'px;';
+    container.appendChild(canvas);
 
-      item.addEventListener('drop', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var dropIdx = parseInt(this.getAttribute('data-idx'));
-        if (dragSrcIdx === null || dragSrcIdx === dropIdx) return;
+    // ── Draw empty grid cells (dotted borders) ──
+    var cellsLayer = document.createElement('div');
+    cellsLayer.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:0;';
+    canvas.appendChild(cellsLayer);
 
-        var d = getCurrentDashboard();
-        if (d && d.widgets) {
-          // Move widget from dragSrcIdx to dropIdx position
-          var widget = d.widgets.splice(dragSrcIdx, 1)[0];
-          var insertAt = dropIdx > dragSrcIdx ? dropIdx : dropIdx;
-          d.widgets.splice(insertAt, 0, widget);
-          renderWidgetList();
-          autoSaveDashConfig();
-        }
-        dragSrcIdx = null;
-      });
-    });
-
-    // Also allow dropping on the container itself (empty space)
-    container.addEventListener('dragover', function (e) {
-      if (e.target === container) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        // Show a dashed outline at the end
-        if (!container.querySelector('.ra-dl-drop-end')) {
-          var indicator = document.createElement('div');
-          indicator.className = 'ra-dl-drop-end';
-          indicator.style.cssText = 'grid-column:span 1;border:2px dashed #54a8dc;border-radius:8px;min-height:80px;display:flex;align-items:center;justify-content:center;color:#54a8dc;font-size:12px;';
-          indicator.textContent = 'Drop here';
-          container.appendChild(indicator);
+    function drawEmptyCells(numRows) {
+      cellsLayer.innerHTML = '';
+      var cw = canvas.offsetWidth / COLS;
+      for (var r = 0; r < numRows; r++) {
+        for (var c = 0; c < COLS; c++) {
+          var cell = document.createElement('div');
+          cell.style.cssText = 'position:absolute;box-sizing:border-box;border:1px dashed #e2e8f0;border-radius:6px;background:transparent;' +
+            'left:' + (c * cw + GAP / 2) + 'px;top:' + (r * (CELL_H + GAP) + GAP / 2) + 'px;' +
+            'width:' + (cw - GAP) + 'px;height:' + CELL_H + 'px;';
+          cellsLayer.appendChild(cell);
         }
       }
-    });
+    }
+    // Draw cells after a tick so canvas has width
+    setTimeout(function () { drawEmptyCells(totalRows); }, 0);
 
-    container.addEventListener('dragleave', function (e) {
-      if (e.target === container) {
-        var endIndicator = container.querySelector('.ra-dl-drop-end');
-        if (endIndicator) endIndicator.remove();
+    // ── Highlight overlay for drag targets ──
+    var hlOverlay = document.createElement('div');
+    hlOverlay.id = 'ra-dl-highlight';
+    hlOverlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:1;';
+    canvas.appendChild(hlOverlay);
+
+    function showHighlight(col, row, span) {
+      hlOverlay.innerHTML = '';
+      var cw = canvas.offsetWidth / COLS;
+      for (var s = 0; s < span; s++) {
+        var hc = col + s;
+        if (hc >= COLS) break;
+        var hl = document.createElement('div');
+        hl.style.cssText = 'position:absolute;box-sizing:border-box;border:2px solid #54a8dc;border-radius:6px;background:rgba(84,168,220,0.1);' +
+          'left:' + (hc * cw + GAP / 2) + 'px;top:' + (row * (CELL_H + GAP) + GAP / 2) + 'px;' +
+          'width:' + (cw - GAP) + 'px;height:' + CELL_H + 'px;';
+        hlOverlay.appendChild(hl);
       }
-    });
+    }
 
-    container.addEventListener('drop', function (e) {
-      if (e.target === container || e.target.classList.contains('ra-dl-drop-end')) {
-        e.preventDefault();
-        var endIndicator = container.querySelector('.ra-dl-drop-end');
-        if (endIndicator) endIndicator.remove();
+    function clearHighlight() {
+      hlOverlay.innerHTML = '';
+    }
 
-        if (dragSrcIdx === null) return;
-        var d = getCurrentDashboard();
-        if (d && d.widgets) {
-          // Move to end
-          var widget = d.widgets.splice(dragSrcIdx, 1)[0];
-          d.widgets.push(widget);
-          renderWidgetList();
-          autoSaveDashConfig();
+    // ── Place widget cards ──
+    function getCellWidth() {
+      return canvas.offsetWidth / COLS;
+    }
+
+    function placeCards() {
+      // Remove old cards
+      var oldCards = canvas.querySelectorAll('.ra-dl-widget-item');
+      for (var oc = 0; oc < oldCards.length; oc++) oldCards[oc].remove();
+
+      var currentLayout = computeLayout(widgets);
+      var cw = getCellWidth();
+
+      for (var wi = 0; wi < widgets.length; wi++) {
+        var w = widgets[wi];
+        var lo = currentLayout[wi];
+        var typeDef = null;
+        for (var t = 0; t < WIDGET_TYPES.length; t++) {
+          if (WIDGET_TYPES[t].id === w.type) { typeDef = WIDGET_TYPES[t]; break; }
         }
-        dragSrcIdx = null;
-      }
-    });
+        if (!typeDef) typeDef = { label: w.type };
+        var span = lo.span;
 
-    container.querySelectorAll('.ra-dl-remove').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var d = getCurrentDashboard();
-        if (d) { d.widgets.splice(parseInt(this.getAttribute('data-idx')), 1); renderWidgetList(); autoSaveDashConfig(); }
-      });
-    });
-    container.querySelectorAll('.ra-dl-edit').forEach(function (btn) {
-      btn.addEventListener('click', function () { showWidgetEditor(parseInt(this.getAttribute('data-idx'))); });
+        var card = document.createElement('div');
+        card.className = 'ra-dl-widget-item';
+        card.setAttribute('data-idx', String(wi));
+        card.style.cssText = 'position:absolute;box-sizing:border-box;z-index:2;cursor:grab;' +
+          'left:' + (lo.col * cw + GAP / 2) + 'px;' +
+          'top:' + (lo.row * (CELL_H + GAP) + GAP / 2) + 'px;' +
+          'width:' + (span * cw - GAP) + 'px;' +
+          'height:' + CELL_H + 'px;' +
+          'border:1px solid #e8eaef;border-radius:6px;background:#fff;' +
+          'transition:box-shadow 0.15s;overflow:visible;';
+
+        // Resize pills
+        var pills = '';
+        for (var c = 1; c <= 4; c++) {
+          var isActive = span === c;
+          pills += '<button class="ra-dl-resize" data-idx="' + wi + '" data-cols="' + c + '" style="' +
+            'width:24px;height:18px;border-radius:4px;border:none;cursor:pointer;font-size:10px;font-weight:700;font-family:inherit;transition:all 0.1s;' +
+            (isActive ? 'background:#54a8dc;color:#fff;box-shadow:0 1px 3px rgba(84,168,220,0.4);' : 'background:#f1f5f9;color:#94a3b8;') +
+            '" title="' + c + ' column' + (c > 1 ? 's' : '') + '">' + c + '</button>';
+        }
+
+        card.innerHTML =
+          // Right-edge resize handle
+          '<div class="ra-dl-edge-handle" data-idx="' + wi + '" style="position:absolute;top:0;right:-5px;width:10px;height:100%;cursor:ew-resize;z-index:5;display:flex;align-items:center;justify-content:center;">' +
+            '<div style="width:4px;height:28px;border-radius:3px;background:#cbd5e1;transition:background 0.15s;"></div>' +
+          '</div>' +
+          // Header
+          '<div style="padding:6px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f5f5f5;">' +
+            '<div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;">' +
+              '<span class="ra-dl-drag-handle" style="color:#64748b;flex-shrink:0;line-height:1;" title="Drag to move">' +
+                '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>' +
+              '</span>' +
+              '<span style="font-weight:600;color:#1e293b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(w.title || typeDef.label) + '</span>' +
+            '</div>' +
+            '<div style="display:flex;gap:4px;flex-shrink:0;">' +
+              '<button class="ra-dl-edit" data-idx="' + wi + '" style="background:none;border:none;cursor:pointer;color:#54a8dc;padding:3px;" title="Edit widget">' +
+                '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>' +
+              '</button>' +
+              '<button class="ra-dl-remove" data-idx="' + wi + '" style="background:none;border:none;cursor:pointer;color:#ef4444;padding:3px;" title="Remove widget">' +
+                '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>' +
+              '</button>' +
+            '</div>' +
+          '</div>' +
+          // Widget type label
+          '<div style="padding:8px 10px;text-align:center;">' +
+            '<div style="font-size:11px;color:#94a3b8;font-weight:500;">' + escapeHtml(typeDef.label) + '</div>' +
+          '</div>' +
+          // Resize pills
+          '<div style="display:flex;justify-content:center;gap:4px;padding:4px 8px;background:#fafbfc;border-top:1px solid #f5f5f5;position:absolute;bottom:0;left:0;right:0;border-radius:0 0 6px 6px;">' +
+            pills +
+          '</div>';
+
+        canvas.appendChild(card);
+      }
+    }
+
+    // Initial render after a tick (so canvas has dimensions)
+    setTimeout(function () {
+      placeCards();
+      attachCardEvents();
+    }, 0);
+
+    // ── Attach all card events ──
+    function attachCardEvents() {
+      // ── Resize pill buttons ──
+      var resizeBtns = canvas.querySelectorAll('.ra-dl-resize');
+      for (var rb = 0; rb < resizeBtns.length; rb++) {
+        (function (btn) {
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var idx = parseInt(this.getAttribute('data-idx'));
+            var cols = parseInt(this.getAttribute('data-cols'));
+            var d = getCurrentDashboard();
+            if (d && d.widgets && d.widgets[idx]) {
+              d.widgets[idx].width = spanToWidth[cols] || 'quarter';
+              rebuildGrid();
+              autoSaveDashConfig();
+              var statusEl = document.getElementById('ra-dl-autosave-status');
+              if (statusEl) { statusEl.textContent = 'Saved'; setTimeout(function () { statusEl.textContent = ''; }, 1500); }
+            }
+          });
+        })(resizeBtns[rb]);
+      }
+
+      // ── Edit buttons ──
+      var editBtns = canvas.querySelectorAll('.ra-dl-edit');
+      for (var eb = 0; eb < editBtns.length; eb++) {
+        (function (btn) {
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            showWidgetEditor(parseInt(this.getAttribute('data-idx')));
+          });
+        })(editBtns[eb]);
+      }
+
+      // ── Remove buttons ──
+      var removeBtns = canvas.querySelectorAll('.ra-dl-remove');
+      for (var rmb = 0; rmb < removeBtns.length; rmb++) {
+        (function (btn) {
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var idx = parseInt(this.getAttribute('data-idx'));
+            raConfirm('This widget will be removed from the dashboard.', function () {
+              var d = getCurrentDashboard();
+              if (d) { d.widgets.splice(idx, 1); renderWidgetList(); autoSaveDashConfig(); }
+            }, { title: 'Remove Widget?', yesText: 'Remove', danger: true });
+          });
+        })(removeBtns[rmb]);
+      }
+
+      // ── Edge-drag resize (right edge) ──
+      var edgeHandles = canvas.querySelectorAll('.ra-dl-edge-handle');
+      for (var eh = 0; eh < edgeHandles.length; eh++) {
+        (function (handle) {
+          handle.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var idx = parseInt(this.getAttribute('data-idx'));
+            var card = this.closest('.ra-dl-widget-item');
+            if (!card) return;
+
+            var cw = getCellWidth();
+            var lo = computeLayout(widgets)[idx];
+            var startCol = lo.col;
+            var innerDot = this.querySelector('div');
+            if (innerDot) innerDot.style.background = '#54a8dc';
+
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'ew-resize';
+
+            var resizingSpan = lo.span;
+
+            function calcSpan(mouseX) {
+              var canvasRect = canvas.getBoundingClientRect();
+              var relX = mouseX - canvasRect.left;
+              var endCol = Math.round(relX / cw);
+              var sp = endCol - startCol;
+              if (sp < 1) sp = 1;
+              if (sp > COLS - startCol) sp = COLS - startCol;
+              if (sp > 4) sp = 4;
+              return sp;
+            }
+
+            function onMouseMove(ev) {
+              resizingSpan = calcSpan(ev.clientX);
+              // Live preview: update card width and show highlight
+              card.style.width = (resizingSpan * cw - GAP) + 'px';
+              card.style.borderColor = '#54a8dc';
+              showHighlight(startCol, lo.row, resizingSpan);
+            }
+
+            function onMouseUp(ev) {
+              document.removeEventListener('mousemove', onMouseMove);
+              document.removeEventListener('mouseup', onMouseUp);
+              document.body.style.userSelect = '';
+              document.body.style.cursor = '';
+              if (innerDot) innerDot.style.background = '#cbd5e1';
+              clearHighlight();
+
+              var finalSpan = calcSpan(ev.clientX);
+              var d = getCurrentDashboard();
+              if (d && d.widgets && d.widgets[idx]) {
+                d.widgets[idx].width = spanToWidth[finalSpan] || 'quarter';
+                rebuildGrid();
+                autoSaveDashConfig();
+              }
+            }
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+          });
+
+          handle.addEventListener('mouseenter', function () {
+            var d = this.querySelector('div');
+            if (d) d.style.background = '#94a3b8';
+          });
+          handle.addEventListener('mouseleave', function () {
+            var d = this.querySelector('div');
+            if (d) d.style.background = '#cbd5e1';
+          });
+        })(edgeHandles[eh]);
+      }
+
+      // ── Drag-to-move (custom, not native HTML5 drag) ──
+      var cardEls = canvas.querySelectorAll('.ra-dl-widget-item');
+      for (var ci = 0; ci < cardEls.length; ci++) {
+        (function (card) {
+          card.addEventListener('mousedown', function (e) {
+            // Ignore if clicking on buttons, edge handle, or resize pills
+            if (e.target.closest('.ra-dl-edge-handle') ||
+                e.target.closest('.ra-dl-edit') ||
+                e.target.closest('.ra-dl-remove') ||
+                e.target.closest('.ra-dl-resize') ||
+                e.target.tagName === 'BUTTON') {
+              return;
+            }
+            e.preventDefault();
+
+            var idx = parseInt(card.getAttribute('data-idx'));
+            var cw = getCellWidth();
+            var lo = computeLayout(widgets)[idx];
+            var span = lo.span;
+            var cardRect = card.getBoundingClientRect();
+            var canvasRect = canvas.getBoundingClientRect();
+            var offsetX = e.clientX - cardRect.left;
+            var offsetY = e.clientY - cardRect.top;
+            var dragging = false;
+            var startX = e.clientX;
+            var startY = e.clientY;
+            var ghost = null;
+            var dropTarget = null; // { col, row }
+
+            function onMouseMove(ev) {
+              var dx = ev.clientX - startX;
+              var dy = ev.clientY - startY;
+
+              // Start drag only after 5px movement
+              if (!dragging && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+                dragging = true;
+                // Create ghost
+                ghost = card.cloneNode(true);
+                ghost.style.position = 'fixed';
+                ghost.style.width = cardRect.width + 'px';
+                ghost.style.height = cardRect.height + 'px';
+                ghost.style.opacity = '0.85';
+                ghost.style.zIndex = '10000';
+                ghost.style.pointerEvents = 'none';
+                ghost.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+                ghost.style.borderColor = '#54a8dc';
+                ghost.style.transform = 'rotate(1deg)';
+                ghost.style.transition = 'none';
+                document.body.appendChild(ghost);
+
+                // Dim the original
+                card.style.opacity = '0.25';
+                card.style.borderStyle = 'dashed';
+              }
+
+              if (dragging && ghost) {
+                ghost.style.left = (ev.clientX - offsetX) + 'px';
+                ghost.style.top = (ev.clientY - offsetY) + 'px';
+
+                // Calculate which cell the mouse is over
+                var relX = ev.clientX - canvasRect.left;
+                var relY = ev.clientY - canvasRect.top;
+                var hoverCol = Math.floor(relX / cw);
+                var hoverRow = Math.floor(relY / (CELL_H + GAP));
+                if (hoverCol < 0) hoverCol = 0;
+                if (hoverCol >= COLS) hoverCol = COLS - 1;
+                if (hoverRow < 0) hoverRow = 0;
+
+                // Clamp so widget fits
+                if (hoverCol + span > COLS) hoverCol = COLS - span;
+                if (hoverCol < 0) hoverCol = 0;
+
+                dropTarget = { col: hoverCol, row: hoverRow };
+                showHighlight(hoverCol, hoverRow, span);
+              }
+            }
+
+            function onMouseUp(ev) {
+              document.removeEventListener('mousemove', onMouseMove);
+              document.removeEventListener('mouseup', onMouseUp);
+              document.body.style.userSelect = '';
+
+              if (ghost) {
+                ghost.remove();
+                ghost = null;
+              }
+              clearHighlight();
+              card.style.opacity = '1';
+              card.style.borderStyle = 'solid';
+
+              if (!dragging || !dropTarget) return;
+
+              // Find the insert position based on the drop target cell
+              var d = getCurrentDashboard();
+              if (!d || !d.widgets) return;
+
+              // Remove the widget from the array
+              var draggedWidget = d.widgets.splice(idx, 1)[0];
+
+              // Compute layout without the dragged widget to find insert position
+              var tempLayout = computeLayout(d.widgets);
+              var insertIdx = d.widgets.length; // default: append at end
+
+              // Find the widget index whose position is at or just after the drop target
+              for (var ti = 0; ti < tempLayout.length; ti++) {
+                var tl = tempLayout[ti];
+                if (tl.row > dropTarget.row || (tl.row === dropTarget.row && tl.col >= dropTarget.col)) {
+                  insertIdx = ti;
+                  break;
+                }
+              }
+
+              d.widgets.splice(insertIdx, 0, draggedWidget);
+              rebuildGrid();
+              autoSaveDashConfig();
+            }
+
+            document.body.style.userSelect = 'none';
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+          });
+        })(cardEls[ci]);
+      }
+    }
+
+    // ── Rebuild the grid (recompute layout, redraw cells, reposition cards) ──
+    function rebuildGrid() {
+      var d = getCurrentDashboard();
+      if (!d) return;
+      widgets = d.widgets || [];
+      layout = computeLayout(widgets);
+
+      var newMaxRow = 0;
+      for (var ri = 0; ri < layout.length; ri++) {
+        if (layout[ri].row > newMaxRow) newMaxRow = layout[ri].row;
+      }
+      totalRows = newMaxRow + 2;
+      canvas.style.minHeight = (totalRows * (CELL_H + GAP)) + 'px';
+
+      drawEmptyCells(totalRows);
+      placeCards();
+      attachCardEvents();
+    }
+
+    // ── Handle window resize ──
+    var resizeTimer = null;
+    window.addEventListener('resize', function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        if (!document.getElementById('ra-dl-grid')) return;
+        drawEmptyCells(totalRows);
+        placeCards();
+        attachCardEvents();
+      }, 150);
     });
   }
 
@@ -1872,8 +2217,8 @@
     // Revoke handler
     body.querySelectorAll('.ra-share-revoke').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        if (!confirm('Revoke this share link? Anyone using it will lose access.')) return;
         var token = this.getAttribute('data-token');
+        raConfirm('Anyone using this link will lose access to the dashboard.', function () {
         fetch('/webhook-api/dashboard-share', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1884,6 +2229,7 @@
             .then(function (r) { return r.json(); })
             .then(function (data) { renderShareBody(dashId, '', data.shares || [], baseUrl); });
         });
+        }, { title: 'Revoke Share Link?', yesText: 'Revoke', danger: true });
       });
     });
 
@@ -2311,28 +2657,34 @@
     var grid = document.getElementById('ra-img-grid');
     grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:#94a3b8;">Loading images...</div>';
 
-    // Get form fields for naming
-    var form = _imgForms.find(function (f) { return f.uid === uid; });
+    // Fetch form content individually to get field names (list API doesn't include content)
     _imgFormFields = {};
-    if (form && form.content && form.content.survey) {
-      form.content.survey.forEach(function (row) {
-        var t = row.type || '';
-        if (t.indexOf('begin') === 0 || t.indexOf('end') === 0 || t === 'calculate' || t === 'note' || t === 'hidden') return;
-        var name = row.name || row.$autoname || '';
-        var label = (row.label && row.label[0]) || name;
-        if (name) _imgFormFields[name] = label;
-      });
-    }
-    // Update naming field dropdown
-    var nameSelect = document.getElementById('ra-img-namefield');
-    if (nameSelect) {
-      nameSelect.innerHTML = '<option value="_id">Submission ID</option>' +
-        '<option value="_submitted_by">Submitted By</option>' +
-        '<option value="_submission_time">Date</option>';
-      Object.keys(_imgFormFields).forEach(function (name) {
-        nameSelect.innerHTML += '<option value="' + escapeHtml(name) + '">' + escapeHtml(_imgFormFields[name]) + '</option>';
-      });
-    }
+    fetch('/api/v2/assets/' + uid + '/?fields=["content"]', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (formData) {
+        var survey = (formData.content || {}).survey || [];
+        survey.forEach(function (row) {
+          var t = row.type || '';
+          if (t.indexOf('begin') === 0 || t.indexOf('end') === 0 || t === 'calculate' || t === 'note' || t === 'hidden') return;
+          var name = row.name || row.$autoname || '';
+          var label = (row.label && row.label[0]) || name;
+          if (name) _imgFormFields[name] = label;
+        });
+
+        // Update naming field dropdown
+        var nameSelect = document.getElementById('ra-img-namefield');
+        if (nameSelect) {
+          nameSelect.innerHTML = '<option value="_id">Submission ID</option>' +
+            '<option value="_submitted_by">Submitted By</option>' +
+            '<option value="_submission_time">Date</option>';
+          Object.keys(_imgFormFields).forEach(function (name) {
+            nameSelect.innerHTML += '<option value="' + escapeHtml(name) + '">' + escapeHtml(_imgFormFields[name]) + '</option>';
+          });
+        }
+        // Also update filter field dropdown
+        updateFilterFieldOptions();
+      })
+      .catch(function () {});
 
     fetch('/api/v2/assets/' + uid + '/data/?limit=30000', { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
@@ -3244,11 +3596,12 @@
       } else if (action === 'edit') {
         openDataSourcePopup(conn);
       } else if (action === 'delete') {
-        if (!confirm('Delete "' + (conn.name || 'Unnamed') + '"?')) return;
-        var updated = connections.filter(function (c) { return c.id !== connId; });
-        saveGeoNodeSettings(updated);
-        showStatus(statusEl, 'ok', 'Deleted.');
-        renderGeoNodeSection(document.getElementById('ra-st-main'));
+        raConfirm('This data source will be permanently removed.', function () {
+          var updated = connections.filter(function (c) { return c.id !== connId; });
+          saveGeoNodeSettings(updated);
+          showStatus(statusEl, 'ok', 'Deleted.');
+          renderGeoNodeSection(document.getElementById('ra-st-main'));
+        }, { title: 'Delete "' + (conn.name || 'Unnamed') + '"?', yesText: 'Delete', danger: true });
       }
     });
 
@@ -3404,7 +3757,7 @@
     listEl.querySelectorAll('.ra-asgn-delete').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var id = this.getAttribute('data-id');
-        if (!confirm('Delete this assignment?')) return;
+        raConfirm('This assignment will be permanently removed.', function () {
         fetch(apiUrl('/assignments/' + id), { method: 'DELETE', credentials: 'same-origin' })
           .then(function (r) { return r.json(); })
           .then(function () {
@@ -3414,6 +3767,7 @@
           .catch(function () {
             showStatus(document.getElementById('ra-asgn-status'), 'err', 'Failed to delete assignment.');
           });
+        }, { title: 'Delete Assignment?', yesText: 'Delete', danger: true });
       });
     });
 
@@ -3617,7 +3971,7 @@
     listEl.querySelectorAll('.ra-ann-delete').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var id = this.getAttribute('data-id');
-        if (!confirm('Delete this announcement?')) return;
+        raConfirm('This announcement will be permanently removed.', function () {
         fetch(apiUrl('/announcements/' + id), { method: 'DELETE', credentials: 'same-origin' })
           .then(function (r) { return r.json(); })
           .then(function () {
@@ -3627,6 +3981,7 @@
           .catch(function () {
             showStatus(document.getElementById('ra-ann-status'), 'err', 'Failed to delete.');
           });
+        }, { title: 'Delete Announcement?', yesText: 'Delete', danger: true });
       });
     });
   }
@@ -4605,7 +4960,8 @@
 
     if (action === 'activate' || action === 'deactivate') {
       var newStatus = action === 'activate';
-      if (!confirm(action.charAt(0).toUpperCase() + action.slice(1) + ' ' + selected.length + ' user(s)?')) return;
+      var actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
+      raConfirm('This will ' + action + ' ' + selected.length + ' user(s).', function () {
       var done = 0;
       var errors = 0;
       selected.forEach(function (username) {
@@ -4637,6 +4993,7 @@
           }
         });
       });
+      }, { title: actionLabel + ' Users?', yesText: actionLabel, danger: action === 'deactivate' });
     } else if (action === 'dashboard') {
       showBulkDashboardModal(selected);
     } else if (action === 'export') {
@@ -5205,8 +5562,7 @@
     var newStatus = !u.is_active;
     var action = newStatus ? 'activate' : 'deactivate';
 
-    if (!confirm((newStatus ? 'Activate' : 'Deactivate') + ' user "' + username + '"?')) return;
-
+    raConfirm('This will ' + action + ' the user "' + username + '".', function () {
     fetch('/api/v2/users/' + encodeURIComponent(username) + '/', {
       method: 'PATCH',
       credentials: 'same-origin',
@@ -5229,6 +5585,7 @@
       .catch(function (err) {
         showStatus(document.getElementById('ra-um-status'), 'err', 'Failed to ' + action + ': ' + err.message);
       });
+    }, { title: (newStatus ? 'Activate' : 'Deactivate') + ' User?', yesText: newStatus ? 'Activate' : 'Deactivate', danger: !newStatus });
   }
 
   function getCSRFToken() {
@@ -5334,7 +5691,7 @@
     listEl.querySelectorAll('.ra-team-delete').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var id = this.getAttribute('data-id');
-        if (!confirm('Delete this team?')) return;
+        raConfirm('This team will be permanently removed.', function () {
         fetch(apiUrl('/teams/' + id), { method: 'DELETE', credentials: 'same-origin' })
           .then(function (r) { return r.json(); })
           .then(function () {
@@ -5344,6 +5701,7 @@
           .catch(function () {
             showStatus(document.getElementById('ra-team-status'), 'err', 'Failed to delete team.');
           });
+        }, { title: 'Delete Team?', yesText: 'Delete', danger: true });
       });
     });
 
