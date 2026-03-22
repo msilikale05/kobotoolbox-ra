@@ -1488,6 +1488,34 @@ def _scheduler_loop():
                         except (ValueError, TypeError):
                             log.warning(f"Invalid datetime in schedule {schedule.get('id')}: {dt_str}")
 
+                    # Time windows: auto deploy/archive based on day + time
+                    elif stype == 'time_window':
+                        days = schedule.get('days', [])
+                        open_time = schedule.get('open_time', '')
+                        close_time = schedule.get('close_time', '')
+                        if days and open_time and close_time:
+                            day_names = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                            current_day = day_names[now.weekday()]
+                            current_time = now.strftime('%H:%M')
+                            is_active_day = current_day in days
+                            is_in_window = is_active_day and open_time <= current_time < close_time
+
+                            last_state = schedule.get('_last_state', '')
+                            if is_in_window and last_state != 'deployed':
+                                log.info(f"Time window OPEN for {form_uid} — deploying")
+                                _execute_deploy_action(form_uid, 'auto_deploy')
+                                schedule['_last_state'] = 'deployed'
+                                changed = True
+                            elif not is_in_window and last_state != 'archived' and last_state != '':
+                                log.info(f"Time window CLOSED for {form_uid} — archiving")
+                                _execute_deploy_action(form_uid, 'auto_archive')
+                                schedule['_last_state'] = 'archived'
+                                changed = True
+                            elif last_state == '':
+                                # First run — set initial state without changing deployment
+                                schedule['_last_state'] = 'deployed' if is_in_window else 'archived'
+                                changed = True
+
                     # Reminders
                     elif stype == 'reminder':
                         if _check_reminder_due(schedule):

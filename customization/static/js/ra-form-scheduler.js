@@ -279,6 +279,37 @@
 
           '<hr class="ra-fs__divider" />' +
 
+          // Submission Time Windows section
+          '<div class="ra-fs__section-title">Submission Time Windows</div>' +
+          '<p style="font-size:12px;color:#94a3b8;margin:0 0 12px;">Set when this form accepts submissions. Outside the window, the form will be automatically archived (closed). It re-deploys when the window opens again.</p>' +
+          '<div class="ra-fs__row">' +
+            '<span class="ra-fs__label">Active days:</span>' +
+            '<div id="ra-fs-tw-days" style="display:flex;gap:4px;flex-wrap:wrap;">' +
+              '<label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;user-select:none;"><input type="checkbox" class="ra-fs-tw-day" value="monday" checked> Mon</label>' +
+              '<label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;user-select:none;"><input type="checkbox" class="ra-fs-tw-day" value="tuesday" checked> Tue</label>' +
+              '<label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;user-select:none;"><input type="checkbox" class="ra-fs-tw-day" value="wednesday" checked> Wed</label>' +
+              '<label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;user-select:none;"><input type="checkbox" class="ra-fs-tw-day" value="thursday" checked> Thu</label>' +
+              '<label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;user-select:none;"><input type="checkbox" class="ra-fs-tw-day" value="friday" checked> Fri</label>' +
+              '<label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;user-select:none;"><input type="checkbox" class="ra-fs-tw-day" value="saturday"> Sat</label>' +
+              '<label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;user-select:none;"><input type="checkbox" class="ra-fs-tw-day" value="sunday"> Sun</label>' +
+            '</div>' +
+          '</div>' +
+          '<div class="ra-fs__row">' +
+            '<span class="ra-fs__label">Open time:</span>' +
+            '<input type="time" class="ra-fs__input" id="ra-fs-tw-open" value="08:00" />' +
+          '</div>' +
+          '<div class="ra-fs__row">' +
+            '<span class="ra-fs__label">Close time:</span>' +
+            '<input type="time" class="ra-fs__input" id="ra-fs-tw-close" value="17:00" />' +
+          '</div>' +
+          '<div class="ra-fs__row">' +
+            '<button class="ra-fs__btn ra-fs__btn--primary" id="ra-fs-save-window">Save Time Window</button>' +
+            '<button class="ra-fs__btn" id="ra-fs-remove-window" style="margin-left:8px;color:#ef4444;border:1px solid #fecaca;background:#fef2f2;">Remove Window</button>' +
+          '</div>' +
+          '<div class="ra-fs__msg" id="ra-fs-window-msg"></div>' +
+
+          '<hr class="ra-fs__divider" />' +
+
           // Email Reminders section
           '<div class="ra-fs__section-title">Email Reminders</div>' +
           '<div class="ra-fs__row">' +
@@ -446,8 +477,120 @@
       });
     }
 
-    // Load existing schedules
+    // Save time window button
+    var saveWindowBtn = document.getElementById('ra-fs-save-window');
+    if (saveWindowBtn) {
+      saveWindowBtn.addEventListener('click', function () {
+        var msgEl = document.getElementById('ra-fs-window-msg');
+        var dayCheckboxes = document.querySelectorAll('.ra-fs-tw-day');
+        var activeDays = [];
+        dayCheckboxes.forEach(function (cb) {
+          if (cb.checked) activeDays.push(cb.value);
+        });
+        var openTime = document.getElementById('ra-fs-tw-open').value;
+        var closeTime = document.getElementById('ra-fs-tw-close').value;
+
+        if (!activeDays.length) {
+          msgEl.className = 'ra-fs__msg ra-fs__msg--err';
+          msgEl.textContent = 'Select at least one active day.';
+          return;
+        }
+        if (!openTime || !closeTime) {
+          msgEl.className = 'ra-fs__msg ra-fs__msg--err';
+          msgEl.textContent = 'Set both open and close times.';
+          return;
+        }
+
+        saveWindowBtn.disabled = true;
+        msgEl.className = 'ra-fs__msg';
+        msgEl.textContent = 'Saving...';
+
+        apiRequest('POST', API_BASE + formUid, {
+          type: 'time_window',
+          days: activeDays,
+          open_time: openTime,
+          close_time: closeTime
+        }, function (err) {
+          saveWindowBtn.disabled = false;
+          if (err) {
+            msgEl.className = 'ra-fs__msg ra-fs__msg--err';
+            msgEl.textContent = 'Error: ' + err;
+          } else {
+            msgEl.className = 'ra-fs__msg ra-fs__msg--ok';
+            msgEl.textContent = 'Time window saved! Form will auto-deploy/archive based on this schedule.';
+            loadScheduleList(formUid);
+          }
+        });
+      });
+    }
+
+    // Remove time window button
+    var removeWindowBtn = document.getElementById('ra-fs-remove-window');
+    if (removeWindowBtn) {
+      removeWindowBtn.addEventListener('click', function () {
+        var msgEl = document.getElementById('ra-fs-window-msg');
+        // Find and delete existing time_window schedules
+        apiRequest('GET', API_BASE + formUid, null, function (err, data) {
+          if (err || !data) return;
+          var schedules = (data && data.schedules) ? data.schedules : [];
+          var windows = schedules.filter(function (s) { return s.type === 'time_window'; });
+          if (!windows.length) {
+            msgEl.className = 'ra-fs__msg';
+            msgEl.textContent = 'No time window to remove.';
+            return;
+          }
+          var pending = windows.length;
+          windows.forEach(function (w) {
+            apiRequest('DELETE', API_BASE + formUid + '/' + w.id, null, function () {
+              pending--;
+              if (pending <= 0) {
+                msgEl.className = 'ra-fs__msg ra-fs__msg--ok';
+                msgEl.textContent = 'Time window removed.';
+                loadScheduleList(formUid);
+              }
+            });
+          });
+        });
+      });
+    }
+
+    // Load existing schedules and pre-fill time window if exists
     loadScheduleList(formUid);
+    loadExistingTimeWindow(formUid);
+  }
+
+  function loadExistingTimeWindow(formUid) {
+    apiRequest('GET', API_BASE + formUid, null, function (err, data) {
+      if (err || !data) return;
+      var schedules = (data && data.schedules) ? data.schedules : [];
+      var tw = null;
+      for (var i = 0; i < schedules.length; i++) {
+        if (schedules[i].type === 'time_window') { tw = schedules[i]; break; }
+      }
+      if (!tw) return;
+
+      // Pre-fill the time window form
+      if (tw.open_time) {
+        var openEl = document.getElementById('ra-fs-tw-open');
+        if (openEl) openEl.value = tw.open_time;
+      }
+      if (tw.close_time) {
+        var closeEl = document.getElementById('ra-fs-tw-close');
+        if (closeEl) closeEl.value = tw.close_time;
+      }
+      if (tw.days && tw.days.length) {
+        var dayCheckboxes = document.querySelectorAll('.ra-fs-tw-day');
+        dayCheckboxes.forEach(function (cb) {
+          cb.checked = tw.days.indexOf(cb.value) !== -1;
+        });
+      }
+
+      var msgEl = document.getElementById('ra-fs-window-msg');
+      if (msgEl) {
+        msgEl.className = 'ra-fs__msg ra-fs__msg--ok';
+        msgEl.textContent = 'Active window: ' + tw.days.join(', ') + ' ' + tw.open_time + ' - ' + tw.close_time;
+      }
+    });
   }
 
   function loadScheduleList(formUid) {
