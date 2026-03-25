@@ -1048,7 +1048,7 @@
       '<div style="max-width:none;">' +
         // Header row — back button + title + rename
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">' +
-          '<button id="ra-dl-back" style="background:none;border:1px solid #e1e3ea;border-radius:4px;padding:6px 10px;cursor:pointer;color:#64748b;font-size:13px;display:flex;align-items:center;gap:4px;" title="Back to dashboard list">' +
+          '<button id="ra-dl-back" style="background:#54a8dc;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;transition:background 0.15s;" onmouseover="this.style.background=\'#3d8abf\'" onmouseout="this.style.background=\'#54a8dc\'" title="Back to dashboard list">' +
             '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>' +
             'Back' +
           '</button>' +
@@ -1058,8 +1058,8 @@
           '<button id="ra-dl-editor-rename" style="background:none;border:none;cursor:pointer;font-size:16px;color:#94a3b8;padding:2px;" title="Rename dashboard">&#9998;</button>' +
         '</div>' +
         '<div style="font-size:12px;color:#94a3b8;margin-bottom:24px;">' + escapeHtml(dashId) + '</div>' +
-        '<div class="ra-st__status" id="ra-st-dl-status"></div>' +
-        // Action bar — matches form summary top toolbar style
+        // Action bar
+
         '<div style="background:#fff;border:1px solid #e1e3ea;border-radius:6px;padding:10px 16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
           '<div style="display:flex;gap:8px;">' +
             '<button class="ra-de__btn ra-de__btn--primary" id="ra-st-dl-add" title="Add a new widget">' +
@@ -1072,7 +1072,7 @@
             '</button>' +
           '</div>' +
           '<div style="display:flex;align-items:center;gap:12px;">' +
-            '<span id="ra-dl-autosave-status" style="font-size:11px;color:#94a3b8;"></span>' +
+            '' +
             '<button class="ra-de__btn ra-de__btn--ghost" id="ra-st-dl-reset" title="Remove all widgets">Clear All</button>' +
           '</div>' +
         '</div>' +
@@ -1302,8 +1302,12 @@
         }
 
         card.innerHTML =
+          // Left-edge resize handle
+          '<div class="ra-dl-edge-handle" data-idx="' + wi + '" data-side="left" style="position:absolute;top:0;left:-5px;width:10px;height:100%;cursor:ew-resize;z-index:5;display:flex;align-items:center;justify-content:center;">' +
+            '<div style="width:4px;height:28px;border-radius:3px;background:#cbd5e1;transition:background 0.15s;"></div>' +
+          '</div>' +
           // Right-edge resize handle
-          '<div class="ra-dl-edge-handle" data-idx="' + wi + '" style="position:absolute;top:0;right:-5px;width:10px;height:100%;cursor:ew-resize;z-index:5;display:flex;align-items:center;justify-content:center;">' +
+          '<div class="ra-dl-edge-handle" data-idx="' + wi + '" data-side="right" style="position:absolute;top:0;right:-5px;width:10px;height:100%;cursor:ew-resize;z-index:5;display:flex;align-items:center;justify-content:center;">' +
             '<div style="width:4px;height:28px;border-radius:3px;background:#cbd5e1;transition:background 0.15s;"></div>' +
           '</div>' +
           // Header
@@ -1357,8 +1361,7 @@
               d.widgets[idx].width = spanToWidth[cols] || 'quarter';
               rebuildGrid();
               autoSaveDashConfig();
-              var statusEl = document.getElementById('ra-dl-autosave-status');
-              if (statusEl) { statusEl.textContent = 'Saved'; setTimeout(function () { statusEl.textContent = ''; }, 1500); }
+              // auto-saved silently
             }
           });
         })(resizeBtns[rb]);
@@ -1390,7 +1393,7 @@
         })(removeBtns[rmb]);
       }
 
-      // ── Edge-drag resize (right edge) ──
+      // ── Edge-drag resize (left and right edges) ──
       var edgeHandles = canvas.querySelectorAll('.ra-dl-edge-handle');
       for (var eh = 0; eh < edgeHandles.length; eh++) {
         (function (handle) {
@@ -1398,37 +1401,60 @@
             e.preventDefault();
             e.stopPropagation();
             var idx = parseInt(this.getAttribute('data-idx'));
+            var side = this.getAttribute('data-side') || 'right';
             var card = this.closest('.ra-dl-widget-item');
             if (!card) return;
 
             var cw = getCellWidth();
             var lo = computeLayout(widgets)[idx];
             var startCol = lo.col;
+            var startSpan = lo.span;
+            // For right handle: anchor is left edge (startCol)
+            // For left handle: anchor is right edge (startCol + startSpan)
+            var anchorCol = side === 'right' ? startCol : startCol + startSpan;
             var innerDot = this.querySelector('div');
             if (innerDot) innerDot.style.background = '#54a8dc';
 
             document.body.style.userSelect = 'none';
             document.body.style.cursor = 'ew-resize';
 
-            var resizingSpan = lo.span;
+            var resizingSpan = startSpan;
 
             function calcSpan(mouseX) {
               var canvasRect = canvas.getBoundingClientRect();
               var relX = mouseX - canvasRect.left;
-              var endCol = Math.round(relX / cw);
-              var sp = endCol - startCol;
+              var mouseCol = Math.round(relX / cw);
+              var sp;
+              if (side === 'right') {
+                // Right handle: span = mouseCol - startCol
+                sp = mouseCol - startCol;
+              } else {
+                // Left handle: span = anchorCol - mouseCol
+                sp = anchorCol - Math.floor(relX / cw);
+              }
               if (sp < 1) sp = 1;
-              if (sp > COLS - startCol) sp = COLS - startCol;
               if (sp > 4) sp = 4;
               return sp;
             }
 
+            function calcPreviewCol(mouseX) {
+              if (side === 'right') return startCol;
+              var canvasRect = canvas.getBoundingClientRect();
+              var relX = mouseX - canvasRect.left;
+              var newStartCol = Math.floor(relX / cw);
+              if (newStartCol < 0) newStartCol = 0;
+              if (newStartCol > anchorCol - 1) newStartCol = anchorCol - 1;
+              return newStartCol;
+            }
+
             function onMouseMove(ev) {
               resizingSpan = calcSpan(ev.clientX);
-              // Live preview: update card width and show highlight
+              var previewCol = calcPreviewCol(ev.clientX);
+              // Live preview
               card.style.width = (resizingSpan * cw - GAP) + 'px';
+              card.style.left = (previewCol * cw) + 'px';
               card.style.borderColor = '#54a8dc';
-              showHighlight(startCol, lo.row, resizingSpan);
+              showHighlight(previewCol, lo.row, resizingSpan);
             }
 
             function onMouseUp(ev) {
@@ -6007,6 +6033,27 @@
   }
 
   // ── Nav icon ──
+  // Cache the admin check
+  var _isAdmin = null; // null = not checked, true/false = result
+
+  function checkIsAdmin(callback) {
+    if (_isAdmin !== null) { callback(_isAdmin); return; }
+    // KoboToolbox /me/ doesn't expose is_superuser/is_staff.
+    // Instead, check if user can access Django admin.
+    // Staff users get 200 on /admin/, non-staff get redirected to login.
+    fetch('/admin/', { credentials: 'same-origin' })
+      .then(function (r) {
+        // If response URL contains 'login', user is not staff
+        if (r.url && r.url.indexOf('/login') !== -1) {
+          _isAdmin = false;
+        } else {
+          _isAdmin = r.ok;
+        }
+        callback(_isAdmin);
+      })
+      .catch(function () { _isAdmin = false; callback(false); });
+  }
+
   function injectNavIcon() {
     if (document.getElementById(NAV_ID)) return true;
     if (/\/accounts\/(login|signup|password)/.test(window.location.pathname)) return false;
@@ -6019,6 +6066,16 @@
       if (l.getAttribute('href') && l.getAttribute('href').indexOf('projects') !== -1) hasProjects = true;
     });
     if (!hasProjects) return false;
+
+    // Only show Settings and Admin Panel for superusers/staff
+    if (_isAdmin === null) {
+      // First call — check async, then re-inject
+      checkIsAdmin(function (isAdmin) {
+        if (isAdmin) injectNavIcon();
+      });
+      return false;
+    }
+    if (!_isAdmin) return false;
 
     var navLink = document.createElement('a');
     navLink.id = NAV_ID;

@@ -686,4 +686,223 @@
     return '/webhook-api/avatar/' + encodeURIComponent(username) + '?v=' + Date.now();
   };
 
+  // ── Inactive Account Detection (Pending Approval) ──
+  // Detects when a user tries to log in but their account is inactive (pending approval).
+  // KoboToolbox/allauth shows various messages for inactive accounts. We intercept these
+  // and show our branded "Pending Approval" overlay instead.
+  (function pendingApprovalDetection() {
+    // Only run on login page
+    if (!/\/accounts\/login\/?/.test(window.location.pathname)) return;
+
+    // Patterns that indicate an inactive/unverified account
+    var INACTIVE_PATTERNS = [
+      'not yet activated',
+      'account is inactive',
+      'account has been deactivated',
+      'not active',
+      'account is not active',
+      'this account is inactive',
+      'please activate your account',
+      'account has not been activated',
+      'unable to log in with provided credentials'
+    ];
+
+    function isInactiveMessage(text) {
+      var lower = (text || '').toLowerCase();
+      for (var i = 0; i < INACTIVE_PATTERNS.length; i++) {
+        if (lower.indexOf(INACTIVE_PATTERNS[i]) !== -1) return true;
+      }
+      return false;
+    }
+
+    function showPendingApprovalOverlay() {
+      // Avoid duplicates
+      if (document.getElementById('ra-pending-approval-overlay')) return;
+
+      var overlay = document.createElement('div');
+      overlay.id = 'ra-pending-approval-overlay';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(241,245,249,0.98);z-index:2147483647;display:flex;align-items:center;justify-content:center;animation:ra-pa-fi 0.3s ease;';
+
+      overlay.innerHTML =
+        '<style>' +
+          '@keyframes ra-pa-fi{from{opacity:0}to{opacity:1}}' +
+          '@keyframes ra-pa-si{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}' +
+        '</style>' +
+        '<div style="background:#fff;border-radius:12px;width:460px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,0.15);overflow:hidden;animation:ra-pa-si 0.3s ease;text-align:center;">' +
+          '<!-- Header -->' +
+          '<div style="background:linear-gradient(135deg,#1a2a3a 0%,#54a8dc 100%);padding:28px 24px 20px;">' +
+            '<img src="/custom-static/images/ra-logo.png" alt="Ramani Yangu" style="height:44px;width:auto;margin-bottom:12px;">' +
+            '<p style="margin:0;color:rgba(255,255,255,0.8);font-size:12px;font-weight:500;">Data Collection Platform</p>' +
+          '</div>' +
+          '<div style="height:4px;background:linear-gradient(90deg,#54a8dc,#1a2a3a);"></div>' +
+          '<!-- Content -->' +
+          '<div style="padding:28px 32px 8px;">' +
+            '<div style="width:64px;height:64px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 4px 12px rgba(245,158,11,0.3);">' +
+              '<svg viewBox="0 0 24 24" width="32" height="32" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-2h2v2h-2zm0-4V7h2v6h-2z"/></svg>' +
+            '</div>' +
+            '<h2 style="margin:0 0 10px;font-size:20px;font-weight:700;color:#1e293b;">Account Pending Approval</h2>' +
+            '<p style="margin:0 0 8px;font-size:14px;color:#64748b;line-height:1.6;">Your registration has been received. An administrator will review your account shortly.</p>' +
+            '<p style="margin:0 0 20px;font-size:12px;color:#94a3b8;line-height:1.5;">This typically takes 1-2 business days. For urgent access, contact <a href="mailto:info@ramaniyangu.com" style="color:#54a8dc;text-decoration:none;font-weight:600;">info@ramaniyangu.com</a></p>' +
+          '</div>' +
+          '<!-- Steps -->' +
+          '<div style="margin:0 32px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;text-align:left;">' +
+            '<p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;">What happens next?</p>' +
+            '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;">' +
+              '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;min-width:20px;background:#eff6ff;color:#3b82f6;border-radius:50%;font-size:10px;font-weight:700;">1</span>' +
+              '<span style="font-size:12px;color:#64748b;">Your request has been sent to the administrators.</span>' +
+            '</div>' +
+            '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;">' +
+              '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;min-width:20px;background:#eff6ff;color:#3b82f6;border-radius:50%;font-size:10px;font-weight:700;">2</span>' +
+              '<span style="font-size:12px;color:#64748b;">An admin will review and verify your information.</span>' +
+            '</div>' +
+            '<div style="display:flex;align-items:flex-start;gap:10px;">' +
+              '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;min-width:20px;background:#eff6ff;color:#3b82f6;border-radius:50%;font-size:10px;font-weight:700;">3</span>' +
+              '<span style="font-size:12px;color:#64748b;">Once approved, you can log in and use the platform.</span>' +
+            '</div>' +
+          '</div>' +
+          '<!-- Buttons -->' +
+          '<div style="padding:0 32px 28px;display:flex;gap:10px;">' +
+            '<a href="/accounts/login/" id="ra-pa-back" style="flex:1;display:inline-block;padding:11px;border-radius:6px;font-size:14px;font-weight:600;text-decoration:none;background:#54a8dc;color:#fff;text-align:center;transition:background 0.15s;">Back to Login</a>' +
+            '<a href="mailto:info@ramaniyangu.com" style="flex:1;display:inline-block;padding:11px;border-radius:6px;font-size:14px;font-weight:600;text-decoration:none;background:#1a2a3a;color:#fff;text-align:center;transition:background 0.15s;">Contact Support</a>' +
+          '</div>' +
+        '</div>';
+
+      document.body.appendChild(overlay);
+
+      // "Back to Login" just removes the overlay and clears the form
+      var backBtn = overlay.querySelector('#ra-pa-back');
+      if (backBtn) {
+        backBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          overlay.remove();
+          // Clear form errors
+          var errors = document.querySelectorAll('.errorlist, .alert, .messages li');
+          for (var i = 0; i < errors.length; i++) errors[i].remove();
+          // Clear password field
+          var pwField = document.querySelector('input[type="password"]');
+          if (pwField) pwField.value = '';
+        });
+      }
+    }
+
+    function checkForInactiveErrors() {
+      // Check Django/allauth error messages
+      var errorElements = document.querySelectorAll(
+        '.errorlist li, .alert, .messages li, .login-form__messages, ' +
+        '.registration__error, .registration .errorlist, ' +
+        'form .errorlist li, .non-field-errors li, .form-error, ' +
+        '[class*="error"] li, [class*="message"] li'
+      );
+
+      for (var i = 0; i < errorElements.length; i++) {
+        var text = errorElements[i].textContent || errorElements[i].innerText || '';
+        if (isInactiveMessage(text)) {
+          showPendingApprovalOverlay();
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Check immediately (page may have been rendered with errors)
+    function init() {
+      checkForInactiveErrors();
+
+      // Also observe for dynamically added error messages (after form submit via AJAX)
+      var form = document.querySelector('form.registration--login') ||
+                 document.querySelector('form[action*="login"]') ||
+                 document.querySelector('.registration form');
+
+      if (form) {
+        var observer = new MutationObserver(function () {
+          checkForInactiveErrors();
+        });
+        observer.observe(form.parentElement || form, { childList: true, subtree: true });
+      }
+
+      // Also observe body for any error messages
+      var bodyObserver = new MutationObserver(function () {
+        checkForInactiveErrors();
+      });
+      bodyObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  })();
+
+  // ── Post-Signup Notification ──
+  // After a successful signup, notify the webhook-relay so admin gets an email immediately.
+  (function postSignupNotify() {
+    // Only run on signup success/confirmation pages
+    if (!/\/accounts\/signup\/?/.test(window.location.pathname) &&
+        !/\/accounts\/confirm/.test(window.location.pathname) &&
+        !/\/accounts\/inactive/.test(window.location.pathname)) return;
+
+    function checkAndNotify() {
+      // Look for success messages or "check your email" type content
+      var pageText = (document.body.textContent || '').toLowerCase();
+      var isPostSignup = pageText.indexOf('verification') !== -1 ||
+                         pageText.indexOf('confirm') !== -1 ||
+                         pageText.indexOf('check your') !== -1 ||
+                         pageText.indexOf('account has been created') !== -1 ||
+                         pageText.indexOf('signed up') !== -1;
+
+      if (!isPostSignup) return;
+
+      // Already notified this session?
+      var notifiedKey = 'ra_signup_notified';
+      if (sessionStorage.getItem(notifiedKey)) return;
+
+      // Extract username from page if possible, or from a cookie/field
+      var username = '';
+      var email = '';
+
+      // Try to find the username from form fields or page content
+      var usernameField = document.querySelector('input[name="username"]');
+      var emailField = document.querySelector('input[name="email"]');
+      if (usernameField) username = usernameField.value;
+      if (emailField) email = emailField.value;
+
+      if (!username && !email) return;
+
+      // Send notification to webhook-relay
+      var payload = JSON.stringify({
+        username: username,
+        email: email,
+        extra_details: {}
+      });
+
+      var urls = ['/webhook-api/user-registered', 'http://localhost:5050/api/user-registered'];
+      function tryUrl(idx) {
+        if (idx >= urls.length) return;
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', urls[idx], true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+              sessionStorage.setItem(notifiedKey, 'true');
+            } else if (idx + 1 < urls.length) {
+              tryUrl(idx + 1);
+            }
+          }
+        };
+        xhr.send(payload);
+      }
+      tryUrl(0);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(checkAndNotify, 1000);
+      });
+    } else {
+      setTimeout(checkAndNotify, 1000);
+    }
+  })();
+
 })();

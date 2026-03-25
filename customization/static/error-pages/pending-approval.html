@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Account Pending Approval | Ramani Yangu</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f1f5f9;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a2a3a 0%, #54a8dc 100%);
+    padding: 16px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header img { height: 44px; width: auto; }
+  .header a {
+    color: rgba(255,255,255,0.85);
+    text-decoration: none;
+    font-size: 13px;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-right a {
+    padding: 8px 16px;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.15);
+    transition: background 0.2s;
+  }
+  .header-right a:hover { background: rgba(255,255,255,0.25); }
+  .accent { height: 4px; background: linear-gradient(90deg, #54a8dc, #1a2a3a); }
+  .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+  }
+  .status-icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px;
+    box-shadow: 0 4px 16px rgba(245,158,11,0.3);
+  }
+  .status-icon svg {
+    width: 40px;
+    height: 40px;
+    fill: #fff;
+  }
+  .status-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 12px;
+  }
+  .status-message {
+    font-size: 15px;
+    color: #64748b;
+    max-width: 480px;
+    line-height: 1.7;
+    margin-bottom: 12px;
+  }
+  .status-detail {
+    font-size: 13px;
+    color: #94a3b8;
+    max-width: 480px;
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+  .status-detail a { color: #54a8dc; text-decoration: none; font-weight: 600; }
+  .status-detail a:hover { text-decoration: underline; }
+  .info-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px 28px;
+    max-width: 440px;
+    width: 100%;
+    margin-bottom: 28px;
+    text-align: left;
+  }
+  .info-card h3 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+  .info-card ul {
+    list-style: none;
+    padding: 0;
+  }
+  .info-card li {
+    font-size: 13px;
+    color: #64748b;
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .info-card li:last-child { border-bottom: none; }
+  .info-card .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    background: #eff6ff;
+    color: #3b82f6;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .btn {
+    display: inline-block;
+    padding: 12px 28px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .btn-primary { background: #54a8dc; color: #fff; }
+  .btn-primary:hover { background: #3d8abf; box-shadow: 0 4px 12px rgba(84,168,220,0.3); }
+  .btn-secondary { background: #1a2a3a; color: #fff; }
+  .btn-secondary:hover { background: #2c3e50; }
+  .footer {
+    background: #1a2a3a;
+    padding: 20px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .footer img { height: 40px; opacity: 0.8; }
+  .footer-text {
+    color: rgba(255,255,255,0.5);
+    font-size: 12px;
+    text-align: right;
+    line-height: 1.6;
+  }
+  .footer-text a { color: #54a8dc; text-decoration: none; }
+  @media (max-width: 600px) {
+    .status-title { font-size: 22px; }
+    .header { padding: 12px 16px; }
+    .footer { flex-direction: column; gap: 12px; text-align: center; }
+    .footer-text { text-align: center; }
+    .info-card { padding: 16px 20px; }
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <a href="/"><img src="/custom-static/images/ra-logo.png" alt="Ramani Yangu"></a>
+    <div class="header-right">
+      <a href="/accounts/login/">Log In</a>
+    </div>
+  </div>
+  <div class="accent"></div>
+  <div class="content">
+    <div class="status-icon">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-2h2v2h-2zm0-4V7h2v6h-2z"/>
+      </svg>
+    </div>
+    <h1 class="status-title">Account Pending Approval</h1>
+    <p class="status-message">
+      Your registration has been received successfully. An administrator will
+      review your account shortly and you will be notified once approved.
+    </p>
+    <p class="status-detail">
+      This process typically takes 1-2 business days. If you have any questions
+      or need urgent access, please contact us at
+      <a href="mailto:info@ramaniyangu.com">info@ramaniyangu.com</a>.
+    </p>
+
+    <div class="info-card">
+      <h3>What happens next?</h3>
+      <ul>
+        <li>
+          <span class="step-num">1</span>
+          <span>Your registration request has been sent to the platform administrators.</span>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <span>An admin will review your account details and verify your information.</span>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <span>Once approved, you will be able to log in and start using the platform.</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="buttons">
+      <a href="/accounts/login/" class="btn btn-primary">Back to Login</a>
+      <a href="mailto:info@ramaniyangu.com" class="btn btn-secondary">Contact Support</a>
+    </div>
+  </div>
+  <div class="footer">
+    <img src="/custom-static/images/ra-logo.png" alt="Ramani Yangu">
+    <div class="footer-text">
+      Resilience Academy | Ramani Yangu<br>
+      Data Collection Platform<br>
+      <a href="mailto:info@ramaniyangu.com">info@ramaniyangu.com</a>
+    </div>
+  </div>
+</body>
+</html>

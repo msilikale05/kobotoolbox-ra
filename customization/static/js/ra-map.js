@@ -1326,12 +1326,27 @@
 
   function parseBounds(dataset) {
     var bounds = null;
+    // Try bbox object
     if (dataset.bbox) {
       var bb = dataset.bbox;
       if (bb.x0 != null && bb.y0 != null) bounds = [[bb.y0, bb.x0], [bb.y1, bb.x1]];
       else if (Array.isArray(bb) && bb.length >= 4) bounds = [[bb[1], bb[0]], [bb[3], bb[2]]];
       else if (bb.minx != null) bounds = [[bb.miny, bb.minx], [bb.maxy, bb.maxx]];
     }
+    // Try bbox_x0/bbox_y0 (GeoNode 3.x)
+    if (!bounds && dataset.bbox_x0 != null) {
+      bounds = [[dataset.bbox_y0, dataset.bbox_x0], [dataset.bbox_y1, dataset.bbox_x1]];
+    }
+    // Try extent object (GeoNode 4.x)
+    if (!bounds && dataset.extent) {
+      var ext = dataset.extent;
+      if (ext.coords && ext.coords.length >= 4) {
+        bounds = [[ext.coords[1], ext.coords[0]], [ext.coords[3], ext.coords[2]]];
+      } else if (Array.isArray(ext) && ext.length >= 4) {
+        bounds = [[ext[1], ext[0]], [ext[3], ext[2]]];
+      }
+    }
+    // Try ll_bbox_polygon
     if (!bounds && dataset.ll_bbox_polygon) {
       try {
         var coords = dataset.ll_bbox_polygon.coordinates || dataset.ll_bbox_polygon;
@@ -1341,6 +1356,12 @@
           bounds = [[Math.min.apply(null, lats), Math.min.apply(null, lons)], [Math.max.apply(null, lats), Math.max.apply(null, lons)]];
         }
       } catch (e) {}
+    }
+    // Validate bounds — reject world-spanning or invalid
+    if (bounds) {
+      var lat1 = bounds[0][0], lon1 = bounds[0][1], lat2 = bounds[1][0], lon2 = bounds[1][1];
+      if (isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) bounds = null;
+      else if (Math.abs(lat2 - lat1) > 170 && Math.abs(lon2 - lon1) > 350) bounds = null; // world extent = no useful bounds
     }
     return bounds;
   }
@@ -1355,7 +1376,7 @@
     var dsId = dataset.pk || dataset.id || layerName;
     var gnId = 'gn_' + dsId;
     var bounds = parseBounds(dataset);
-    var geomType = (dataset.geom_type || 'vector').toLowerCase();
+    var geomType = (dataset.geom_type || dataset.subtype || 'vector').toLowerCase();
     var defaultColor = '#54a8dc';
     var defaultStroke = '#2980b9';
 
@@ -1363,44 +1384,27 @@
     var isRaster = geomType === 'raster' || geomType === 'coverage';
 
     if (isRaster) {
-      // Raster data — must use WMS
       addAsWMS(baseUrl, layerName, displayName, dsId, gnId, bounds, geomType, gs);
     } else {
-      // Vector data — try WFS (GeoJSON) first for proper styling, fallback to WMS
-      var wfsUrls = [
-        baseUrl + '/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=application/json&maxFeatures=5000',
-        baseUrl + '/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=application/json&maxFeatures=5000',
-        baseUrl + '/gs/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=application/json&maxFeatures=5000'
-      ];
+      // Vector data — use server-side WFS proxy to avoid CORS
+      var proxyParams = 'url=' + encodeURIComponent(baseUrl) + '&layer=' + encodeURIComponent(layerName);
+      if (gs.token) proxyParams += '&token=' + encodeURIComponent(gs.token);
+      if (gs.username) proxyParams += '&username=' + encodeURIComponent(gs.username);
+      if (gs.password) proxyParams += '&password=' + encodeURIComponent(gs.password);
 
-      tryWFS(wfsUrls, 0, function (geojson) {
-        if (geojson && geojson.features && geojson.features.length > 0) {
-          addAsVector(geojson, displayName, dsId, gnId, bounds, geomType, gs, defaultColor, defaultStroke);
-        } else {
-          // WFS failed or empty — fall back to WMS
+      fetch('/webhook-api/wfs-proxy?' + proxyParams)
+        .then(function (r) { return r.json(); })
+        .then(function (geojson) {
+          if (geojson && geojson.features && geojson.features.length > 0) {
+            addAsVector(geojson, displayName, dsId, gnId, bounds, geomType, gs, defaultColor, defaultStroke);
+          } else {
+            addAsWMS(baseUrl, layerName, displayName, dsId, gnId, bounds, geomType, gs);
+          }
+        })
+        .catch(function () {
           addAsWMS(baseUrl, layerName, displayName, dsId, gnId, bounds, geomType, gs);
-        }
-      });
+        });
     }
-  }
-
-  function tryWFS(urls, idx, callback) {
-    if (idx >= urls.length) { callback(null); return; }
-    fetch(urls[idx])
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
-      .then(function (data) {
-        if (data && data.type === 'FeatureCollection') {
-          callback(data);
-        } else {
-          tryWFS(urls, idx + 1, callback);
-        }
-      })
-      .catch(function () {
-        tryWFS(urls, idx + 1, callback);
-      });
   }
 
   function addAsVector(geojson, displayName, dsId, gnId, bounds, geomType, gs, fillColor, strokeColor) {
@@ -1585,16 +1589,29 @@
         };
         layerGroups[gnId] = geonodeLayers[gnId];
       } else if (!isRaster && sl.wmsUrl) {
-        // Vector — try WFS first
+        // Vector — use server-side WFS proxy
         var baseUrl = sl.wmsUrl.replace(/\/geoserver\/(ows|wms).*$/, '');
         var layerName = sl.layerName || sl.id;
-        var wfsUrls = [
-          baseUrl + '/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=application/json&maxFeatures=5000',
-          baseUrl + '/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=' + encodeURIComponent(layerName) + '&outputFormat=application/json&maxFeatures=5000'
-        ];
+
+        // Find the data source connection for auth details
+        var gsConn = null;
+        var connections = [];
+        try { connections = JSON.parse(localStorage.getItem(GEONODE_SETTINGS_KEY) || '[]'); } catch (e) {}
+        if (sl.sourceId) {
+          for (var ci = 0; ci < connections.length; ci++) {
+            if (connections[ci].id === sl.sourceId) { gsConn = connections[ci]; break; }
+          }
+        }
+
+        var proxyParams = 'url=' + encodeURIComponent(baseUrl) + '&layer=' + encodeURIComponent(layerName);
+        if (gsConn && gsConn.token) proxyParams += '&token=' + encodeURIComponent(gsConn.token);
+        if (gsConn && gsConn.username) proxyParams += '&username=' + encodeURIComponent(gsConn.username);
+        if (gsConn && gsConn.password) proxyParams += '&password=' + encodeURIComponent(gsConn.password);
 
         (function (savedLayer, geoNodeId, isLayerHidden) {
-          tryWFS(wfsUrls, 0, function (geojson) {
+          fetch('/webhook-api/wfs-proxy?' + proxyParams)
+            .then(function (r) { return r.json(); })
+            .then(function (geojson) {
             if (geojson && geojson.features && geojson.features.length > 0) {
               var fillColor = '#54a8dc';
               var strokeColor = '#2980b9';
@@ -1636,9 +1653,11 @@
               layerGroups[geoNodeId] = geonodeLayers[geoNodeId];
               createLegend(layerGroups);
             } else {
-              // WFS failed — fall back to WMS
               loadAsWMS(savedLayer, geoNodeId, isLayerHidden);
             }
+          })
+          .catch(function () {
+            loadAsWMS(savedLayer, geoNodeId, isLayerHidden);
           });
         })(sl, gnId, isHidden);
       } else {
@@ -2232,6 +2251,10 @@
     // Remove existing legend
     var old = page.querySelector('.ra-map__legend');
     if (old) old.remove();
+
+    // Hide panel if no layers
+    var totalLayers = Object.keys(groups).length;
+    if (totalLayers === 0) return;
 
     var legend = document.createElement('div');
     legend.className = 'ra-map__legend';

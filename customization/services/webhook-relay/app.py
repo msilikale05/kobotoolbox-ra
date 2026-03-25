@@ -1254,17 +1254,668 @@ def _list_datasets(url, headers, auth, args):
                 total = data.get('total', len(items))
                 datasets = []
                 for item in items:
+                    # Extract bounds from various GeoNode formats
+                    ds_bounds = None
+                    if item.get('bbox_x0') is not None:
+                        ds_bounds = {'x0': item['bbox_x0'], 'y0': item['bbox_y0'], 'x1': item['bbox_x1'], 'y1': item['bbox_y1']}
+                    elif item.get('extent') and isinstance(item['extent'], dict):
+                        coords = item['extent'].get('coords', [])
+                        if len(coords) >= 4:
+                            ds_bounds = {'x0': coords[0], 'y0': coords[1], 'x1': coords[2], 'y1': coords[3]}
+                    elif item.get('ll_bbox_polygon'):
+                        try:
+                            poly = item['ll_bbox_polygon']
+                            ring = poly.get('coordinates', poly) if isinstance(poly, dict) else poly
+                            if ring and ring[0] and len(ring[0]) >= 4:
+                                xs = [c[0] for c in ring[0]]
+                                ys = [c[1] for c in ring[0]]
+                                ds_bounds = {'x0': min(xs), 'y0': min(ys), 'x1': max(xs), 'y1': max(ys)}
+                        except Exception:
+                            pass
                     datasets.append({
                         'pk': item.get('pk', ''),
                         'title': item.get('title', ''),
                         'name': item.get('alternate', item.get('name', '')),
+                        'alternate': item.get('alternate', ''),
                         'abstract': (item.get('abstract', '') or '')[:200],
                         'subtype': item.get('subtype', 'vector'),
+                        'bbox': ds_bounds,
                     })
                 return jsonify({'ok': True, 'datasets': datasets, 'total': total, 'page': page})
         return jsonify({'ok': False, 'error': 'HTTP {}'.format(resp.status_code)})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+
+
+# ── WFS Proxy (avoids CORS for GeoNode vector data) ──
+
+@app.route('/api/wfs-proxy', methods=['GET'])
+def wfs_proxy():
+    """Proxy WFS GetFeature requests to avoid browser CORS issues."""
+    import requests as req
+    url = request.args.get('url', '').rstrip('/')
+    layer = request.args.get('layer', '')
+    token = request.args.get('token', '')
+    username = request.args.get('username', '')
+    password = request.args.get('password', '')
+
+    if not url or not layer:
+        return jsonify({'error': 'url and layer required'}), 400
+
+    headers = {'Accept': 'application/json'}
+    auth = None
+    if token:
+        headers['Authorization'] = token if ' ' in token else 'Bearer {}'.format(token)
+    elif username and password:
+        auth = (username, password)
+
+    endpoints = [
+        '{}/geoserver/ows'.format(url),
+        '{}/geoserver/wfs'.format(url),
+        '{}/gs/ows'.format(url),
+    ]
+    params = {
+        'service': 'WFS', 'version': '1.0.0', 'request': 'GetFeature',
+        'typeName': layer, 'outputFormat': 'application/json', 'maxFeatures': '5000'
+    }
+
+    for endpoint in endpoints:
+        try:
+            resp = req.get(endpoint, headers=headers, auth=auth, params=params,
+                          timeout=30, allow_redirects=True)
+            if resp.status_code == 200:
+                ct = resp.headers.get('content-type', '')
+                if 'json' in ct or 'geo' in ct:
+                    return Response(resp.content, mimetype='application/json',
+                                   headers={'Access-Control-Allow-Origin': '*'})
+        except Exception:
+            continue
+
+    return Response(
+        json.dumps({'type': 'FeatureCollection', 'features': []}),
+        mimetype='application/json',
+        headers={'Access-Control-Allow-Origin': '*'}
+    )
+
+
+# ── User Approval System ──
+# API-based admin approval for new user registrations.
+# New users are deactivated by the background scheduler until an admin approves.
+
+USER_APPROVAL_CONFIG_PATH = os.getenv(
+    'USER_APPROVAL_CONFIG_PATH', '/app/config/user-approval.json'
+)
+ADMIN_NOTIFY_EMAIL = os.getenv('ADMIN_NOTIFY_EMAIL', 'info@ramaniyangu.com')
+USER_APPROVAL_CHECK_INTERVAL = int(os.getenv('USER_APPROVAL_CHECK_INTERVAL', '300'))  # 5 min
+_approval_last_check = 0
+
+
+def _read_approval_config():
+    """Read user approval config from JSON file."""
+    try:
+        with open(USER_APPROVAL_CONFIG_PATH, 'r') as f:
+            data = json.load(f)
+            if 'approved' not in data:
+                data['approved'] = []
+            if 'notified' not in data:
+                data['notified'] = {}
+            if 'rejected' not in data:
+                data['rejected'] = []
+            return data
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {'approved': [], 'notified': {}, 'rejected': []}
+
+
+def _write_approval_config(config):
+    """Write user approval config to JSON file."""
+    os.makedirs(os.path.dirname(USER_APPROVAL_CONFIG_PATH), exist_ok=True)
+    with open(USER_APPROVAL_CONFIG_PATH, 'w') as f:
+        json.dump(config, f, indent=2)
+
+
+def _send_approval_notification_email(user_info):
+    """Send admin email about new user registration pending approval."""
+    if not SMTP_HOST or not EMAIL_FROM:
+        log.warning("SMTP not configured, skipping approval notification email")
+        return
+
+    from html import escape
+
+    username = user_info.get('username', 'unknown')
+    email = user_info.get('email', 'N/A')
+    full_name = user_info.get('extra_details', {}).get('name', '') or ''
+    organization = user_info.get('extra_details', {}).get('organization', '') or ''
+    date_joined = user_info.get('date_joined', 'N/A')
+
+    logo_url = f'{KOBO_URL}/custom-static/images/ra-logo.png'
+    admin_url = f'{KOBO_URL}/#/account-settings'
+
+    subject = f"{EMAIL_SUBJECT_PREFIX} New Registration Pending Approval: {username}"
+
+    html_body = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 0;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+
+<!-- Header -->
+<tr>
+<td style="background:linear-gradient(135deg,#1a2a3a 0%,#2c5f8a 50%,#54a8dc 100%);padding:24px 30px;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="vertical-align:middle;">
+        <h1 style="margin:0;color:#ffffff;font-size:18px;font-weight:600;">New Registration Pending Approval</h1>
+        <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">A new user has registered on the platform</p>
+      </td>
+      <td width="100" style="vertical-align:middle;text-align:right;">
+        <img src="{logo_url}" alt="Ramani Yangu" width="90" style="display:block;margin-left:auto;" />
+      </td>
+    </tr>
+  </table>
+</td>
+</tr>
+
+<!-- Accent bar -->
+<tr>
+<td style="height:4px;background:linear-gradient(90deg,#54a8dc 0%,#1a2a3a 100%);"></td>
+</tr>
+
+<!-- Alert banner -->
+<tr>
+<td style="padding:20px 30px 0;">
+  <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:12px 16px;display:flex;align-items:center;">
+    <span style="font-size:20px;margin-right:10px;">&#9888;</span>
+    <span style="color:#92400e;font-size:13px;font-weight:600;">Action Required: This account is currently deactivated and awaiting your approval.</span>
+  </div>
+</td>
+</tr>
+
+<!-- User details -->
+<tr>
+<td style="padding:20px 30px;">
+  <p style="margin:0 0 16px;color:#475569;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">User Details</p>
+  <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+    <tr style="background:#f8fafc;">
+      <td style="padding:10px 14px;border-bottom:1px solid #eef2f7;color:#64748b;font-weight:600;font-size:13px;width:35%;">Username</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #eef2f7;color:#334155;font-size:14px;font-weight:700;">{escape(username)}</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 14px;border-bottom:1px solid #eef2f7;color:#64748b;font-weight:600;font-size:13px;">Email</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #eef2f7;color:#334155;font-size:13px;">{escape(email)}</td>
+    </tr>
+    <tr style="background:#f8fafc;">
+      <td style="padding:10px 14px;border-bottom:1px solid #eef2f7;color:#64748b;font-weight:600;font-size:13px;">Full Name</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #eef2f7;color:#334155;font-size:13px;">{escape(full_name) if full_name else '<span style="color:#94a3b8;">Not provided</span>'}</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 14px;border-bottom:1px solid #eef2f7;color:#64748b;font-weight:600;font-size:13px;">Organization</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #eef2f7;color:#334155;font-size:13px;">{escape(organization) if organization else '<span style="color:#94a3b8;">Not provided</span>'}</td>
+    </tr>
+    <tr style="background:#f8fafc;">
+      <td style="padding:10px 14px;color:#64748b;font-weight:600;font-size:13px;">Registration Date</td>
+      <td style="padding:10px 14px;color:#334155;font-size:13px;">{escape(str(date_joined))}</td>
+    </tr>
+  </table>
+</td>
+</tr>
+
+<!-- Action buttons -->
+<tr>
+<td style="padding:0 30px 8px;" align="center">
+  <p style="margin:0 0 16px;color:#64748b;font-size:13px;">To approve or reject this user, use the User Management panel or the approval API:</p>
+  <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+    <tr>
+      <td style="padding-right:8px;">
+        <a href="{KOBO_URL}/webhook-api/user-approval/{escape(username)}/approve" style="display:inline-block;padding:12px 28px;background:#16a34a;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Approve User</a>
+      </td>
+      <td style="padding-right:8px;">
+        <a href="{KOBO_URL}/webhook-api/user-approval/{escape(username)}/reject" style="display:inline-block;padding:12px 28px;background:#dc2626;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Reject User</a>
+      </td>
+      <td>
+        <a href="{admin_url}" style="display:inline-block;padding:12px 28px;background:#1a2a3a;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">User Management</a>
+      </td>
+    </tr>
+  </table>
+</td>
+</tr>
+
+<!-- Info note -->
+<tr>
+<td style="padding:16px 30px 24px;">
+  <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:12px 16px;">
+    <span style="color:#0369a1;font-size:12px;line-height:1.5;">
+      <strong>Note:</strong> The user will not be able to log in until approved. If you approve via the links above,
+      the user's account will be activated automatically. You can also manage users from the Django admin panel.
+    </span>
+  </div>
+</td>
+</tr>
+
+<!-- Footer -->
+<tr>
+<td style="background:#1a2a3a;padding:24px 30px;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="vertical-align:middle;">
+        <img src="{logo_url}" alt="Ramani Yangu" width="70" style="display:block;opacity:0.9;" />
+      </td>
+      <td style="vertical-align:middle;text-align:right;">
+        <p style="margin:0;color:rgba(255,255,255,0.7);font-size:12px;line-height:1.6;">
+          Resilience Academy | Ramani Yangu<br>
+          Data Collection Platform
+        </p>
+        <p style="margin:6px 0 0;">
+          <a href="{KOBO_URL}" style="color:#54a8dc;text-decoration:none;font-size:12px;">{KOBO_URL}</a>
+        </p>
+      </td>
+    </tr>
+  </table>
+</td>
+</tr>
+
+<!-- Bottom accent -->
+<tr>
+<td style="height:4px;background:linear-gradient(90deg,#54a8dc 0%,#1a2a3a 100%);"></td>
+</tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>"""
+
+    plain_body = (
+        f"New Registration Pending Approval\n"
+        f"==================================\n\n"
+        f"Username: {username}\n"
+        f"Email: {email}\n"
+        f"Full Name: {full_name or 'Not provided'}\n"
+        f"Organization: {organization or 'Not provided'}\n"
+        f"Registration Date: {date_joined}\n\n"
+        f"This account is currently deactivated.\n\n"
+        f"Approve: {KOBO_URL}/webhook-api/user-approval/{username}/approve\n"
+        f"Reject: {KOBO_URL}/webhook-api/user-approval/{username}/reject\n"
+        f"User Management: {admin_url}\n"
+    )
+
+    recipients = [r.strip() for r in ADMIN_NOTIFY_EMAIL.split(',') if r.strip()]
+    for recipient in recipients:
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = EMAIL_FROM
+            msg['To'] = recipient
+            msg.attach(MIMEText(plain_body, 'plain'))
+            msg.attach(MIMEText(html_body, 'html'))
+
+            if SMTP_USE_TLS:
+                server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+                server.starttls()
+            else:
+                if SMTP_PORT == 465:
+                    server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT)
+                else:
+                    server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+
+            if SMTP_USER and SMTP_PASSWORD:
+                server.login(SMTP_USER, SMTP_PASSWORD)
+
+            server.sendmail(EMAIL_FROM, recipient, msg.as_string())
+            server.quit()
+            log.info(f"Approval notification email sent to {recipient} for user {username}")
+        except Exception as e:
+            log.error(f"Approval notification email to {recipient} failed: {e}")
+
+
+def _check_new_users_and_deactivate():
+    """
+    Background task: fetch all users from KPI API, deactivate new non-staff
+    users that are not in the approved list, and send admin notifications.
+    """
+    token = get_service_token()
+    if not token:
+        log.debug("No service token available, skipping user approval check")
+        return
+
+    approval = _read_approval_config()
+    approved_set = set(approval.get('approved', []))
+    rejected_set = set(approval.get('rejected', []))
+    notified = approval.get('notified', {})
+    changed = False
+
+    try:
+        # Fetch all users from KPI API
+        resp = http_requests.get(
+            f'{KPI_INTERNAL_URL}/api/v2/users/',
+            params={'limit': '500', 'format': 'json'},
+            headers={
+                'Authorization': f'Token {token}',
+                'Accept': 'application/json',
+                'Host': KPI_INTERNAL_HOST,
+                'X-Forwarded-Proto': 'https',
+            },
+            timeout=15,
+            allow_redirects=False,
+        )
+
+        if not resp.ok:
+            log.warning(f"Failed to fetch users from KPI: HTTP {resp.status_code}")
+            return
+
+        data = resp.json()
+        users = data.get('results', [])
+
+        for user in users:
+            username = user.get('username', '')
+            is_superuser = user.get('is_superuser', False)
+            is_staff = user.get('is_staff', False)
+            is_active = user.get('is_active', True)
+            extra = user.get('extra_details', {}) or {}
+
+            # Skip superusers and staff — always allow
+            if is_superuser or is_staff:
+                continue
+
+            # Skip already-approved users
+            if username in approved_set:
+                continue
+
+            # Skip rejected users (already handled)
+            if username in rejected_set:
+                continue
+
+            # Deactivation handled by host cron job (check-new-users.sh)
+            # Here we only send admin notification
+
+            # Send admin notification if not already notified
+            if username not in notified:
+                log.info(f"Sending approval notification for new user: {username}")
+                _send_approval_notification_email(user)
+                notified[username] = datetime.now(timezone.utc).isoformat()
+                changed = True
+
+        if changed:
+            approval['notified'] = notified
+            _write_approval_config(approval)
+
+    except Exception as e:
+        log.error(f"User approval check error: {e}")
+
+
+def _activate_user(username):
+    """Activate a user via KPI API."""
+    token = get_service_token()
+    if not token:
+        return False, "Service token not configured"
+
+    try:
+        resp = http_requests.patch(
+            f'{KPI_INTERNAL_URL}/api/v2/users/{username}/',
+            json={'is_active': True},
+            headers={
+                'Authorization': f'Token {token}',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Host': KPI_INTERNAL_HOST,
+                'X-Forwarded-Proto': 'https',
+            },
+            timeout=10,
+            allow_redirects=False,
+        )
+        if resp.ok:
+            return True, "User activated"
+        else:
+            return False, f"KPI returned HTTP {resp.status_code}"
+    except Exception as e:
+        return False, str(e)
+
+
+def _deactivate_user(username):
+    """Deactivate a user via KPI API."""
+    token = get_service_token()
+    if not token:
+        return False, "Service token not configured"
+
+    try:
+        resp = http_requests.patch(
+            f'{KPI_INTERNAL_URL}/api/v2/users/{username}/',
+            json={'is_active': False},
+            headers={
+                'Authorization': f'Token {token}',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Host': KPI_INTERNAL_HOST,
+                'X-Forwarded-Proto': 'https',
+            },
+            timeout=10,
+            allow_redirects=False,
+        )
+        if resp.ok:
+            return True, "User deactivated"
+        else:
+            return False, f"KPI returned HTTP {resp.status_code}"
+    except Exception as e:
+        return False, str(e)
+
+
+@app.route('/api/user-approval', methods=['GET'])
+def get_pending_users():
+    """Get list of pending (unapproved, non-staff) users."""
+    token = get_service_token()
+    if not token:
+        return jsonify({'error': 'Service token not configured', 'pending': []}), 200
+
+    approval = _read_approval_config()
+    approved_set = set(approval.get('approved', []))
+    rejected_set = set(approval.get('rejected', []))
+
+    pending = []
+    try:
+        resp = http_requests.get(
+            f'{KPI_INTERNAL_URL}/api/v2/users/',
+            params={'limit': '500', 'format': 'json'},
+            headers={
+                'Authorization': f'Token {token}',
+                'Accept': 'application/json',
+                'Host': KPI_INTERNAL_HOST,
+                'X-Forwarded-Proto': 'https',
+            },
+            timeout=15,
+            allow_redirects=False,
+        )
+
+        if resp.ok:
+            data = resp.json()
+            for user in data.get('results', []):
+                username = user.get('username', '')
+                is_superuser = user.get('is_superuser', False)
+                is_staff = user.get('is_staff', False)
+
+                if is_superuser or is_staff:
+                    continue
+                if username in approved_set or username in rejected_set:
+                    continue
+
+                extra = user.get('extra_details', {}) or {}
+                pending.append({
+                    'username': username,
+                    'email': user.get('email', ''),
+                    'name': extra.get('name', ''),
+                    'organization': extra.get('organization', ''),
+                    'date_joined': user.get('date_joined', ''),
+                    'is_active': user.get('is_active', False),
+                    'notified_at': approval.get('notified', {}).get(username),
+                })
+    except Exception as e:
+        log.error(f"Error fetching pending users: {e}")
+
+    return jsonify({
+        'pending': pending,
+        'approved': approval.get('approved', []),
+        'rejected': approval.get('rejected', []),
+    })
+
+
+@app.route('/api/user-approval/<username>/approve', methods=['GET', 'POST'])
+def approve_user(username):
+    """Approve a pending user — activates their account."""
+    if not re.match(r'^[\w.\-]+$', username):
+        return jsonify({'error': 'Invalid username'}), 400
+
+    approval = _read_approval_config()
+    approved = approval.get('approved', [])
+    rejected = approval.get('rejected', [])
+
+    # Activate the user via KPI API
+    success, message = _activate_user(username)
+
+    # Add to approved list
+    if username not in approved:
+        approved.append(username)
+    # Remove from rejected if previously rejected
+    if username in rejected:
+        rejected.remove(username)
+
+    approval['approved'] = approved
+    approval['rejected'] = rejected
+    _write_approval_config(approval)
+
+    log.info(f"User {username} approved (API activate: {success} - {message})")
+
+    # If GET request (from email link), show a simple HTML confirmation
+    if request.method == 'GET':
+        return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>User Approved | Ramani Yangu</title>
+<style>body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}}
+.card{{background:#fff;border-radius:8px;padding:40px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1);max-width:440px;}}
+.icon{{width:64px;height:64px;background:#16a34a;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;}}
+.icon svg{{fill:#fff;width:32px;height:32px;}}
+h1{{font-size:20px;color:#1e293b;margin:0 0 8px;}}
+p{{font-size:14px;color:#64748b;margin:0 0 20px;line-height:1.6;}}
+a{{display:inline-block;padding:10px 24px;background:#54a8dc;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;}}
+a:hover{{background:#3d8abf;}}
+</style></head><body>
+<div class="card">
+<div class="icon"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg></div>
+<h1>User Approved</h1>
+<p><strong>{username}</strong> has been approved and can now log in to the platform.</p>
+<a href="{KOBO_URL}">Go to Platform</a>
+</div></body></html>""", 200, {'Content-Type': 'text/html'}
+
+    return jsonify({'status': 'approved', 'username': username, 'activated': success, 'message': message})
+
+
+@app.route('/api/user-approval/<username>/reject', methods=['GET', 'POST'])
+def reject_user(username):
+    """Reject a pending user — keeps their account deactivated."""
+    if not re.match(r'^[\w.\-]+$', username):
+        return jsonify({'error': 'Invalid username'}), 400
+
+    approval = _read_approval_config()
+    approved = approval.get('approved', [])
+    rejected = approval.get('rejected', [])
+
+    # Ensure the user stays deactivated
+    _deactivate_user(username)
+
+    # Add to rejected list
+    if username not in rejected:
+        rejected.append(username)
+    # Remove from approved if previously approved
+    if username in approved:
+        approved.remove(username)
+
+    approval['approved'] = approved
+    approval['rejected'] = rejected
+    _write_approval_config(approval)
+
+    log.info(f"User {username} rejected")
+
+    # If GET request (from email link), show a simple HTML confirmation
+    if request.method == 'GET':
+        return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>User Rejected | Ramani Yangu</title>
+<style>body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}}
+.card{{background:#fff;border-radius:8px;padding:40px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1);max-width:440px;}}
+.icon{{width:64px;height:64px;background:#dc2626;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;}}
+.icon svg{{fill:#fff;width:32px;height:32px;}}
+h1{{font-size:20px;color:#1e293b;margin:0 0 8px;}}
+p{{font-size:14px;color:#64748b;margin:0 0 20px;line-height:1.6;}}
+a{{display:inline-block;padding:10px 24px;background:#54a8dc;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;}}
+a:hover{{background:#3d8abf;}}
+</style></head><body>
+<div class="card">
+<div class="icon"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg></div>
+<h1>User Rejected</h1>
+<p><strong>{username}</strong> has been rejected. Their account will remain deactivated.</p>
+<a href="{KOBO_URL}">Go to Platform</a>
+</div></body></html>""", 200, {'Content-Type': 'text/html'}
+
+    return jsonify({'status': 'rejected', 'username': username})
+
+
+@app.route('/api/user-approval/config', methods=['GET'])
+def get_approval_config():
+    """Get the full user approval config."""
+    return jsonify(_read_approval_config())
+
+
+@app.route('/api/user-approval/config', methods=['POST'])
+def update_approval_config():
+    """Update user approval config (add/remove from approved/rejected lists)."""
+    try:
+        data = request.get_json(force=True)
+        approval = _read_approval_config()
+
+        if 'approved' in data and isinstance(data['approved'], list):
+            approval['approved'] = data['approved']
+        if 'rejected' in data and isinstance(data['rejected'], list):
+            approval['rejected'] = data['rejected']
+
+        _write_approval_config(approval)
+        return jsonify({'status': 'ok'})
+    except Exception as e:
+        log.error(f"Error updating approval config: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/user-registered', methods=['POST'])
+def user_registered_notification():
+    """
+    Called from frontend after successful signup to immediately notify admin.
+    Body: {"username": "...", "email": "..."}
+    This is a supplementary notification — the background scheduler also catches new users.
+    """
+    try:
+        data = request.get_json(force=True)
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+
+        if not username:
+            return jsonify({'error': 'username required'}), 400
+
+        approval = _read_approval_config()
+        notified = approval.get('notified', {})
+
+        if username not in notified:
+            user_info = {
+                'username': username,
+                'email': email,
+                'date_joined': datetime.now(timezone.utc).isoformat(),
+                'extra_details': data.get('extra_details', {}),
+            }
+            _send_approval_notification_email(user_info)
+            notified[username] = datetime.now(timezone.utc).isoformat()
+            approval['notified'] = notified
+            _write_approval_config(approval)
+            log.info(f"Immediate registration notification sent for: {username}")
+
+        return jsonify({'status': 'ok', 'message': 'Admin notified'})
+    except Exception as e:
+        log.error(f"User registration notification error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 # ── Form Scheduler ──
@@ -1462,8 +2113,19 @@ def _check_reminder_due(schedule):
 
 def _scheduler_loop():
     """Background thread: checks every 60s for due schedules."""
+    global _approval_last_check
     log.info("Form scheduler background thread started")
     while True:
+        # ── User Approval Check (every USER_APPROVAL_CHECK_INTERVAL seconds) ──
+        try:
+            now_ts = _time.time()
+            if now_ts - _approval_last_check >= USER_APPROVAL_CHECK_INTERVAL:
+                _approval_last_check = now_ts
+                log.debug("Running user approval check...")
+                _check_new_users_and_deactivate()
+        except Exception as e:
+            log.error(f"User approval scheduler error: {e}")
+
         try:
             schedules = _read_form_schedules()
             changed = False
